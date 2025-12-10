@@ -526,7 +526,7 @@ def check_for_updates(app_version, user, repo, parent=None):
     if latest_version and version.parse(latest_version) > version.parse(app_version):
         wdisplay_message(parent, f"New version available: {latest_version}", "Update msg", default=False)
     else:
-        wdisplay_message(parent, "You are running the latest version.", "Update msg", default=False)
+        wdisplay_message(parent, f"You are running the latest version. {app_version}", "Update msg", default=False)
 
 
 def show_licensing(lclhome, hudt):
