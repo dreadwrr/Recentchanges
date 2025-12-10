@@ -1,0 +1,241 @@
+[backend]
+# database   binary database faster queries 1 gpg and python (easier ha)
+											# leave set
+backend = "database"
+
+# default for asymmetrical gpg auth for STATPST
+                                                        # asks for paraphrase and caches for 15 minutes
+                                                        # leave default
+email = "john.doe@email.com"
+name = "John e"
+
+[logs]
+# size to disable compression on pydbpst size
+				# default 200
+compLVL = 200								
+
+
+[search]
+
+# Focus drive for the app search and or sys profile 
+drive = "C:\\"
+
+# used for determining areas of multicore. SSD is multicore and HDD is serial
+					# ""  default
+					# ssd
+					# hdd
+modelTYPE="SSD"
+
+# Windows subsystem of linux - If true it will set default distro to WSL 1 for fast access. if it is unable to set it fall back to powershell.
+				# default false 
+wsl = false	
+
+
+						# How many old searches to save. These can be grabbed by `recentchanges search` and `recentchanges`
+						# for comparisons in diff file
+archivesrh = 5
+
+
+
+# find file default extensions. added here as well as in qt which are stored in database 
+extension = [
+".txt", ".md", ".rtf", ".log", ".csv", ".tsv", ".json", ".xml", ".yaml", ".yml", ".ini",
+".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".webp", ".svg", ".heif", ".ico", ".raw",
+".mp3", ".wav", ".aac", ".flac", ".ogg", ".m4a", ".wma", ".alac", ".opus",
+".mp4", ".avi", ".mov", ".mkv", ".flv", ".webm", ".wmv", ".mpg", ".mpeg", ".3gp",
+".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp", ".epub", ".mobi",
+".zip", ".rar", ".7z", ".tar", ".gz", ".tar.gz", ".tgz", ".xz", ".bz2", ".iso",
+".exe", ".bat", ".sh", ".app", ".jar", ".msi", ".apk", ".bin", ".run", ".vbs", ".wsf",
+".html", ".htm", ".css", ".js", ".json", ".php", ".asp", ".jsp", ".xml", ".xhtml",
+".sql", ".db", ".sqlite", ".db3", ".mdb", ".accdb", ".bak", ".frm", ".dbf",
+".py", ".js", ".html", ".css", ".cpp", ".h", ".java", ".rb", ".go", ".rs", ".swift", ".php", ".pl",
+".ttf", ".otf", ".woff", ".woff2", ".eot",
+".vmdk", ".vdi", ".vhd", ".ova",
+".dll", ".sys", ".drv", ".ini", ".cfg", ".bak",
+".bak", ".backup", ".swp", ".tmp", ".~",
+ ".iso", ".md5", ".sha1", ".torrent", ".dat"
+]
+
+
+# Directories to exclude from the searches      Default Windows
+# Applies to both pwrshell and wsl find
+# prevent windows permission error. this applies to both powershell and wsl find command
+							# eg ["Windows", "Users\\{{user}}\\AppData\\Local\\Opera Software\\"]
+EXCLDIRS = ["Windows", "$Recycle.bin"]				
+
+
+# Find file feature compress. what program to use when making archive. 
+						# winrar																	
+						# 7zip
+zipPROGRAM = "7zip"													
+#zipPROGRAM = "winrar"
+
+
+# fallback incase cant find it in Path
+# if the value "" is used the app will look in the registry for zipPROGRAM 7zip or winrar
+# 7z will be used in app install if zipPROGRAM is not found
+																#"" default		
+zipPATH = ""																
+#zipPATH = "C:\\Program Files\\7-Zip\\7z.exe"					
+#zipPATH = "C:\\Program Files\\WinRAR\\WinRAR.exe"
+
+
+
+# path for archives from compress button search. Combobox output can be used to direct to AppData or Desktop.
+# downloads is used if specified
+# {{user}} subsituted internally				# "" default
+												# ie "D:\\mydownloads\\"  , "C:\\users\\{{user}}\\Downloads"
+downloads = ""									
+
+
+
+					# default ERROR show only critical errors
+					# debug show all for diagnostics
+					# off only display errors on terminal/hudt
+logLEVEL = "ERROR"
+
+
+
+[analytics]
+
+# provides more feedback
+							# total search time ect
+							# we dont want too much output on the terminal just a slight bit more
+							# others stats
+ANALYTICSECT = true
+
+
+# include search output in terminal as well ie scrolling terminal look
+FEEDBACK = true
+
+
+[display]
+
+# location to open explorer, cmd prompt or powershell from settings button
+				# default ""
+popPATH = ""														
+
+#launch text editor?
+# if using somethingelse specifying dspPATH is required
+								# notepad  default 
+									# "" "false" or false
+									# notepad++
+									# somethingelse
+dspEDITOR = "notepad"
+
+
+# specify absolute directory as a fallback incase cant find it in Path. Notepad is fine but needed for other editors. recommended
+# if the value "" is used the app will check registry for dspEDITOR to see if its installed. notepad and notepad++ are checked anything
+# else needs dspPATH specifcally
+															# ""
+															# "C:\Program Files (x86)\myeditor\someexe.exe"
+dspPATH = ""															
+#dspPATH = "C:\\Program Files\\Notepad++\\notepad++.exe" 		
+
+
+# color for main term display 
+									# unix   default
+										# wb  white on black
+										# solar   solarize cyan
+										# monochrome   for grey
+										# modern
+hudCOLOR = "unix"
+
+								# default 12
+hudSZE = 12
+
+# see help - resources for more fonts
+						# default Consolas									
+						# Lucida	
+						# Lucida Console
+						# Courier New
+						# Microsoft Sans Serif
+						# serif
+						# Monaco
+						# Verdana
+						# Times New Roman
+						# Georgia
+						# Tahoma
+hudFNT = "Monaco"              	            
+
+
+
+[diagnostics]
+
+# compare file checksums for slight changes
+						# slower useful if you want to check deeper level of stats
+checkSUM = true
+
+
+ # Include more info a file was changed but has the same checksum and filesize subtle edit  ie cache items or string was changed
+						# also check for hash collisions
+cdiag = true
+
+
+
+# supress cache warnings on terminal from known browsers? Mozilla... ect list top of pyfunctions.py
+supbrw = true
+
+
+# mozilla unconfirmed
+# .mozilla unconfirmed
+# chromium-ungoodled unconfirmed
+# internally supresses  MODULENAME (default rntfiles)		# note for user use {{user}}  ie  'Users\\{{user}}\\somedir'
+# regex
+supbrwLIST = [
+	"mozilla", 
+	"\\.mozilla", 
+	"chromium-ungoogled", 
+	"Microsoft\\Edge",
+	"Opera Software",
+	# spotify
+	"Default\\Cache", 
+	"Chrome\\User Data\\Default"
+]
+
+
+
+# ..      all cdiag output to terminal except critical events
+supress = false
+
+
+# scan for accurate hardlinks in db. alternatively use Set hardlinks button
+updatehlinks = true
+
+
+# Create file doctrine. Runs post search operation that can only be done at this time as search is relevant
+						# more overhead so recommend off unless one off. output /Downloads
+						#
+						# if it is run again and a file doctrine is still there it will not run the POSTOP and the script will set POSTOP to false to itself
+POSTOP = false
+
+
+# Scan  the sys profile. This is for commandline use. The profile is created automatically if proteusSHIELD is enabled. 
+									# Once run once the script will set scanIDX to false.
+scanIDX = false
+
+# Show symmetric differences in diff file for sys profile scan. For commandline use
+showDIFF = false
+
+# take initial hash of key system files to put in database for system protection
+									# builds a sys table in database of system files and is compared in hybrid analysis in addition to the logs table.
+									# commandline use
+proteusSHIELD = false				
+
+
+# files to include in index for shield
+proteus_EXTN = [
+".exe", ".msi", ".bat", ".dll", ".vbs", ".js", ".jse", ".ps1", ".reg", ".lnk",
+".vhd", ".vmdk",
+".ini", ".conf", ".cfg", ".sqlite", ".db"
+]
+
+# Index all directories mtime to use the download button to find created or downloaded files since last index.
+# saves directory modified time, total file count, index file count and directory depth. Adds 20 seconds to system Index
+# but can find new files faster. Also a table cache_s is made in db which shows all directories on the system sorted by most recent by activity.
+proteus_CACHE = true 		# default true
+
+
+[paths]
+# file label prefix for searches output txt file			# default rntfiles
+MODULENAME="rntfiles" 
