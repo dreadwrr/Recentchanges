@@ -54,6 +54,7 @@ from src.qtfunctions import wdisplay_message
 from src.qtfunctions import wdisplay_get_input
 from src.query import clear_extn_tbl
 from src.query import dbtable_has_data
+from src.rntchangesfunctions import check_for_gpg
 from src.rntchangesfunctions import check_utility
 from src.rntchangesfunctions import convertn
 from src.rntchangesfunctions import decr
@@ -1061,7 +1062,7 @@ class MainWindow(QMainWindow):
                 self.ui.hudt.appendPlainText("A file doctrine already exists skipping")
 
         self.proc = ProcessHandler()
-        self.openp(120000)
+        self.openp(180000)
         ismcore = True
         self.proc.set_mcore(ismcore)  # uses multicore dont cancel while those processes are running   between 21 - 59 % and 66 and 89%
         if postop or scanidx:
@@ -1163,7 +1164,7 @@ class MainWindow(QMainWindow):
             return
 
         self.proc = ProcessHandler()
-        self.openp(80000)
+        self.openp(120000)
 
         if compress:
             downloads = self.ui.combffileout.currentText()
@@ -1430,7 +1431,7 @@ class MainWindow(QMainWindow):
             self.worker.set_task(self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
 
             self.worker_thread.started.connect(self.worker.run)
-            self.open_trd(120000)
+            self.open_trd(150000)
 
         else:  # From imported Mft to csv
 
@@ -2218,7 +2219,7 @@ def start_main_window():
     driveTYPE = setup_drive_settings(basedir, driveTYPE, json_file, toml_file, False, appdata_local)
     if driveTYPE is None:
         sys.exit(1)
-    elif driveTYPE not in ('HDD', 'SSD'):
+    elif driveTYPE.lower() not in ('hdd', 'ssd'):
         print(f"Incorrect setting modelTYPE: {driveTYPE}, must be in HDD or SSD in config: {toml_file}")
         sys.exit(1)
     zipPATH = config['search']['zipPATH']
@@ -2232,6 +2233,10 @@ def start_main_window():
         gnupg_home = set_gpg(appdata_local, "gpg")
     else:
         gpg_path = Path(gpg_path).resolve()
+
+    if not check_for_gpg:
+        print("Unable to verify gpg in path. Likely path was partially initialized. quitting")
+        return 1
 
     check_utility(zipPATH, downloads, popPATH)
 

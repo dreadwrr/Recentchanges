@@ -26,6 +26,7 @@ from src.pyfunctions import load_config
 from src.recentchangessearch import main as recentchanges_main
 from src.rntchangesfunctions import get_usr
 from src.pyfunctions import get_wdir
+from src.rntchangesfunctions import check_for_gpg
 from src.rntchangesfunctions import is_admin
 from src.rntchangesfunctions import multi_value
 from src.rntchangesfunctions import resolve_editor
@@ -81,6 +82,9 @@ def main(argv):
 
     if shutil.which("gpg") is None:
         set_gpg(appdata_local, "gpg")
+    if not check_for_gpg:
+        print("Unable to verify gpg in path. Likely path was partially initialized. quitting")
+        return 1
 
     dspPATH = ""
     if dspEDITOR:  # user wants results output in text editor
