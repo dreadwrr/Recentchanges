@@ -170,6 +170,7 @@ class MainWindow(QMainWindow):
         self.lclhome = appdata_local
         self.lclscripts = appdata_local / "scripts"
         self.myapp = appdata_local / "src" / "recentchangessearch.py"  # /usr/local/save-changesnew/ linux
+        self.filter_file = appdata_local / "filter.py"
         self.default_gpg = appdata_local / "gpg" / "gpg.exe"
 
         self.gpg_path = self.default_gpg
@@ -329,6 +330,7 @@ class MainWindow(QMainWindow):
         menu.addAction("Launch Cmd Prompt", lambda: load_cmdpmpt(self.lclhome, popPATH=self.popPATH))
         menu.addAction("Launch Powershell", lambda: load_pshell(self.lclhome, popPATH=self.popPATH))
         menu.addSeparator()
+        menu.addAction("Filter", lambda: display(self.dspEDITOR, self.filter_file, True, self.dspPATH))
         menu.addAction("Clear Hudt", lambda: self.ui.hudt.clear())
         self.ui.tomlb.setMenu(menu)
         self.ui.tomlb.setPopupMode(self.ui.tomlb.ToolButtonPopupMode.InstantPopup)
