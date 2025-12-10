@@ -1,4 +1,6 @@
 # Recentchanges
+To see ansi colors in powershell run this command <br>
+$Host.UI.SupportsVirtualTerminal
 Windows 10 windows 11 file search application . search with Powershell or windows subsystem of linux. With hybrid analysis and MFT search
 
 mft sources <br>
