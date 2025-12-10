@@ -176,7 +176,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, dbtarget, ll_level, sys
                                     else:
                                         md5 = record[5]  # file wasnt cached and was calculated in fsearch earlier
                                 if md5 is None:
-                                    logging.debug(f"Unable to get hash {file_path} size from stat: {a_size} was {current_size} and previous size {original_size}")
+                                    logging.debug("Unable to get hash {file_path} size from stat: %s was %s and previous size %s", file_path, a_size, current_size, original_size)
 
                                 if afrm_dt == previous_timestamp:  # mtime is still the same
 
@@ -204,7 +204,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, dbtarget, ll_level, sys
                                         else:
                                             entry["scr"].append(f'File changed during search. {label} File likely changed. system cache item.')
                         else:
-                            logging.debug(f"Skipping {file_path} couldnt stat in ha current record {record} \n previous record {previous}")
+                            logging.debug("Skipping %s couldnt stat in ha current record %s \n previous record %s", file_path, record, previous)
 
                 else:
 

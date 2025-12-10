@@ -1298,6 +1298,19 @@ def build_tsv(RECENT, rout, outpath):
     return True
 
 
+def check_for_gpg():
+    try:
+        result = subprocess.run(
+            ["gpg", "--list-keys"],
+            capture_output=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
+        
+        
 def iskey(email):
     try:
         result = subprocess.run(
@@ -1606,9 +1619,8 @@ def decr(src, opt):
 def set_gpg(lclapp_data, sub_dir='gpg'):
     # script_dir = Path(__file__).resolve().parent   the location of this script rntchangesfunctions.py
     # Path(sys.argv[0]).resolve().parent # caller path
-    script_dir = lclapp_data
 
-    gpg_p = script_dir / sub_dir
+    gpg_p = lclapp_data / sub_dir
     gnupg_home = gpg_p / "gnupghome"
     os.environ["PATH"] = str(gpg_p) + ";" + os.environ["PATH"]
     os.environ["GNUPGHOME"] = str(gnupg_home)

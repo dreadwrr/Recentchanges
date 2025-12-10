@@ -872,8 +872,8 @@ class MftWorker(Worker):
             else:
                 if std_err:
                     self.log.emit(f'Failed. Unable to output csv with mftecmd.exe: {std_err}')
-        except (FileNotFoundError, PermissionError):
-            self.log.emit(f'Unable to find MFTECmd.exe {self.mftec_command} or permission error \\bin')
+        except (FileNotFoundError, PermissionError) as e:
+            self.log.emit(f'Unable to find MFTECmd.exe {self.mftec_command} or permission error in \\bin. err: {type(e).__name__}')
         except Exception as e:
             emesg = f'error running cmd {cmd} {type(e).__name__} {e}'
             self.log.emit(f"{emesg} \n {traceback.format_exc()}")

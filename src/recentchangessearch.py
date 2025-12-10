@@ -334,7 +334,7 @@ def main(argone, argtwo, USR, PWD, argf="bnk", method="", iqt=False, db_output=N
             tmn = search_time = argone = 5
             cprint.cyan('Searching for files 5 minutes old or newer\n')
 
-        if iswsl:
+        if iswsl and tout:
             mmin = ["-mmin", f"-{search_time}"]
             cmin = ["-amin", f"-{search_time}"]
 
@@ -387,7 +387,9 @@ def main(argone, argtwo, USR, PWD, argf="bnk", method="", iqt=False, db_output=N
         # WSL find command
         else:
 
-            search_start_dt = (datetime.now() - timedelta(minutes=search_time))
+            cmin = ["-amin", f"-{search_time}"]
+            current_time = datetime.now()
+            search_start_dt = (current_time - timedelta(minutes=search_time))
 
             # minor areas find cant reach with powershell first
             mmin_files = []
@@ -398,17 +400,22 @@ def main(argone, argtwo, USR, PWD, argf="bnk", method="", iqt=False, db_output=N
 
                 mmin_files, cmin_files = find_cmdhelp(s_path, search_time, USR)
 
-            find_command_cmin = F + PRUNE + cmin + TAIL
-            find_command_mmin = F + PRUNE + mmin + TAIL
-
             if not tout:
+                find_command_cmin = F + PRUNE + cmin + TAIL
                 init = True
                 tout, COMPLETE_2, end, cstart = find_files(find_command_cmin, DRIVETYPE, cmin_files, "ctime", tout, COMPLETE_2, init, checksum, updatehlinks, cfr, FEEDBACK, logging_values, end, cstart, search_start_dt, iqt=iqt, strt=proval, endp=endval)  # mmin USR used for files find cant reach via powershell
+                cmin_end = time.time()
+                cmin_start = current_time.timestamp()
+                cmin_offset = convertn(cmin_end - cmin_start, 60, 2)
+
+                mmin = ["-mmin", f"-{search_time + cmin_offset}"]
+                find_command_mmin = F + PRUNE + mmin + TAIL
                 proval += 10
                 endval += 30
                 init = False
                 RECENT, COMPLETE_1, end, cstart = find_files(find_command_mmin, DRIVETYPE, mmin_files, "main", RECENT, COMPLETE_1, init, checksum, updatehlinks, cfr, FEEDBACK, logging_values, end, cstart, search_start_dt, iqt=iqt, strt=proval, endp=endval)  # bypass ctime loop if xRC
             else:
+                find_command_mmin = F + PRUNE + mmin + TAIL
                 init = True
                 endval += 30
                 RECENT, COMPLETE_1, end, cstart = find_files(find_command_mmin, DRIVETYPE, mmin_files, "main", RECENT, COMPLETE_1, init, checksum, updatehlinks, cfr, FEEDBACK, logging_values, end, cstart, search_start_dt, iqt=iqt, strt=proval, endp=endval)  # bypass ctime loop if xRC

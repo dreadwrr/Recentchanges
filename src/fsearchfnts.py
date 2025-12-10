@@ -160,20 +160,20 @@ def get_onr(fpath):
 def get_mode(fp, st, sym):
     mode = ['-'] * 6  # PowerShell
     if sym == 'y':
-        mode[0] = 'l'
+        mode[5] = 'l'
     if (hasattr(st, 'st_file_attributes') and (st.st_file_attributes & 0x1)) or not os.access(fp, os.W_OK):
-        mode[1] = 'r'
+        mode[2] = 'r'
     if hasattr(st, 'st_file_attributes'):
         attr = st.st_file_attributes
         # FILE_ATTRIBUTE_HIDDEN = 0x2
         # FILE_ATTRIBUTE_SYSTEM = 0x4
         # FILE_ATTRIBUTE_ARCHIVE = 0x20
         if attr & win32con.FILE_ATTRIBUTE_HIDDEN:
-            mode[2] = 'h'
+            mode[3] = 'h'
         if attr & win32con.FILE_ATTRIBUTE_SYSTEM:
-            mode[3] = 's'
+            mode[4] = 's'
         if attr & win32con.FILE_ATTRIBUTE_ARCHIVE:
-            mode[4] = 'a'
+            mode[1] = 'a'
     return ''.join(mode)
 
 # try:
@@ -185,24 +185,23 @@ def get_mode(fp, st, sym):
 
 def get_mfmode(attribs, sym):
     mode = ["-"] * 6
-    if sym:
-        mode[0] = "l"
-    if "ReadOnly" in attribs:
-        mode[1] = "r"
-    if "Hidden" in attribs:
-        mode[2] = "h"
-    if "System" in attribs:
-        mode[3] = "s"
     if "Archive" in attribs:
-        mode[4] = "a"
+        mode[1] = "a"
+    if "ReadOnly" in attribs:
+        mode[2] = "r"
+    if "Hidden" in attribs:
+        mode[3] = "h"
+    if "System" in attribs:
+        mode[4] = "s"
+    if sym or "ReparsePoint" in attribs:
+        mode[5] = "l"
     # if "Compressed" in attribs:
     #     mode[5] = "c"
     # if "Temporary" in attribs:
     #     mode[6] = "t"
     # if "SparseFile" in attribs:
     #     mode[7] = "x"
-    # if "ReparsePoint" in attribs:
-    #     mode[8] = "r"
+
     return "".join(mode)
 
 
@@ -210,7 +209,7 @@ def get_mfmode(attribs, sym):
 def defaultm(sym):
     mode = ['-'] * 6
     if sym:
-        mode[0] = "l"
+        mode[5] = "l"
     return ''.join(mode)
 
 
