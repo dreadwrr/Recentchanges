@@ -299,7 +299,7 @@ class MainWindow(QMainWindow):
 
         self.ui.actionExit.triggered.connect(QApplication.quit)
         self.ui.actionClear_expensions.triggered.connect(self.clear_extensions)
-        self.ui.actionUpdates.triggered.connect(lambda: check_for_updates(self.app_version, "dreadwrr", "Developer-buddy", self))
+        self.ui.actionUpdates.triggered.connect(lambda: check_for_updates(self.app_version, "dreadwrr", "Recentchanges", self))
 
         self.ui.actionCommands_2.triggered.connect(lambda: show_cmddoc(self.cmddoc, self.lclhome, self.default_gpg, self.gpg_path, self.gnupg_home, self.email, self.systimeche, self.ui.hudt))
         self.ui.actionQuick1.triggered.connect(lambda: display(self.dspEDITOR, self.cmddoc, True, self.dspPATH))
