@@ -1,6 +1,6 @@
 # Recentchanges
 Windows 10 windows 11 file search application . search with Powershell or windows subsystem of linux. With hybrid analysis and MFT search
-
+GPG, Ntfstools, 7-zip included <br><br>
 <p>
 Save encrypted notes <br>
 Quick commands displays saved commands for easy reference <br>
