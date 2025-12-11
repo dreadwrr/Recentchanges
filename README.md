@@ -4,8 +4,8 @@ $Host.UI.SupportsVirtualTerminal <br><br>
 Windows 10 windows 11 file search application . search with Powershell or windows subsystem of linux. With hybrid analysis and MFT search
 
 <p>
-Save encrypted notes
-Create a custom crest with a .png image file max size 250 x 311
+Save encrypted notes <br>
+Create a custom crest with a .png image file max size 255 x 333 <br>
 
   
 </p>
