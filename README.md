@@ -1,4 +1,6 @@
 # Recentchanges
+To enable ansi text in powershell run the following command <br>
+Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
 Windows 10 windows 11 file search application . search with Powershell or windows subsystem of linux. With hybrid analysis and MFT search
 GPG, Ntfstools, 7-zip included <br>
 <p>
