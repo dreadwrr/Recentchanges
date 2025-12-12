@@ -15,8 +15,8 @@ WindowSetup (pyinstaller) source code in manual<br>
 Links for MFTCmd with cutoff allowing to read the Mft into memory while doing an Mft search. <br>
 https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0#bookmark=id.ct8qv65gr0wc <br><br>
 
-The application works with MFTCmd official\standard or the MFTECmd cutoff version if placed in \bin <br><br>
-
+The application works with MFTCmd official\standard or the MFTECmd cutoff version if placed in \bin <br>
+icat and fsstat can be used alternatively to ntfstools see tskrequiredfiles.txt and placed in \bin <br><br>
 mft sources <br>
 omerbenamram mft dump and python hooks <br>
 Eric Zimmerman MFTECmd <br>
