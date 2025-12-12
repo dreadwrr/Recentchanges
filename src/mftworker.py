@@ -350,9 +350,11 @@ class MftWorker(Worker):
                     res = subprocess.run(
                         cmd,
                         capture_output=True,
-                        text=True
+                        text=True,
+                        encoding='utf-8',
+                        errors='ignore'
                     )
-                    if res.returncode == 0:
+                    if res.returncode == 0 and res.stdout:
                         all_lines = res.stdout.splitlines()
 
                         hdr = (
