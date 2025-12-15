@@ -411,15 +411,21 @@ class MainWindow(QMainWindow):
         if os.path.isfile(self.dbopt):
 
             QTimer.singleShot(1000, self.load_user_data)
+        else:
+            self.ui.combffile.clear()
+            self.ui.combffile.addItem("")
+            self.ui.combffile.addItems(self.extensions)
 
-        elif not os.path.isfile(self.dbtarget):
-            try:
-                create_db(self.dbopt, (self.sys_a, self.sys_b))
-                # if not encr(self.dbopt, self.dbtarget, self.email, self.nc, False):
-                # self.ui.hudt.appendPlainText("Unable to create database")
-            except Exception as e:
-                QMessageBox.critical(None, "Error", f"Problem creating database through initializer. Exiting.. {e}")
-                QApplication.exit(1)
+            if not os.path.isfile(self.dbtarget):
+
+                try:
+                    create_db(self.dbopt, (self.sys_a, self.sys_b))
+
+                    # if not encr(self.dbopt, self.dbtarget, self.email, self.nc, False):
+                    # self.ui.hudt.appendPlainText("Unable to create database")
+                except Exception as e:
+                    QMessageBox.critical(None, "Error", f"Problem creating database through initializer. Exiting.. {e}")
+                    QApplication.exit(1)
 
         # fill combos
         a_drives = self.load_saved_indexes()  # drive combo pg_2
@@ -642,6 +648,7 @@ class MainWindow(QMainWindow):
 
     def load_user_data(self):
         self.ui.textEdit.blockSignals(True)
+
         self.is_ps = user_data_from_database(self.ui.hudt, self.ui.textEdit, self.ui.combffile, self.extensions, self.dbopt)
         self.ui.textEdit.blockSignals(False)
 
@@ -1535,10 +1542,6 @@ class MainWindow(QMainWindow):
         cmd = os.path.join(self.lclhome, "dirwalker.py")  # "src",
 
         self.proc.start_pyprocess(cmd, ['build', self.dbopt, self.dbtarget, basedir, str(self.updatehlinks), CACHE_S, self.email, str(self.ANALYTICSECT), str(idx_drive), str(self.cacheidx), str(self.compLVL), 'True'], dbopt=self.dbopt, status_message=stsmsg)
-        # cmd = os.path.join(self.lclhome, "sysprofile.py")  find command script
-        # self.proc = ProcessHandler()
-        # self.openp(180000)
-        # self.proc.start_pyprocess(cmd, [ self.dbopt, self.dbtarget, self.email, str(self.wsl) ])
 
     # fork build button pg2
     def build_idx(self):
@@ -1805,7 +1808,7 @@ class MainWindow(QMainWindow):
         # header.resizeSection(i, fixed_width)
 
         # maximum width 1000
-        if table != 'sys':
+        if table not in ('logs', 'sys'):
             header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
             for i in range(len(headers)):
                 width = header.sectionSize(i)
@@ -1813,7 +1816,7 @@ class MainWindow(QMainWindow):
                     header.resizeSection(i, 1000)
         else:
             # per-table per-column width list
-            column_widths = [60, 110, 900, 110, 130, 110, 215, 75, 50, 115, 115, 50, 50, 110, 70]
+            column_widths = [60, 110, 1100, 110, 130, 110, 215, 75, 50, 115, 115, 50, 50, 110, 70]
         # else:
             # column_widths = [100] * len(headers)
             for i, w in enumerate(column_widths):
@@ -2198,7 +2201,7 @@ def start_main_window():
         print("Unable to get username exiting.")
         sys.exit(1)
 
-    appdata_local = Path(__file__).resolve().parent  # Path(sys.argv[0]).resolve().parent # get_wdir() # software install aka workdir
+    appdata_local = Path(sys.argv[0]).resolve().parent  # get_wdir() # software install aka workdir
     json_file = appdata_local / "config" / "usrprofile.json"
     iconPATH = appdata_local / "Resources" / "rntchanges.ico"
     toml_file = appdata_local / "config" / "config.toml"
