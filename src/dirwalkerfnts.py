@@ -37,9 +37,10 @@ def decr_cache(CACHE_S):
         if not root:
             continue
 
+        modified_ep_s = row.get('modified_ep') or ''
         cfr_src[root] = {
             'modified_time': str(row.get('modified_time', '')),
-            'modified_ep': float(row.get('modified_ep', 0.0)),
+            'modified_ep': float(modified_ep_s) if modified_ep_s else 0.0,
             'file_count': str(row.get('file_count', '0')),
             'idx_count': str(row.get('idx_count', '0')),
             'max_depth': str(row.get('max_depth', '0')),

@@ -512,7 +512,7 @@ def get_latest_github_release(user, repo):
         resp = requests.get(url, timeout=5)
         resp.raise_for_status()
         data = resp.json()
-        latest_version = data["tag_name"].lstrip("v").rstrip("-py1")
+        latest_version = data["tag_name"].lstrip("v").rstrip("-py1")  # # .removesuffix("-py1")
         download_url = data["html_url"]
         return latest_version, download_url
     except Exception as e:

@@ -54,15 +54,13 @@ def process_line(line, checksum, CACHE_F):
         return ("Nosuchfile", mtime, mtime, file_path)
     if mtime is None:
         return None
-    if isinstance(mtime, pd.Timestamp):
-        mtime = mtime.to_pydatetime()
 
     pathf = Path(file_path)
 
     if checksum:
 
         if size is not None and size > CSZE:
-            mod_time = mtime.strftime(fmt)
+            mod_time = mtime.timestamp()  # mtime.strftime(fmt)
             cached = get_cached(CACHE_F, size, mod_time, file_path)
             if cached is None:
                 checks = calculate_checksum(file_path)
@@ -92,7 +90,7 @@ def process_line(line, checksum, CACHE_F):
 
     return (
         label,
-        mtime,  # .replace(microsecond=0)
+        mtime.replace(microsecond=0),
         file_path,
         ctime,
         inode,
@@ -105,7 +103,8 @@ def process_line(line, checksum, CACHE_F):
         mode,
         cam,
         lastmodified,
-        hardlink
+        hardlink,
+        str(mtime.timestamp())
     )
 
 

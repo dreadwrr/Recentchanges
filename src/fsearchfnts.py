@@ -35,35 +35,55 @@ def calculate_checksum(file_path):
         return None
 
 
-def upt_cache(cfr, existing_keys, size, mtime, checksum, owner, domain, path):
-    key = (checksum, str(size), str(mtime), path)
+def upt_cache(cfr, existing_keys, checksum, file_size, time_stamp, modified_ep, owner, domain, file_path):
+    size_s = str(file_size) if file_size else ''
+    mod_ep_s = str(modified_ep)
+    checksum_s = str(checksum) if checksum else ''
+    key = (checksum_s, size_s, mod_ep_s, file_path)
+
     if key not in existing_keys:
-        entry = {
-            "checksum": str(checksum),
-            "size": str(size),
-            "mtime": str(mtime),
-            "owner": str(owner),
-            "domain": str(domain),
-            "path": path
+        if file_path not in cfr:
+            cfr[file_path] = {}
+        cfr[file_path][mod_ep_s] = {
+            "checksum": checksum_s,
+            "size": size_s,
+            "modified_time": str(time_stamp),
+            "owner": str(owner) if owner else '',
+            "domain": str(domain) if domain else ''
         }
-        cfr.append(entry)
+
         existing_keys.add(key)
 
 
-def get_cached(cfr, size, mtime, path):
+# prev_entry = CACHE_S.get(root)
+def get_cached(cfr, size, modified_ep, path):
     if not cfr:
         return None
 
-    for row in cfr:
-        if not all(key in row for key in ("size", "mtime", "path", "checksum")):
-            continue
-        if str(size) == row["size"] and str(mtime) == row["mtime"] and path == row["path"]:
+    versions = cfr.get(path)
+    if not versions:
+        return None
+
+    if modified_ep is not None:
+        row = versions.get(str(modified_ep))
+        if row and str(size) == row["size"]:
             return {
                 "checksum": row.get("checksum"),
                 "owner": row.get("owner"),
-                "domain": row.get("domain")
+                "domain": row.get("domain"),
+                "modified_ep": modified_ep
             }
-        # return row["checksum"] old
+        return None
+
+    latest_ep = max(versions.keys(), key=lambda k: int(k))
+    row = versions[latest_ep]
+    if str(size) == row["size"]:
+        return {
+            "checksum": row.get("checksum"),
+            "owner": row.get("owner"),
+            "domain": row.get("domain"),
+            "modified_ep": latest_ep
+        }
 
     return None
 

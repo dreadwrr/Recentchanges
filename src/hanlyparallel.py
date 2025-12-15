@@ -91,7 +91,7 @@ def logger_process(results, sys_records, sys_tables, rout, scr=None, cerr=None, 
                     logger.debug("Unexpected error logger_process: %s : %s", e, type(e).__name__, exc_info=True)
 
 
-def hanly_parallel(model_type, rout, parsed, checksum, cdiag, dbopt, ps, user, dbtarget, ll_level, sys_tables, mainl, iqt=False, strt=65, endp=90):
+def hanly_parallel(model_type, rout, scr, cerr, parsed, checksum, cdiag, dbopt, ps, user, ll_level, sys_tables, iqt=False, strt=65, endp=90):
 
     all_results = []
     batch_incr = []
@@ -103,10 +103,10 @@ def hanly_parallel(model_type, rout, parsed, checksum, cdiag, dbopt, ps, user, d
 
     logger = logging.getLogger("hanly parallel HANLYLogger")
 
-    if len(parsed) < 40 or model_type == "HDD":
+    if len(parsed) < 40 or model_type.lower() == "hdd":
         if iqt:
             special_k = 0
-        all_results, batch_incr = hanly(parsed, checksum, cdiag, dbopt, ps, user, dbtarget, ll_level, sys_tables, 0, special_k, strt, endp)
+        all_results, batch_incr = hanly(parsed, checksum, cdiag, dbopt, ps, user, ll_level, sys_tables, 0, special_k, strt, endp)
     else:
         max_workers = min(8, os.cpu_count() or 1, len(parsed))
         chunk_size = max(1, (len(parsed) + max_workers - 1) // max_workers)
@@ -118,7 +118,7 @@ def hanly_parallel(model_type, rout, parsed, checksum, cdiag, dbopt, ps, user, d
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = [
                 executor.submit(
-                    hanly, chunk, checksum, cdiag, dbopt, ps, user, dbtarget, ll_level, sys_tables, i, special_k, strt, endp
+                    hanly, chunk, checksum, cdiag, dbopt, ps, user, ll_level, sys_tables, i, special_k, strt, endp
                 )
                 for i, chunk in enumerate(chunks)
             ]
@@ -142,9 +142,6 @@ def hanly_parallel(model_type, rout, parsed, checksum, cdiag, dbopt, ps, user, d
     # 	except Exception as e:
     #
     # 		logging.error("Worker error: %s\n%s", exc_info=True)
-
-    scr = os.path.join(mainl, 'scr')
-    cerr = os.path.join(mainl, 'cerr')
 
     logger_process(all_results, batch_incr, sys_tables, rout, scr, cerr, dbopt, ps, logger)
     gc.collect()

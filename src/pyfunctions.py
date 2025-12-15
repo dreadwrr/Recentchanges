@@ -53,9 +53,9 @@ def sbwr(escaped_user):  # note regex
     return compiled
 
 
-# Database cache clear
 def get_delete_patterns(usr):
-    return [p.replace("{{user}}", usr) for p in cache_clear]
+    patterns = [p.replace("{{user}}", usr) for p in cache_clear]
+    return patterns
 
 
 # for resetting filterhits CSV on cache clear
@@ -120,41 +120,35 @@ class cprint:
             return msg  # just return string without printing
 
 
-def collision(filename, checksum, filesize, cursor, is_sys, sys_tables=None):
+def collision(cursor, is_sys, sys_tables=None):
 
     if is_sys:
         tables = ['logs'] + list(sys_tables or [])
 
-        union_sql = " UNION ALL ".join([f"SELECT filename, filesize FROM {t} WHERE checksum = ?" for t in tables])
+        union_sql = " UNION ALL ".join([f"SELECT filename, checksum, filesize FROM {t}" for t in tables])
 
         query = f"""
-            SELECT DISTINCT b.filename
+            SELECT a.filename, b.filename, a.checksum
             FROM ({union_sql}) a
             JOIN ({union_sql}) b
-            ON a.filename != b.filename
-            WHERE a.filename = ?
-            AND b.filesize != ?
+            ON a.checksum = b.checksum
+            AND a.filename < b.filename
+            AND a.filesize != b.filesize
         """
-
-        params = [checksum] * len(tables) * 2 + [filename, filesize]
 
     else:
         table_name = 'logs'
-        query = f'''
-            SELECT b.filename, a.checksum, a.filesize, b.filesize
+        query = f"""
+            SELECT a.filename, b.filename, a.checksum
             FROM {table_name} a
             JOIN {table_name} b
             ON a.checksum = b.checksum
-            AND a.filename != b.filename
-            WHERE a.filename = ?
-            AND a.checksum = ?
-            AND b.filesize != ?
-        '''
-        params = (filename, checksum, filesize)
+            AND a.filename < b.filename
+            AND a.filesize != b.filesize
+        """
 
-    cursor.execute(query, params)
-
-    return [row[0] for row in cursor.fetchall()]
+    cursor.execute(query)
+    return cursor.fetchall()
 
 
 def detect_copy(filename, inode, checksum, sys_tables, cursor, ps):
@@ -446,21 +440,21 @@ def goahead(filepath):
     return None
 
 
-# hanly mc
-def getstdate(st, fmt):
-    a_mod = float(st.st_mtime)
-    afrm_str = datetime.fromtimestamp(a_mod).strftime(fmt)  # datetime.utcfromtimestamp(a_mod).strftime(fmt)
-    afrm_dt = parse_datetime(afrm_str, fmt)
-    return afrm_dt, afrm_str
-
-
 # prepare for file output
 def dict_to_list_sys(cachedata):
     data_to_write = []
-    for root, metadata in cachedata.items():
-        row = metadata.copy()
-        row['root'] = root
-        data_to_write.append(row)
+    for root, versions in cachedata.items():
+        for modified_ep, metadata in versions.items():
+            row = {
+                "checksum": metadata.get("checksum"),
+                "size": metadata.get("size"),
+                "modified_time": metadata.get("modified_time"),
+                "modified_ep": modified_ep,
+                "owner": metadata.get("owner"),
+                "domain": metadata.get("domain"),
+                "root": root,
+            }
+            data_to_write.append(row)
     return data_to_write
 
 

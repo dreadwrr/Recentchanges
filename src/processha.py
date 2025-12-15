@@ -10,10 +10,13 @@ from .rntchangesfunctions import filter_lines_from_list
 # the time format is different in rout log file use this function
 def parse_rout(line):
     parts = line.strip().split(None, 3)
-    if len(parts) < 3:
-        return datetime.min
-    tsmp = f'{parts[1]} {parts[2]}'
-    return parse_datetime(tsmp)
+    if len(parts) > 2:
+        tsmp = f'{parts[1]} {parts[2]}'
+        key_value = parse_datetime(tsmp)
+        if key_value:
+            return key_value
+    print("Invalid sort key in processha", line)
+    return datetime.min
 
 
 # preprocess diff file
