@@ -17,6 +17,12 @@ WindowSetup (pyinstaller) source code https://github.com/dreadwrr/Recent-Pyinsta
 Links for MFTCmd with cutoff allowing to read the Mft into memory while doing an Mft search. <br>
 https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0#bookmark=id.ct8qv65gr0wc <br><br>
 
+<br><br>
+find file or files by extension and also compress to a .zip/.rar archive by time<br>
+A new feature Find new files fast with a  drive index that is stored in a .gpg cache file loaded into memory.
+
+Scan the system index independtly with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
+or faked modified time.  <br><br>
 The application works with MFTCmd official\standard or the MFTECmd cutoff version if placed in \bin <br>
 `icat` and `fsstat` can be used alternatively to ntfstools see tskrequiredfiles.txt and placed in \bin <br><br>
 
