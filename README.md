@@ -19,7 +19,7 @@ https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/
 
 
 ## Installation
-make a venv if wanted <br>
+make a venv if preferred <br>
 pip install -r requirements.txt <br>
 python main.py <br>
 
