@@ -21,7 +21,9 @@ https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/
 ## Installation
 make a venv if preferred <br>
 pip install -r requirements.txt <br>
-python main.py <br>
+python main.py <br><br>
+
+may require packages requests, packaging
 
 <br><br>
 find file or files by extension and also compress to a .zip/.rar archive by time<br>
