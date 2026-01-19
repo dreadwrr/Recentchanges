@@ -1,5 +1,6 @@
 # Recentchanges
-01/19/2026 A new version will be released soon as I have new breakthroughs and changes from the linux commandline versions<br><br>
+01/19/2026 A new version will be released soon as I have new breakthroughs and changes from the linux commandline versions<br>
+working in conjunction with the linux Qt version I can keep them in sync and provide for maintainability. This will ensure the best possible product<br><br>
 Updated 12/14/2025 v3.0.2 <br><br>
 To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
