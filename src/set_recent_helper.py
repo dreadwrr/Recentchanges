@@ -13,11 +13,9 @@ from src.rntchanges import main as rntchanges_main
 
 
 def dispatch_internal(argv):
-    if not argv:
-        return False
 
     len_args = len(argv)
-    if len_args >= 3:
+    if len_args > 5:
         script = argv[1].lower()
         args = argv[2:]
 
@@ -57,7 +55,7 @@ def dispatch_internal(argv):
                 sys.exit(entry(*recent_args))
             elif script == "findfile.py":
                 sys.exit(entry(args))
-
+    sys.exit(rntchanges_main(argv))
 
 def main(argv):
     arglen = len(argv)
@@ -76,7 +74,7 @@ def main(argv):
 
 if __name__ == "__main__":
 
-    res = main(sys.argv)
+    res = dispatch_internal(sys.argv)
     if not res:
-        return 1
-    return res
+        sys.exit(1)
+    sys.exit(res)
