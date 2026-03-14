@@ -45,7 +45,6 @@ pyinstaller main.spec icon=rntchanges.ico <br><br>
 copy _internal and main to app folder <br>
 <br>
 further pyinstall documentation https://github.com/dreadwrr/Recent-Pyinstaller<br><br>
----
 
 
 mft sources <br>
