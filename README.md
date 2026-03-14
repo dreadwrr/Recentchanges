@@ -37,7 +37,7 @@ The application works with MFTCmd official\standard or the MFTECmd cutoff versio
 remove old dist folder <br>
 create a venv <br>
 python -m venv .venv <br>
-.\.venv\Scripts\Activate.ps1 <br>
+.\\.venv\Scripts\Activate.ps1 <br>
 python -m pip install --upgrade pip <br>
 pip install -r requirements.txt <br>
 pip install pyinstaller <br>
