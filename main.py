@@ -96,7 +96,7 @@ from src.rntchangesfunctions import removefile
 from src.rntchangesfunctions import resolve_editor
 from src.rntchangesfunctions import time_convert
 from src.rntchangesfunctions import windows_version
-from src.set_recent_helper import dispatch_internal
+from src.set_recent_helper import main as dispatcher
 from src.ui_mainwindow import Ui_MainWindow
 from src.wmipy import get_disk_and_volume_for_drive
 from src.wmipy import get_mounted_partitions
@@ -3236,6 +3236,6 @@ def start_main_window():
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
-    res = dispatch_internal(sys.argv)
+    res = dispatcher(sys.argv)
     if not res and res != 0:
         sys.exit(start_main_window())
