@@ -15,7 +15,7 @@ Full commandline support with recentchanges.bat and rnt.bat <br>
 Links for MFTCmd with cutoff allowing to read the Mft into memory while doing an Mft search. <br>
 https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0#bookmark=id.ct8qv65gr0wc <br><br>
 
-RecentChanges3.0.2.zip is the python version and the installation instructions are below if python is installed. <br><br>
+if python is installed. <br><br>
 If you dont have python installed use Windows Setup in releases section
 ## Installation
 make a venv if preferred <br>
