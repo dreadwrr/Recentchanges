@@ -34,6 +34,16 @@ or faked modified time.  <br><br>
 The application works with MFTCmd official\standard or the MFTECmd cutoff version if placed in \bin <br>
 `icat` and `fsstat` can be used alternatively to ntfstools see tskrequiredfiles.txt and placed in \bin <br><br>
 
+# Pyinstaller instructions <br>
+remove old dist folder <br>
+create a venv <br>
+python -m venv .venv <br>
+.\.venv\Scripts\Activate.ps1 <br>
+python -m pip install --upgrade pip <br>
+pip install -r requirements.txt <br>
+pip install pyinstaller <br>
+pyinstaller main.spec icon=rntchanges.ico <br><br>
+copy _internal and main to app folder <br>
 ---
 
 mft sources <br>
