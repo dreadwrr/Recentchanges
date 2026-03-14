@@ -61,17 +61,22 @@ def dispatch_internal(argv):
 
 def main(argv):
     arglen = len(argv)
-    # if arglen < 2:
-    #     return 1
+    if arglen < 2:
+        return False
     if arglen > 5:
-        if not dispatch_internal(argv):
+        res = dispatch_internal(argv)
+        if not res:
             return 1
-    # method = argv[1].lower()
-    # if method == "run":
-        # sys.exit(rntchanges_main(argv[1:]))
+        return res
+    method = argv[1].lower()
+    if method == "run":
+        sys.exit(rntchanges_main(argv[1:]))
     sys.exit(rntchanges_main(argv))
 
 
 if __name__ == "__main__":
 
-    sys.exit(main(sys.argv))
+    res = main(sys.argv)
+    if not res:
+        return 1
+    return res
