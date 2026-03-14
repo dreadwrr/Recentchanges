@@ -10,7 +10,11 @@ Create a custom crest with a .png image file max size 255 x 333 <br>
 Will use gpg4win system install or app gpg if not installed <br>
 Full commandline support with recentchanges.bat and rnt.bat <br>
 
-  
+Full commandline support with: <br>
+./recentchanges <br>
+./recentchanges search <br>
+./recentchanges reset <br>
+./recentchanges query <br>
 </p><br>
 Links for MFTCmd with cutoff allowing to read the Mft into memory while doing an Mft search. <br>
 https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0#bookmark=id.ct8qv65gr0wc <br><br>
