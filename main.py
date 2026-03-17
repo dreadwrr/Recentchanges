@@ -1,4 +1,4 @@
-# 03/07/2026               Qt gui windows 11                  Developer buddy 5.0
+# 03/15/2026               Qt gui windows 11                  Developer buddy 5.0
 import glob
 import logging
 import multiprocessing
@@ -96,7 +96,7 @@ from src.rntchangesfunctions import removefile
 from src.rntchangesfunctions import resolve_editor
 from src.rntchangesfunctions import time_convert
 from src.rntchangesfunctions import windows_version
-from src.set_recent_helper import main as dispatcher
+from src.qtparser import dispatch_internal as dispatcher
 from src.ui_mainwindow import Ui_MainWindow
 from src.wmipy import get_disk_and_volume_for_drive
 from src.wmipy import get_mounted_partitions
@@ -115,8 +115,9 @@ class MainWindow(QMainWindow):
     reload_sj_sn = Signal(int, object, str, bool)  # also update drive combo on complete
 
     def __init__(
-        self, appdata_local, home_dir, config, j_settings, toml_file, json_file, log_path, driveTYPE, distro_name, dbopt, dbtarget, CACHE_S, CACHE_S_str,
-        systimeche, suffix, gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH, downloads, email, usr, cachermPATTERNS, tempdir
+        self, appdata_local, home_dir, config, j_settings, toml_file, json_file, log_dir, log_path, driveTYPE, distro_name,
+        dbopt, dbtarget, CACHE_S, CACHE_S_str, systimeche, suffix, gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH,
+        downloads, email, usr, cachermPATTERNS, tempdir
     ):
         super().__init__()
         self.ui = Ui_MainWindow()
@@ -126,6 +127,7 @@ class MainWindow(QMainWindow):
         self.sj = json_file
         self.driveTYPE = driveTYPE
         self.distro_name = distro_name
+        self.log_dir = log_dir
         self.log_path = log_path
         self.dbopt = dbopt  # db
         self.dbtarget = dbtarget  # gpg
@@ -219,6 +221,7 @@ class MainWindow(QMainWindow):
         self.mftflnm = f'{self.MODULENAME}xMftchanges'
 
         self.tomldefault = config_local / "config.bak"
+        self.tomldefault_imt = None  # initial mtime
 
         sys_tables, self.cache_table, _ = get_idx_tables(self.basedir, self.CACHE_S_str, suffix)
         self.sys_a, self.sys_b = sys_tables
@@ -411,7 +414,7 @@ class MainWindow(QMainWindow):
         # end tomlb
 
         # bottom right
-        self.ui.textEdit.textChanged.connect(lambda: setattr(self, 'dirtybit', True))
+        self.ui.textEdit.textChanged.connect(lambda: setattr(self, 'dirtybit', True))  # self.ui.textEdit.textChanged.connect(self.set_dirtybit)
         # Top search
         self.ui.ftimeb.clicked.connect(lambda checked=False, s=self.ui.ftimeb: self.tsearch(s))
         self.ui.ftimebf.clicked.connect(lambda checked=False, s=self.ui.ftimebf: self.tsearch(s, True))
@@ -544,39 +547,41 @@ class MainWindow(QMainWindow):
         # add to class basedirs that have profiles for basedirButton
 
         basedirs = BasedirProfiles(self.ui.basedirButton)
-
-        drive_info = self.j_settings[self.basedir].copy()
+        drive = self.basedir
+        drive_info = self.j_settings[drive].copy()
         guid = drive_info.get("drive_partguid")
         moi = self.basedir  # moi = drive_info.get("mount_of_index")
         mtype = drive_info.get("model_type")
         dtype = drive_info.get("drive_type")
         psextn = drive_info.get("proteusEXTN")
-        idx_suffix = drive_info.get("idx_suffix")
+        suffix = drive_info.get("idx_suffix")
 
-        basedirs.add_item((guid, BasedirDrive(idx_suffix, guid, moi, mtype, dtype, self.CACHE_S, self.systimeche, psextn), drive_info))
+        basedirs.add_item((guid, BasedirDrive(suffix, guid, moi, mtype, dtype, self.CACHE_S, self.systimeche, psextn), drive_info))
 
         # should be C:\\ .. ect
-        for a, b in a_drives:
-            if a != self.basedir and a in self.j_settings and "proteusEXTN" in self.j_settings[a]:
-
-                drive_info = self.j_settings[a].copy()
+        for drive, suffix in a_drives:
+            if drive != self.basedir and drive in self.j_settings and "proteusEXTN" in self.j_settings[drive]:
 
                 CACHE_S = self.CACHE_S_str
                 systimeche = systimename
 
-                if a != "C:\\":
+                if drive != "C:\\":
 
-                    systimeche = systimename + "_" + b
+                    systimeche = systimename + "_" + suffix
                     CACHE_S = systimeche + ".gpg"
                     CACHE_S = os.path.join(self.lclhome, CACHE_S)
 
+                    # guid
+                    # get back drive from guid load or not. Windows is handled in load_saved_indexes ln1500. linux is handled here with part_uuid
+
+                drive_info = self.j_settings[drive].copy()
                 guid = drive_info.get("drive_partguid")
-                moi = a  # moi = drive_info.get("mount_of_index")  # a index could not be mounted therefor dont list it
+                moi = drive  # moi = drive_info.get("mount_of_index")  # a index could not be mounted therefor dont list it
                 mtype = drive_info.get("model_type")
                 dtype = drive_info.get("drive_type")
                 psextn = drive_info.get("proteusEXTN")
 
-                basedirs.add_item((guid, BasedirDrive(b, guid, moi, mtype, dtype, CACHE_S, systimeche, psextn), drive_info))
+                basedirs.add_item((guid, BasedirDrive(suffix, guid, moi, mtype, dtype, CACHE_S, systimeche, psextn), drive_info))
 
         self.basedirs = basedirs
         self.ui.sbasediridx.setMaximum(basedirs.items - 1)
@@ -807,13 +812,12 @@ class MainWindow(QMainWindow):
 
             try:
                 toml = self.toml_file
-                updated_config = load_toml(toml)
-                if not updated_config:
-                    raise ConfigurationError
-
-                config_changed = (self.config != updated_config)
-
-                if config_changed:
+                amt = toml.stat().st_mtime_ns
+                imt = self.tomldefault_imt
+                if amt != imt:
+                    updated_config = load_toml(toml)
+                    if not updated_config:
+                        raise ConfigurationError
 
                     driveTYPE = updated_config['search']['driveTYPE']  # script entry
                     dspEDITOR = updated_config['display']['dspEDITOR']
@@ -848,6 +852,7 @@ class MainWindow(QMainWindow):
 
                     ll_level = self.config['logs']['logLEVEL']
                     new_ll_level = updated_config['logs']['logLEVEL']
+
                     log_file = self.config['logs']['userLOG']
                     new_log_file = updated_config['logs']['userLOG']
 
@@ -857,6 +862,7 @@ class MainWindow(QMainWindow):
                     if log_file != new_log_file:
                         new_log = True
                     if new_log:
+                        new_log_file = os.path.join(self.log_dir, new_log_file)
                         _, log_path = change_logger(new_log_file, new_ll_level, process_label="mainwindow")
                         self.log_path = new_log_file
                         self.ui.hudt.appendPlainText("Log level: " + new_ll_level)
@@ -956,6 +962,13 @@ class MainWindow(QMainWindow):
                     if extensions != self.extensions:
                         fill_extensions(self.ui.combffile, extensions, prev_extensions=self.user_extensions)
 
+                    if driveTYPE != self.driveTYPE:
+                        if driveTYPE in ("HDD", "SSD"):
+                            self.driveTYPE = driveTYPE
+                            update_j_settings({"drive_type": self.driveTYPE}, self.j_settings, self.basedir, self.sj)
+                        else:
+                            update_toml_values({'search': {'driveTYPE': self.driveTYPE}}, self.toml_file)
+
                     self.driveTYPE = driveTYPE
                     self.dspEDITOR = dspEDITOR
                     self.dspPATH = dspPATH
@@ -980,8 +993,9 @@ class MainWindow(QMainWindow):
                     self.zipPATH = zipPATH
                     self.extensions = extensions
 
-                    if config_changed:
-                        self.ui.hudt.appendPlainText("Config changed")   # ctext = cprint.cyan("Config changed") # self.ui.hudt.append_colored_output("\033[1;32mConfig changed\033[0m")  # green
+                    # config_changed = (self.config != updated_config)
+                    # if config_changed:
+                    self.ui.hudt.appendPlainText("Config changed")   # ctext = cprint.cyan("Config changed") # self.ui.hudt.append_colored_output("\033[1;32mConfig changed\033[0m")  # green
 
             except ConfigurationError:
                 dump_toml(None, self.config, toml)
@@ -1014,6 +1028,7 @@ class MainWindow(QMainWindow):
                 self.isexec = False
                 return
 
+            self.tomldefault_imt = toml.stat().st_mtime_ns
             shutil.copy2(self.toml_file, self.tomldefault)
 
             # send stdout stderr to hudt from QProcess
@@ -1040,7 +1055,8 @@ class MainWindow(QMainWindow):
             self.proc = ProcessHandler()  # self.lclhome, self.xdg_runtime, self.ui.dbmainlabel.text(), self.is_polkit
             self.open_proc()
             self.proc.complete.connect(lambda code, _: self.update_ui_sn.emit(code, "editor"))
-            self.proc.complete.connect(lambda code, _: self.set_config(code))
+            # self.proc.complete.connect(lambda code, _: self.set_config(code))
+            self.proc.complete.connect(lambda code, status: QTimer.singleShot(500, lambda: self.set_config(code)))
             self.proc.start_tomledit(self.dspPATH, [str(self.toml_file)])
 
         else:
@@ -1070,7 +1086,7 @@ class MainWindow(QMainWindow):
                 drive_name, drive_model, _ = drive_info
                 if drive_name:
                     drive_id = drive_name
-                    update_j_settings({"drive_id_model": drive_name, "model_type": drive_model}, self.j_settings, self.basedir, self.sj)
+                    update_j_settings({"drive_id_model": drive_id, "model_type": drive_model}, self.j_settings, self.basedir, self.sj)
 
         if not model_type and drive_model:
             # model_type = "Unknown"
@@ -1770,6 +1786,7 @@ class MainWindow(QMainWindow):
         args = [
             "findfile.py",
             action,
+            str(self.lclhome),
             fpath,
             extension,
             self.basedir,
@@ -1966,8 +1983,12 @@ class MainWindow(QMainWindow):
     # Main Build IDX
     def run_build_idx(self, basedir, CACHE_S, stsmsg, tables, idx_drive=False, drive_value=None):
 
+        drive_type = self.j_settings.get(basedir, {}).get("drive_type")
+        timeout = 300000
+        if drive_type and drive_type == "HDD":
+            timeout = timeout * 3
         self.proc = ProcessHandler()
-        self.open_proc(300000)
+        self.open_proc(timeout)
 
         ismcore = True
         drive_idx = None
@@ -2114,12 +2135,10 @@ class MainWindow(QMainWindow):
             CACHE_S, systimeche, _ = get_cache_s(drive, self.CACHE_S_str)
             basedir = "C:\\"
             if drive != "C:\\":
-
-                drive_ = self.j_settings.get(drive, {}).get("mount_of_index")
-                guid = self.j_settings.get(drive, {}).get("drive_partguid")
-
                 # result = get_disk_and_volume_for_drive
-                # drive_ = get_drive_from_partguid(guid) if guid else None
+                # drive_ = self.j_settings.get(drive, {}).get("mount_of_index")
+                guid = self.j_settings.get(drive, {}).get("drive_partguid")
+                drive_ = get_drive_from_partguid(guid) if guid else None
 
                 if drive_:
                     basedir = drive_  # if the mount point changed you can rename it with a prompt but its easy enough to reindex
@@ -2152,6 +2171,11 @@ class MainWindow(QMainWindow):
         drive_type = self.j_settings.get(drive, {}).get("drive_type")
         if not drive_type:
             drive_type = "HDD"
+        else:
+            if drive == self.basedir:
+                if self.driveTYPE != drive_type:
+                    drive_type = self.driveTYPE
+                    update_j_settings({"drive_type": self.driveTYPE}, self.j_settings, drive, self.sj)
 
         self.proc = ProcessHandler()
         self.open_proc(120000)
@@ -2168,6 +2192,7 @@ class MainWindow(QMainWindow):
             basedir,
             self.usr, drive_type,
             self.tempdir,
+            str(self.gnupg_home),
             CACHE_S,
             self.dspEDITOR,
             self.dspPATH,
@@ -2418,7 +2443,7 @@ class MainWindow(QMainWindow):
             c_text = cd.currentText()
             cd.blockSignals(True)
             cd.clear()
-            tbl = sort_right(tables, self.cache_table, self.systimeche, self.basedir)
+            tbl = sort_right(tables, self.cache_table, self.systimeche, self.suffix)  # self.basedir
             cd.addItems(tbl)
 
             ix = cd.findText('extn')  # dont display extn table
@@ -3040,15 +3065,17 @@ class MainWindow(QMainWindow):
 
 
 def start_main_window():
-
     os.environ["PYTHONUTF8"] = "1"
     os.environ["PYTHONIOENCODING"] = "utf-8"  # for ansi characyers
+    os.environ["PYTHONUNBUFFERED"] = "1"
+
     # compatible with powershell 5 and 7
     # inst, ver = pwsh_7()
     # if not inst:
     #     if ver is not None:
     #         print(f"PowerShell 7 is required. Installed version: {ver}")
     #     sys.exit(1)
+
     is_admin()
 
     appdata_local = Path(sys.argv[0]).resolve().parent  # find_install() # software install aka workdir
@@ -3084,7 +3111,7 @@ def start_main_window():
     cachermPATTERNS = config['backend']['cachermPATTERNS']
     popPATH = config['display']['popPATH']
     basedir = config['search']['drive']
-    driveTYPE = config['search']['driveTYPE']
+    driveTYPE_frm = config['search']['driveTYPE']
     compLVL = config['logs']['compLVL']
     ll_level = config['logs']['logLEVEL']
     log_file = config['logs']['userLOG']
@@ -3172,10 +3199,18 @@ def start_main_window():
 
             CACHE_S, systimeche, suffix, driveTYPE = setup_drive_cache(
                 basedir, appdata_local, dbopt, dbtarget, json_file, toml_file,
-                CACHE_S_str, driveTYPE, usr, email, compLVL, j_settings=j_settings, iqt=True
+                CACHE_S_str, driveTYPE_frm, usr, email, compLVL, j_settings=j_settings, iqt=True
             )
             if not CACHE_S or not suffix or not j_settings:
                 return 1
+
+            # if the drive changed in config update the json
+            if driveTYPE_frm:
+                dtype = j_settings.get(basedir, {}).get("drive_type")
+                if dtype != driveTYPE_frm:
+                    j_settings.setdefault(basedir, {})["drive_type"] = driveTYPE_frm
+                    dump_j_settings(j_settings, json_file)
+                    driveTYPE = driveTYPE_frm
 
             if not gnupg_home:
                 gnupg_home = find_gnupg_home(json_file, j_settings)
@@ -3195,10 +3230,9 @@ def start_main_window():
                 logging.error("Unhandled exception", exc_info=(exc_type, exc_value, exc_traceback))
                 # if QApplication.instance() is not None:
                 #     QMessageBox.critical(None, "Error", f"{exc_value}")
-                log_pth = os.path.join(appdata_local, "logs", "errs.log")
                 app_inst = QApplication.instance()
                 if app_inst is None:
-                    print("An error occurred and logged to", log_pth)
+                    print("An error occurred and logged to", log_path)
                     return
                     # app_inst = QApplication(sys.argv)
 
@@ -3216,9 +3250,10 @@ def start_main_window():
 
             exit_code = 0
             window = MainWindow(
-                appdata_local, home_dir, config, j_settings, toml_file, json_file, log_path, driveTYPE,
-                distro_name, dbopt, dbtarget, CACHE_S, CACHE_S_str, systimeche, suffix, gpg_path,
-                gnupg_home, dspEDITOR, dspPATH, popPATH, downloads, email, usr, cachermPATTERNS, tempdir
+                appdata_local, home_dir, config, j_settings, toml_file, json_file, log_dir, log_path,
+                driveTYPE, distro_name, dbopt, dbtarget, CACHE_S, CACHE_S_str, systimeche, suffix,
+                gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH, downloads, email, usr,
+                cachermPATTERNS, tempdir
             )
             window.setWindowIcon(QIcon(icon_path))
             window.show()
@@ -3235,7 +3270,8 @@ def start_main_window():
 
 
 if __name__ == "__main__":
+    caller = os.environ.get("CMD_LINE")
     multiprocessing.freeze_support()
-    res = dispatcher(sys.argv)
-    if not res and res != 0:
-        sys.exit(start_main_window())
+    if caller or len(sys.argv) >= 2:
+        dispatcher(sys.argv)
+    sys.exit(start_main_window())
