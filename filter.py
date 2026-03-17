@@ -31,7 +31,7 @@ _filter = [
 # filter hits to reset on cache clear in ftlh.csv in app install. copy from filter items above
 _filterhitRESET = [
 
-    r'C:\\Users\\{{user}}\\AppData\\Local\\Packages\\[^\\\\]+\\LocalCache',
+    r'C:\\Users\\{{user}}\\AppData\\Local\\Packages\\[^\\]+\\LocalCache',
     r'C:\\Users\\{{user}}\\AppData\\Local\\Packages\\.*?\\LocalCache'
 
 ]
