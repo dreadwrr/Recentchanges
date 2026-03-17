@@ -101,7 +101,7 @@ def find_wsl(self, parent=None):
 def sort_right(tables, cache_table, systimeche, suffix):
     a, b, c, tbl = [], [], [], []
     # systime = self.systimeche.split("_", 1)[-1]  # sys_delim = systime + "_"
-    is_basedir = suffix == "C:\\"
+    is_basedir = suffix == "c"  # "C:\\"
     if is_basedir:
         for t in tables:
             if "sys" in t and "_" in t:

@@ -53,25 +53,33 @@ def scan_index(chunk, is_sym, i, num_chunks, show_progress=False, strt=0, endp=1
 
             if os.path.isfile(file_path):
                 x += 1
-                presvious_md5 = record[5]
+                previous_md5 = record[5]
                 previous_symlink = record[7]
                 previous_target = record[12]
                 previous_count = record[15]
-                if presvious_md5:
-
-                    rlt, status = meta_sys(file_path, presvious_md5, previous_symlink, previous_target, previous_count, is_sym, sys_data, link_data, logs.WORKER_LOG_Q)  # append meta data to sys_data
-                    if not rlt:
-                        if rlt is False and status == "Nosuchfile":
+                if not previous_md5:
+                    emit_log("DEBUG", f"Previous hash was missing attempting to run checksum. file:  {file_path}", logs.WORKER_LOG_Q)
+                rlt, status = meta_sys(file_path, previous_md5, previous_symlink, previous_target, previous_count, is_sym, sys_data, link_data, logs.WORKER_LOG_Q)  # append meta data to sys_data
+                if not rlt:
+                    if rlt is False and status == "Nosuchfile":
+                        x -= 1
+                        y += 1
+                        nsf_records.append(record)
+                    elif rlt is None:  # Permission error or Error
+                        if not os.path.isfile(file_path):
                             x -= 1
                             y += 1
                             nsf_records.append(record)
-                        # elif rlt is None:
-                        #     emit_log("DEBUG", f"status: {status}, Hash skipped {file_path} . record: {record}", WORKER_LOG_Q)
+                    # emit_log("DEBUG", f"status: {status}, Hash skipped {file_path} . record: {record}", logs.WORKER_LOG_Q)
             else:
                 y += 1
                 nsf_records.append(record)
         except Exception as e:
-            emit_log("ERROR", f"scan_index Encountered an error chunk {i}\\{num_chunks} processing record {c} of {len(chunk)}, file {file_path}, line: {record}: {type(e).__name__} {e}", logs.WORKER_LOG_Q)
+            em = (
+                f"scan_index Encountered an error chunk {i}\\{num_chunks} processing record {c} of {len(chunk)}, "
+                + f"file {file_path}, line: {record}: {type(e).__name__} {e}"
+            )
+            emit_log("ERROR", em, logs.WORKER_LOG_Q)
             raise
 
     if dbit and current_step <= len(steps) - 1:

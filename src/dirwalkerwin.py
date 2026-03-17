@@ -20,7 +20,7 @@ class ConfigData:
     config: Dict
     EXCLDIRS: list
     nogo: list
-    suppress_list: list
+    filterout_list: list
     driveTYPE: str
     ll_level: str
 
@@ -39,29 +39,33 @@ def get_config_data(appdata_local, USR):
         None
     EXCLDIRS = user_path(config['search']['EXCLDIRS'], USR)
     nogo = user_path(config['shield']['nogo'], USR)
-    suppress_list = user_path(config['shield']['filterout'], USR)
+    filterout_list = user_path(config['shield']['filterout'], USR)
     driveTYPE = config['search']['driveTYPE']
     ll_level = config['logs']['logLEVEL']
     log_file = config['logs']['userLOG']
     log_file = appdata_local / "logs" / log_file
 
-    return ConfigData(USRDIR, toml_file, json_file, log_file, config, EXCLDIRS, nogo, suppress_list, driveTYPE, ll_level)
+    return ConfigData(USRDIR, toml_file, json_file, log_file, config, EXCLDIRS, nogo, filterout_list, driveTYPE, ll_level)
 
 
-def return_info(file_path, st, symlink, link_target, logger):
+def return_info(file_path, st, symlink, link_target, log_q):
     fmt = "%Y-%m-%d %H:%M:%S"
     sym = target = hardlink = None
 
     if symlink:
         sym = "y"
         target = link_target
-
-    # mode = get_mode(file_path, st, sym)
+    # attrs = getattr(st, "st_file_attributes", 0)
+    # mode = get_mode(attrs, sym)
     # inode = st.st_ino
+    # hardlink = st.st_nlink
 
-    inode, _, hardlink, _, mode = get_file_id(file_path, logger)  # reparse c_time
-
-    resolve_owner = file_owner(file_path, logger)
+    inode, _, hardlink, _, mode, status = get_file_id(file_path, log_q)  # reparse c_time
+    if status in ("Nosuchfile", "Error"):
+        return sym, target, mode, inode, hardlink, None, None, None, st.st_mtime_ns, None, None, None, st.st_size, status
+    resolve_owner = file_owner(file_path, log_q)
+    if resolve_owner in (None, "Nosuchfile"):
+        return sym, target, mode, inode, hardlink, None, None, None, st.st_mtime_ns, None, None, None, st.st_size, status
     owner, domain = resolve_owner if resolve_owner else (None, None)
 
     m_epoch = st.st_mtime
@@ -73,7 +77,7 @@ def return_info(file_path, st, symlink, link_target, logger):
     c_time = epoch_to_str(c_epoch)
     a_time = epoch_to_str(a_epoch)
     size = st.st_size
-    return sym, target, mode, inode, hardlink, owner, domain, m_dt, m_epoch_ns, m_time, c_time, a_time, size
+    return sym, target, mode, inode, hardlink, owner, domain, m_dt, m_epoch_ns, m_time, c_time, a_time, size, status
 
 
 def get_extension_tup(extension):

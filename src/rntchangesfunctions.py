@@ -1,4 +1,4 @@
-# 03/05/2026           developer buddy core
+# 03/15/2026           developer buddy core
 import csv
 import ctypes
 import glob
@@ -33,7 +33,7 @@ filter_patterns_path = install_root / "filter.py"
 spec = importlib.util.spec_from_file_location("user_filter", filter_patterns_path)
 user_filter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(user_filter)
-# Note: For database cacheclear / terminal supression see pyfunctions.py
+# Note: For database cacheclear / terminal supression see config.toml
 
 
 def reset_csvliteral(csv_file):
@@ -495,15 +495,34 @@ def find_cmdhelp(s_path, mmin, USR):
 
 def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, iqt=False, strt=20, endp=60, logger=None):
 
-    file_entries = []
+    # file_entries = []
+    records = []
     try:
         print('Running command:', ' '.join(find_command), flush=True)
-        proc = subprocess.Popen(find_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # stderr=subprocess.DEVNULL
-        output, err = proc.communicate()
+        proc = subprocess.Popen(find_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)  # stderr=subprocess.DEVNULL
 
-        if proc.returncode not in (0, 1):
-            stderr_str = err.decode("utf-8")
-            print(stderr_str)
+        # output, err = proc.communicate()  # if buffered
+        # if proc.returncode not in (0, 1):
+        #     stderr_str = err.decode("utf-8")
+        #     print(stderr_str)
+        #     print("Find command failed, unable to continue. Quitting.")
+        #     sys.exit(1)
+
+        for line in proc.stdout:
+            line = line.rstrip()
+            fields = line.split(maxsplit=10)
+            if len(fields) >= 11:
+                wsl_path = fields[10]
+                fields[10] = wsl_to_windows_path(wsl_path)
+                if file_type == "main" and user_setting['FEEDBACK']:
+                    print(fields[10], flush=True)
+                records.append(fields)
+
+        _, err = proc.communicate()
+        rlt = proc.returncode
+
+        if rlt not in (0, 1):
+            print(err)
             print("Find command failed, unable to continue. Quitting.")
             sys.exit(1)
 
@@ -517,19 +536,18 @@ def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, 
     if file_type == "main":
         end = time.time()
 
-    file_entries = [entry.decode('utf-8', errors='backslashreplace') for entry in output.split(b'\0') if entry]
-    file_entries = conv_cdrv(file_entries)  # /mnt/c to C:\
+    # file_entries = [entry.decode('utf-8', errors='backslashreplace') for entry in output.split(b'\0') if entry]  # if buffered
+    # file_entries = conv_cdrv(file_entries)  # /mnt/c to C:\
 
     if usr_areas:
-        file_entries += usr_areas  # add user dirs for full accuracy
+        records += usr_areas  # add user dirs for full accuracy
 
-    records = []
-    if file_type == "main":
-        if user_setting['FEEDBACK']:  # scrolling terminal look
-            for fields in file_entries:
-                if len(fields) >= 11:
-                    print(fields[10], flush=True)
-                    records.append(fields)
+    # records = []  # if buffered
+    # for fields in file_entries:
+    #     if len(fields) >= 11:
+    #         if file_type == "main" and user_setting['FEEDBACK']:  # scrolling terminal look
+    #             print(fields[10], flush=True)
+    #         records.append(fields)
 
     if file_type not in ("ctime", "main"):
         raise ValueError(f"Invalid search type: {file_type}")
@@ -537,6 +555,7 @@ def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, 
     if init and user_setting['checksum']:
         cstart = time.time()
         cprint.cyan("Running checksum")
+    print(len(records))
     RECENT, COMPLETE = process_lines(process_line, records, file_type, search_start_dt, 'FSEARCH', user_setting, logging_values, cfr, iqt, strt, endp)
     return RECENT, COMPLETE, end, cstart
 

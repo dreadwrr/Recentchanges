@@ -67,7 +67,8 @@ def build_dwalk_parser():
     downloads_p.add_argument("basedir")
     downloads_p.add_argument("user")
     downloads_p.add_argument("mdltype", help="basedir model ssd or hdd for branch logic serial or multi")
-    downloads_p.add_argument("tempdir")
+    downloads_p.add_argument("tempdir"),
+    downloads_p.add_argument("gnupghome", help="GNUPGHOME to filter out runtime file (default: None)"),
     downloads_p.add_argument("CACHE_S")
     downloads_p.add_argument("dspEDITOR", type=multi_value)
     downloads_p.add_argument("dspPATH")

@@ -93,7 +93,7 @@ def import_key(argv):
         # )
         input_data = "trust\n5\ny\nquit\n"
 
-        result = subprocess.run(["sudo", "gpg", "--command-fd", "0", "--edit-key", email], input=input_data, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        result = subprocess.run(["gpg", "--command-fd", "0", "--edit-key", email], input=input_data, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode != 0:
             print("failed to import", keyfile, " GPG failed:", result.stderr)
         return 0

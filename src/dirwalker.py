@@ -29,6 +29,7 @@ from .dirwalkerfunctions import check_specified_paths
 from .dirwalkerfunctions import chunk_split
 from .dirwalkerfunctions import decr_cache
 from .dirwalkerfunctions import get_base_folders
+from .dirwalkerfunctions import get_filter_tup
 from .dirwalkerfunctions import get_stat
 from .dirwalkerwin import get_extension_tup
 from .dirwalkerwin import get_config_data
@@ -41,7 +42,7 @@ from .dirwalkerparser import build_dwalk_parser
 from .fileops import find_dir_link_target
 from .fileops import find_link_target
 from .fsearchfunctions import get_file_id
-from .fsearchfunctions import is_reparse_point
+from .fileops import is_reparse_point
 from .gpgcrypto import encrm
 from .gpgcrypto import encr
 from .gpgcrypto import dict_string
@@ -70,12 +71,13 @@ fmt = "%Y-%m-%d %H:%M:%S"
 execEXTN = (".exe", ".msi", ".bat", ".com")
 
 
-def collect_files(base_dir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, paths_tup, is_noextension, is_exec, is_sym, logger):
+def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, paths_tup, is_noextension, is_exec, is_sym, logger):
     ''' proteusEXTN shield os.scandir '''
     all_entries = []
     log_entries = []
     dir_data = {}
     cckSEEN, idx_bytes = set(), set()
+
     try:
 
         def collect_scan(root, root_modified_dt=None, root_modified_ep=None, current_depth=0, max_depth=0, r=0, j=0):
@@ -132,12 +134,13 @@ def collect_files(base_dir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, p
                                 modified_dt = epoch_to_str(modified_ep)
 
                                 if not rtype:
-                                    if path != base_dir:
+                                    if path != basedir:
                                         max_depth, r, j = collect_scan(path, modified_dt, modified_ep, current_depth + 1, max_depth, r, j)
                                 else:
                                     target = find_link_target(path, logger=logger)
 
                             elif entry.is_file():
+
                                 if not (symlink and not is_sym):
                                     filename = entry.name
                                     x += 1
@@ -146,13 +149,13 @@ def collect_files(base_dir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, p
                                     if path.lower().startswith(filter_tup):
                                         continue
 
-                                    if is_exec:
-                                        filename_lower = filename.lower()
-                                        if filename_lower.endswith(exec_tup):
-                                            found = True
+                                    if path.startswith(paths_tup):
+                                        found = True
                                     else:
-                                        if path.startswith(paths_tup):
-                                            found = True
+                                        if is_exec:
+                                            filename_lower = filename.lower()
+                                            if filename_lower.endswith(exec_tup):
+                                                found = True
                                         else:
                                             if is_noextension:
                                                 if "." not in filename or (filename.startswith(".") and filename.count(".") == 1):
@@ -166,6 +169,11 @@ def collect_files(base_dir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, p
                                         stat_info = get_stat(entry, logger=logger)
                                         if not stat_info:
                                             continue
+                                        if not symlink:
+                                            if is_reparse_point(stat_info):
+                                                symlink = True
+                                                if symlink and not is_sym:
+                                                    continue
                                         if symlink:
                                             target = find_link_target(path, logger=logger)
                                         idx_files += 1
@@ -173,8 +181,10 @@ def collect_files(base_dir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, p
                                         sze = stat_info.st_size
                                         dev = stat_info.st_dev
                                         if stat_info.st_nlink > 1:
-                                            inode, _, _, _ = get_file_id(path, logger=logger)
-                                            if inode not in (None, "not_found"):
+                                            inode, _, _, _, _, status = get_file_id(path, logger=logger)
+                                            if status in ("Nosuchfile", "Error"):
+                                                continue
+                                            elif inode:
                                                 key = (dev, inode)
                                                 if key not in idx_bytes:
                                                     idx_bytes.add(key)
@@ -187,15 +197,15 @@ def collect_files(base_dir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, p
                                         all_entries.append((path, stat_info, symlink, target, found))
                             else:
                                 if symlink:
-                                    target = find_dir_link_target(path, logger)
+                                    target = find_dir_link_target(path, logger=logger)
                                     if target:
                                         rtype = "symlink"
-                                        target = f'broken {target}'
                                         stat_info = get_stat(entry, logger=logger)
                                         if not stat_info:
                                             logger.debug(f"could not stat broken dir symlink {path}")
                                             continue
-
+                                        modified_ep = stat_info.st_mtime
+                                        modified_dt = epoch_to_str(modified_ep)
                             if rtype:
 
                                 entry_data = {
@@ -203,6 +213,7 @@ def collect_files(base_dir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, p
                                     'modified_ep': modified_ep,
                                     'file_count': 0,
                                     'idx_count': 0,
+                                    'idx_bytes': 0,
                                     'max_depth': path.count(os.sep),
                                     'type': rtype,
                                     'target': target
@@ -217,8 +228,8 @@ def collect_files(base_dir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, p
                         'modified_ep': root_modified_ep,
                         'file_count': x,
                         'idx_count': idx_files,
-                        'max_depth': root.count(os.sep),
                         'idx_bytes': ix,
+                        'max_depth': root.count(os.sep),
                         'type': '',
                         'target': ''
                     }
@@ -231,14 +242,14 @@ def collect_files(base_dir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, p
 
             return max_depth, r, j
 
-        root_stat = os.stat(base_dir)
-        modified_ep = root_stat.st_mtime
+        stat_info = os.stat(basedir)
+        modified_ep = stat_info.st_mtime
         modified_dt = epoch_to_str(modified_ep)
 
-        max_depth, r, j = collect_scan(base_dir, modified_dt, modified_ep)
+        max_depth, r, j = collect_scan(basedir, modified_dt, modified_ep)
 
     except OSError as e:
-        print(f"Couldnt stat unable to access drive {base_dir}: {e}")
+        print(f"Couldnt stat unable to access drive {basedir}: {e}")
         return None, None, None, 0, 0, 0
     except Exception as e:
         emsg = f"collect_files Exception: {type(e).__name__} {e}"
@@ -257,7 +268,7 @@ def collect_files(base_dir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, p
 #
 # Drive index find downloads
 # systimeche.gpg aka CACHE_S
-def find_created(appdata_local, dbopt, dbtarget, basedir, user, mdltype, tempdir, CACHE_S, dspEDITOR, dspPATH, email, ANALYTICSECT=True, compLVL=200):
+def find_created(appdata_local, dbopt, dbtarget, basedir, user, mdltype, tempdir, gnupg_home, CACHE_S, dspEDITOR, dspPATH, email, ANALYTICSECT=True, compLVL=200):
 
     cfr_src = decr_cache(CACHE_S)
     if not cfr_src:
@@ -268,32 +279,31 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, mdltype, tempdir
 
     USRDIR = config_data.USRDIR
     log_file = config_data.log_file
-
     config = config_data.config
     EXCLDIRS = config_data.EXCLDIRS
-    skipped = config_data.nogo
-    suppress_list = config_data.suppress_list
+    nogo = config_data.nogo
+    filterout_list = config_data.filterout_list
     ll_level = config_data.ll_level
     MODULENAME = config['paths']['MODULENAME']
 
-    EXCLDIRS += skipped
-    suppress_list = [os.path.join(basedir, d) for d in suppress_list]
+    EXCLDIRS += nogo
+    filterout_list = [os.path.join(basedir, d) for d in filterout_list]
 
     if basedir == "C:\\":
         MODULENAME = config['paths']['MODULENAME']
         download_results = os.path.join(USRDIR, MODULENAME + 'x')  # desktop
-        # pst_data or app install
+        # pst_data linux or app install windows
         flth_frm = appdata_local / "flth.csv"  # filter hits
         CACHE_F_frm = os.path.join(appdata_local, "ctimecache.gpg")
         CACHE_S_frm, _ = parse_systimeche(basedir, CACHE_S)
         CACHE_S_frm = os.path.join(appdata_local, CACHE_S_frm)
-        suppress_list.append(str(flth_frm))
-        suppress_list.append(download_results)
-        suppress_list.append(CACHE_F_frm)
-        suppress_list.append(CACHE_S_frm)
+        filterout_list.append(str(flth_frm))
+        filterout_list.append(download_results)
+        filterout_list.append(CACHE_F_frm)
+        filterout_list.append(CACHE_S_frm)
 
     EXCLDIRS_FULLPATH = set(os.path.join(basedir, d) for d in EXCLDIRS)
-    filter_tup = tuple((s).lower() for s in suppress_list if s)
+    filter_tup = get_filter_tup(filterout_list)
 
     base_folders, root_count = get_base_folders(basedir, EXCLDIRS_FULLPATH)
     if root_count == 0:
@@ -326,7 +336,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, mdltype, tempdir
         except Exception as e:
             emsg = f"find_created error in scan_created while finding downloads serially: {e} {type(e).__name__}"
             print(emsg)
-            logging.error(emsg, exc_info=True)
+            logroot.error(emsg, exc_info=True)
             return 1
 
     else:
@@ -383,7 +393,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, mdltype, tempdir
                     rlt = 1
                     break
 
-        write_logs_to_logger(all_logs, logroot)  # logs_to_queue(logs, queue)
+        write_logs_to_logger(all_logs, logroot)
     prog_v += incr
     end = time.time()
 
@@ -476,7 +486,8 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, mdltype, tempdir
             output_file = f'{MODULENAME}xcreated.txt'
             temp_f = os.path.join(tempdir, output_file)
 
-            local_gpg = os.path.join(appdata_local, "gpg", "gnupghome", "random_seed")
+            local_gpg = os.path.join(gnupg_home, "random_seed")
+            # local_gpg = os.path.join(appdata_local, "gpg", "gnupghome", "random_seed")
             # local_gpg = os.path.join(home_dir, ".gnupg", "random_seed")  # linux
 
             all_sys.sort(key=lambda x: x[1])
@@ -523,8 +534,6 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, mdltype, tempdir
 # chunks = split_dirs_for_workers(all_dirs, num_chunks)
 #
 # 3
-
-
 def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, ANALYTICSECT=False, idx_drive=False, gnupghome=None, compLVL=200, iqt=False, strt=0, endp=100):
     appdata_local = Path(appdata_local)
     config_data = get_config_data(appdata_local, user)
@@ -534,8 +543,8 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
     log_file = config_data.log_file
     config = config_data.config
     EXCLDIRS = config_data.EXCLDIRS
-    skipped = config_data.nogo
-    suppress_list = config_data.suppress_list
+    nogo = config_data.nogo
+    filterout_list = config_data.filterout_list
     driveTYPE = config_data.driveTYPE
     ll_level = config_data.ll_level
     extension = config['shield']['proteusEXTN']
@@ -548,9 +557,9 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
     is_noextension = False
 
     deltav = endp - strt
-    proval = deltav * .15
-    if iqt:
-        print(f"Progress: {strt}%", flush=True)
+    proval = deltav * .15 + strt
+    # if iqt:
+    #     print(f"Progress: {strt}%", flush=True)
 
     parsedsys = []
     dir_data = {}
@@ -560,13 +569,13 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
     paths_tup, extn_tup = (), ()
 
     paths_tup, _ = check_specified_paths(basedir, configured_paths, "proteusPATHS", suppress=False)  # add basedir to paths and any paths that dont exist pull out and tell user
-    exec_tup = tuple(e for e in execEXTN if e) if is_exec else ()
+    exec_tup = tuple((e).lower() for e in execEXTN if e) if is_exec else ()
     extn_tup, is_noextension = get_extension_tup(extension)  # set flags
 
     # proteus shield it is a custom profile from config. use collect_files to find the files and then build the directory cache at the same time
 
-    # handle inclusions EXCLDIRS uppress_list get converted to tuples after
-    EXCLDIRS += skipped
+    # handle inclusions EXCLDIRS suppress_list get converted to tuples after
+    EXCLDIRS += nogo
 
     # handle exclusions
     # Windows temp folder
@@ -574,7 +583,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
     if exclude_temp not in EXCLDIRS:
         EXCLDIRS.append(str(exclude_temp))
     # filter out
-    suppress_list = [os.path.join(basedir, d) for d in suppress_list]
+    filterout_list = [os.path.join(basedir, d) for d in filterout_list]
     if basedir == "C:\\":
         # biggest exclude is gnupg\\random_seed and any runtime files
         # windows is primarily tempdir from qt app. these files are intermittent so are not
@@ -583,28 +592,28 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
         # tempdir\\'{MODULENAME}xfindfiles.txt'
         MODULENAME = config['paths']['MODULENAME']
         download_results = os.path.join(USRDIR, MODULENAME + "x")
-        suppress_list.append(download_results)
-        # suppress_list.append(str(file_out))  # linux
+        filterout_list.append(download_results)
+        # filterout_list.append(str(file_out))  # linux
         if '.gpg' in extension:
             CACHE_F_frm = os.path.join(appdata_local, "ctimecache.gpg")
             CACHE_S_frm, _ = parse_systimeche(basedir, CACHE_S)
             CACHE_S_frm = os.path.join(appdata_local, CACHE_S_frm)
-            suppress_list.append(CACHE_F_frm)
-            suppress_list.append(CACHE_S_frm)
-            suppress_list.append(dbtarget)
+            filterout_list.append(CACHE_F_frm)
+            filterout_list.append(CACHE_S_frm)
+            filterout_list.append(dbtarget)
         if ".csv" in extension:
             flth_frm = appdata_local / "flth.csv"
-            suppress_list.append(str(flth_frm))
+            filterout_list.append(str(flth_frm))
         if ".db" in extension:
-            suppress_list.append(dbopt)
+            filterout_list.append(dbopt)
 
         if is_noextension and gnupghome:
             file_exclude = os.path.join(gnupghome, "random_seed")
-            if file_exclude not in suppress_list:
-                suppress_list.append(file_exclude)
-    # end handle exclusions
+            if file_exclude not in filterout_list:
+                filterout_list.append(file_exclude)
+
     EXCLDIRS_FULLPATH = set(os.path.join(basedir, d) for d in EXCLDIRS)
-    filter_tup = tuple(s for s in suppress_list if s)
+    filter_tup = get_filter_tup(filterout_list)
 
     logging_values = (log_file, ll_level, appdata_local)
     rootlogger = setup_logger(log_file, logging_values[1], "BUILDIDX")
@@ -628,7 +637,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
         print("failed to build profile an error occured there were no matched files. exitting")
         return 1
     if iqt:
-        print(f"Progress: {proval:.2f}%")  # 15 %
+        print(f"Progress: {proval}%")  # 15 %
     prog_v = proval
     el = end - start
     if ANALYTICSECT:
@@ -646,9 +655,9 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
             dbopt, dbtarget, basedir, CACHE_S, email, user, None, dir_data, idx_drive=idx_drive, compLVL=compLVL,
             dcr=True, error_message="Reencryption failed drive idxcache not saved."
         )  # weigh is 60%
-        prog_v = proval + 60  # 75%
+        prog_v = deltav * .60 + proval  # 75%
         if iqt:
-            print(f"Progress: {prog_v:.2f}%")
+            print(f"Progress: {prog_v}%")
         if res == 0:
             print(f'{"Drive index" if idx_drive else "System profile"} complete')
             if iqt:
@@ -657,7 +666,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
             return 52  # likely encryption failure database integrity is fine
         return res
 
-    endval = deltav * .90
+    endval = deltav * .90 + strt
 
     cprint.cyan('\nRunning checksum.')
 
@@ -671,7 +680,6 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
     if total < batch_size or driveTYPE.lower() == "hdd":
 
         start = time.time()
-        # queue = LoggingQueue(logger)
         log_q = queue.SimpleQueue()
         init_process_worker(log_q)
         try:
@@ -722,7 +730,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
             ) as executor:
                 futures = [
                     executor.submit(
-                        build_index, chunk, i, num_chunks, show_progress
+                        build_index, chunk, i, num_chunks, show_progress, prog_v, endval
                     )
                     for i, chunk in enumerate(chunks)
                 ]
@@ -780,9 +788,9 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
 
                 if iqt:
                     print(f"Progress: {endp}%", flush=True)
-                else:
-                    extn = extension + configured_paths
-                    set_json_settings({"proteusEXTN": extn}, drive=basedir, filepath=str(json_file))
+
+                extn = extension + configured_paths
+                set_json_settings({"proteusEXTN": extn}, drive=basedir, filepath=str(json_file))
 
                 print("System profile complete")
             elif rlt == 4:
@@ -820,7 +828,7 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, CACHE_S
     sys_tables, cache_table, _ = get_idx_tables(basedir, CACHE_S)
 
     if iqt:
-        print("Progress: 0.0%")
+        print(f"Progress: {strt}%")
 
     recent_sys = db_sys_changes(dbopt, sys_tables)  # retrieve profile from db
 
@@ -847,7 +855,8 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, CACHE_S
     total = len(recent_sys)
     batch_size = 500
 
-    endval = endp * .9
+    deltav = endp - strt
+    endval = deltav * .9 + strt
 
     show_progress = False
     if iqt:
@@ -944,19 +953,18 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, CACHE_S
 
     end = time.time()
 
+    recent_files = []
     dir_diff = []
     new_diff = []
-    hdr1 = 'System index scan'
-    mode = 'a' if os.path.isfile(difffile) else 'w'
-    write_type = "appended" if mode == 'a' else "written"
+    cmsg = ""
+
+    current_time = None
 
     if rlt == 0:
 
         if showDiff:
             systimeche = name_of(CACHE_S)
             dir_diff, new_diff = find_symmetrics(dbopt, cache_table, systimeche)
-
-        cmsg = ""
 
         if x != 0:
             p = (y / x) * 100
@@ -969,103 +977,106 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, CACHE_S
                 el = end - start
                 print(f'Search took {el:.3f} seconds\n')
 
-            hdr2 = "The following files from sys index have changes by checksum\n"
-            fstr = "timestamp,filename,creationtime,inode,accesstime,checksum,filesize,symlink,user,group,mode,casmod,target,lastmodified,hardlinks,count"
-
             # symmetric differences
             # show sylinks that have new targets
             # show the files that no longer exist from the miss rate
-            recent_files = []
             for record in all_sys:
                 record_str = ' '.join(map(str, record))
                 recent_files.append(record_str)
 
-            current_time = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M")
-
             # Insert changes
 
-            if save_db(dbopt, dbtarget, basedir, CACHE_S, email, user, None, None, all_sys, keys=None, idx_drive=False, compLVL=compLVL, dcr=dcr):
-
-                if len(recent_files) > 0:
-
-                    with open(difffile, mode) as f:
-                        f.write("\n")
-                        print()
-                        print(hdr1, file=f)
-                        print(hdr2, file=f)
-                        print(fstr, file=f)
-                        print(hdr2)
-
-                        for record in recent_files:
-                            f.write(record + '\n')
-                            print(record)
-
-                        if cmsg:
-                            print(cmsg, file=f)
-                            print(cmsg)
-
-                        if showDiff:
-
-                            if link_diff:
-                                link_header = "symlink(s) with changed target"
-                                f.write("\n")
-                                print(link_header, file=f)
-                                for i in range(0, len(link_diff), 2):
-                                    tup = link_diff[i]  # file record
-                                    if i+1 < len(link_diff):
-                                        second_tup = link_diff[i+1]  # old target new target
-                                        tup_str = " ".join(map(str, tup)) + " " + ">".join(map(str, second_tup))
-                                    else:
-                                        tup_str = " ".join(map(str, tup))
-                                    f.write(tup_str + "\n")
-
-                            if nfs_records:
-                                header = "following profile files no longer exist"
-                                f.write("\n")
-                                print(header, file=f)
-                                for tup in nfs_records:
-                                    tup_str = " ".join(map(str, tup))
-                                    f.write(tup_str + "\n")
-
-                            print(current_time, file=f)
-
-                    print(f"\nChanges {write_type} to difference file {difffile}")
-                    if showDiff and (nfs_records or dir_diff or new_diff):
-                        print("Differences included")
-                    elif showDiff:
-                        print("no symmetric differences found.")
-            else:
+            if not save_db(dbopt, dbtarget, basedir, CACHE_S, email, user, None, None, all_sys, keys=None, idx_drive=False, compLVL=compLVL, dcr=dcr):
+                rlt = 1
                 print(f"Failed to insert profile changes into {sys_tables[1]} table in scan_system")
         else:
             print(f'No results found for sys index scan system{' multiprocessing' if driveTYPE.lower() == "ssd" else ''}.')
     else:
         print("Scan index failed scan_system dirwalker.py.")
 
-    if rlt == 0:
+    hdr1 = 'System index scan'
+    mode = 'a' if os.path.isfile(difffile) else 'w'
+    write_type = "appended" if mode == 'a' else "written"
+    hdr2 = "The following files from sys index have changes by checksum\n"
+    fstr = "timestamp,filename,creationtime,inode,accesstime,checksum,filesize,symlink,user,group,mode,casmod,target,lastmodified,hardlinks,count,mtimeus"
+    current_time = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M")
+    is_all_results = len(recent_files) > 0
+    are_symmetrics = link_diff or nfs_records or dir_diff or new_diff
+    # output at bottom diff file
+    with open(difffile, mode) as f:
+        if is_all_results:
+
+            f.write("\n")
+            print()
+            print(hdr1, file=f)
+            print(hdr2, file=f)
+            print(fstr, file=f)
+            print(hdr2)
+
+            for record in recent_files:
+                f.write(record + '\n')
+                print(record)
+
+            if cmsg:
+                print(cmsg, file=f)
+                print(cmsg)
+
+            print(f"\nChanges {write_type} to difference file {difffile}")
+            if showDiff and not are_symmetrics:
+                print(current_time, file=f)
+
         # symmetric differences
         # show directories that had 0 files at indexing but now have files
         # show new directories since profile was created
-        if showDiff and (dir_diff or new_diff):
+        if showDiff and are_symmetrics:
 
-            with open(difffile, 'a') as f:
-                if not all_sys:
-                    print("Directory differences found")
-                    print(f"{write_type} to difference file {difffile}")
-                    f.write("\n")
-                    print()
-                    print(hdr1, file=f)
-                if dir_diff:
-                    diff_header = "Directory had 0 files when profile created but now has files"
-                    f.write("\n")
-                    print(diff_header, file=f)
-                    for tup in dir_diff:
-                        f.write(" ".join(map(str, tup)) + "\n")
-                if new_diff:
-                    p = len(new_diff)
-                    f.write('\n')
-                    print(f'{p} new directories since profile was created', file=f)
-                    for d in new_diff:
-                        f.write(d + "\n")
+            if not is_all_results:
+                print("Directory differences found")
+                print(f"{write_type} to difference file {difffile}")
+                f.write("\n")
+                print()
+                print(hdr1, file=f)
+
+            if link_diff:
+                link_header = "symlink(s) with changed target"
+                f.write("\n")
+                print(link_header, file=f)
+                for i in range(0, len(link_diff), 2):
+                    tup = link_diff[i]  # file record
+                    if i+1 < len(link_diff):
+                        second_tup = link_diff[i+1]  # old target new target
+                        tup_str = " ".join(map(str, tup)) + " " + "→".join(map(str, second_tup))
+                    else:
+                        tup_str = " ".join(map(str, tup))
+                    f.write(tup_str + "\n")
+
+            if nfs_records:
+                header = "following profile files no longer exist"
+                f.write("\n")
+                print(header, file=f)
+                for tup in nfs_records:
+                    tup_str = " ".join(map(str, tup))
+                    f.write(tup_str + "\n")
+
+            if dir_diff:
+                diff_header = "Directory had 0 files when profile created but now has files"
+                f.write("\n")
+                print(diff_header, file=f)
+                for tup in dir_diff:
+                    f.write(" ".join(map(str, tup)) + "\n")
+
+            if new_diff:
+                p = len(new_diff)
+                f.write('\n')
+                print(f'{p} new directories since profile was created', file=f)
+                for d in new_diff:
+                    f.write(d + "\n")
+
+            print("Differences included")
+        elif showDiff:
+            print("no symmetric differences found.")
+
+    if rlt == 0:
         if iqt:
             print(f"Progress: {endp}%", flush=True)
     gc.collect()
@@ -1077,6 +1088,7 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, CACHE_S
 
 def set_hardlinks(appdata_local, dbopt, dbtarget, basedir, user, tempdir, email, compLVL=200):
     """ Update hardlinks """
+
     appdata_local = Path(appdata_local)
     config_data = get_config_data(appdata_local, user)
     log_file = config_data.log_file
@@ -1144,6 +1156,7 @@ def main_entry(argv):
     elif args.action == "downloads":
         calling_args = [
             args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.mdltype, args.tempdir,
-            args.CACHE_S, args.dspEDITOR, args.dspPATH, args.email, args.ANALYTICSECT, args.compLVL
+            args.gnupghome, args.CACHE_S, args.dspEDITOR, args.dspPATH, args.email, args.ANALYTICSECT,
+            args.compLVL
         ]
         sys.exit(find_created(*calling_args))

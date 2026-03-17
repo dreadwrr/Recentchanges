@@ -41,7 +41,7 @@ from .configfunctions import check_config
 from .configfunctions import find_install
 from .configfunctions import get_config
 from .configfunctions import find_user_folder
-from .config import update_toml_values
+from .config import dump_toml
 from .dirwalker import scan_system
 from .filterhits import update_filter_csv
 from .fsearchfunctions import set_excl_dirs
@@ -72,6 +72,7 @@ from .rntchangesfunctions import get_runtime_exclude_list
 from .rntchangesfunctions import hsearch
 from .rntchangesfunctions import logic
 from .rntchangesfunctions import mftec_is_cutoff
+from .rntchangesfunctions import multi_value
 from .rntchangesfunctions import name_of
 from .rntchangesfunctions import output_results_exit
 from .rntchangesfunctions import removefile
@@ -151,6 +152,8 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
     driveTYPE = config['search']['driveTYPE']
     wsl = config['search']['wsl']
     dspEDITOR = config['display']['dspEDITOR']
+    if dspEDITOR:
+        dspEDITOR = multi_value(dspEDITOR)
     dspPATH_frm = config['display']['dspPATH']
 
     escaped_user = re.escape(USR)
@@ -307,7 +310,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
             PRUNE.append("-o")
     PRUNE += ["\\)", "-prune",  "-o"]
 
-    TAIL = ["-not", "-type", "d", "-printf", "%T@ %A@ %C@ %i %M %n %s %u %g %m %p\\0"]
+    TAIL = ["-not", "-type", "d", "-printf", "%T@ %A@ %C@ %i %M %n %s %u %g %m %p\n"]
 
     mmin = []
     cmin = []
@@ -443,9 +446,9 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
                 "-EndR", str(endval)
             ]
             if iqt:
-                if FEEDBACK:
-                    command += ["-feedback"]
-
+                command += ["-progress"]
+            if FEEDBACK:
+                command += ["-feedback"]
             proval += 15
             endval += 15
             init = True
@@ -481,7 +484,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
                 )
 
             else:
-                cmin = ["-cmin", f"-{search_time}"]
+                cmin = ["-amin", f"-{search_time}"]
                 current_time = datetime.now()
 
                 find_command_cmin = F + PRUNE + cmin + TAIL
@@ -495,7 +498,6 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
                 cmin_end = time.time()
                 cmin_start = current_time.timestamp()
                 cmin_offset = time_convert(cmin_end - cmin_start, 60, 2)
-
                 mmin = ["-mmin", f"-{search_time + cmin_offset:.2f}"]
                 find_command_mmin = F + PRUNE + mmin + TAIL
                 proval += 10
@@ -510,9 +512,10 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         cend = time.time()
         if iqt:
             print(f"Progress: {endval + 1}%")
+        sys.stdout.flush()
 
         # end Main search
-        if RECENT is None or tout is None:
+        if RECENT is None:
             return 1
 
         if cfr and (RECENT or tout):
@@ -776,7 +779,9 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
                     if build_tsv(SORTCOMPLETE, TMPOPT, logf, rout, escaped_user, outpath, method, fmt):
                         cprint.green(f"File doctrine.tsv created {USRDIR}\\{tsv_doc}")
                 elif not iqt:
-                    update_toml_values({'diagnostics': {'POSTOP': False}}, toml_file)  # if one was already made disable the setting
+                    # update_toml_values({'diagnostics': {'POSTOP': False}}, toml_file)  # if one was already made disable the setting
+                    config['diagnostics']['POSTOP'] = False
+                    dump_toml(None, config, toml_file)
 
             # Terminal output process scr/cer
             if not csum and not suppress:
@@ -819,7 +824,12 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
 
             rlt = scan_system(appdata_local, dbopt, dbtarget, basedir, USR, diff_file, CACHE_S, email, ANALYTICSECT, show_diff, compLVL, dcr=dcr, iqt=iqt, strt=proval, endp=endval)
             if not iqt and not autoIDX:  # if commandline, turn off so doesnt scan every time
-                update_toml_values({'diagnostics': {'scanIDX': False}}, toml_file)
+                # update_toml_values({'diagnostics': {'scanIDX': False}}, toml_file)
+                config['diagnostics']['scanIDX'] = False
+                dump_toml(None, config, toml_file)
+                #
+                #
+                #
             if rlt != 0:
                 if rlt == 1:
                     print("Post op index scan failed scan_system dirwalker.py")

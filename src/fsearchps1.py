@@ -15,7 +15,7 @@ from .fsearchfunctions import iso8601_utc
 # Powershell Parallel SORTCOMPLETE search and ctime hashing
 
 
-def process_ps1(line, checksum, filetype, search_start_dt, CACHE_F):
+def process_ps1(line, checksum, filetype, search_start_dt, CACHE_F, logger=None):
 
     fmt = "%Y-%m-%d %H:%M:%S"
     label = "Sortcomplete"
@@ -26,7 +26,7 @@ def process_ps1(line, checksum, filetype, search_start_dt, CACHE_F):
     checks = cam = last_modified = target = None
 
     if len(line) < 11:
-        emit_log("DEBUG", f"process_ps1 record length less than required 11. skipping: {line}", logs.WORKER_LOG_Q)
+        emit_log("DEBUG", f"process_ps1 record length less than required 11. skipping: {line}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     mod_time = line[0]
@@ -56,55 +56,58 @@ def process_ps1(line, checksum, filetype, search_start_dt, CACHE_F):
 
     c_time = parse_iso8601(c_time)
     # pywin32
-    inode, _, hardlink, _, _ = get_file_id(file_path, logs.WORKER_LOG_Q)  # sym c_time mode
-    if inode == "not_found":
+    inode, _, hardlink, _, _, status = get_file_id(file_path, logs.WORKER_LOG_Q, logger=logger)  # sym c_time mode
+    if status in ("Nosuchfile", "Error"):
         mt = mtime.replace(microsecond=0)
-        emit_log("DEBUG", f"no such file return from py32win {line}", logs.WORKER_LOG_Q)
-        return ("Nosuchfile", mt, mt, file_path), log_entries
+        return ("Deleted", mt, mt, file_path), log_entries
 
-    mtime_dt = iso8601_utc(mod_time, logs.WORKER_LOG_Q)
+    mtime_dt = iso8601_utc(mod_time, logs.WORKER_LOG_Q, logger=logger)
     sec = calendar.timegm(mtime_dt.utctimetuple())
     us = mtime_dt.microsecond
     mtime_us = sec * 1_000_000 + us
 
-    if sym != "y" and checksum:
-        if size > CSZE:
-            cached = get_cached(CACHE_F, size, mtime_us, file_path)
-            if cached is None:
-                checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, max_retry=1, cacheable=True, log_q=logs.WORKER_LOG_Q)
+    if size and checksum:
+        if sym != "y":
+            if size > CSZE:
+                cached = get_cached(CACHE_F, size, mtime_us, file_path)
+                if cached is None:
+                    checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, max_retry=1, cacheable=True, log_q=logs.WORKER_LOG_Q, logger=logger)
+                    if checks is not None:
+                        if status == "Retried":
+                            checks, mtime, st, mtime_us, c_time, inode, size = set_stat(line, checks, file_dt, file_st, file_us, inode, logs.WORKER_LOG_Q, logger=logger)
+
+                        if checks:
+                            label = "Cwrite"
+
+                    else:
+                        if status == "Nosuchfile":
+                            mt = mtime.replace(microsecond=0)
+                            return ("Deleted", mt, mt, file_path), log_entries
+                else:
+                    checks = cached.get("checksum")
+
+            else:
+                checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, max_retry=1, cacheable=False, log_q=logs.WORKER_LOG_Q, logger=logger)
                 if checks is not None:
                     if status == "Retried":
-                        checks, mtime, st, mtime_us, c_time, inode, size = set_stat(line, checks, file_dt, file_st, file_us, inode, logs.WORKER_LOG_Q)
-
-                    if checks:
-                        label = "Cwrite"
-
+                        checks, mtime, st, mtime_us, c_time, inode, size = set_stat(line, checks, file_dt, file_st, file_us, inode, logs.WORKER_LOG_Q, logger=logger)
                 else:
                     if status == "Nosuchfile":
                         mt = mtime.replace(microsecond=0)
                         return ("Deleted", mt, mt, file_path), log_entries
-            else:
-                checks = cached.get("checksum")
-
-        else:
-            checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, max_retry=1, cacheable=False, log_q=logs.WORKER_LOG_Q)
-            if checks is not None:
-                if status == "Retried":
-                    checks, mtime, st, mtime_us, c_time, inode, size = set_stat(line, checks, file_dt, file_st, file_us, inode, logs.WORKER_LOG_Q)
-            else:
-                if status == "Nosuchfile":
-                    mt = mtime.replace(microsecond=0)
-                    return ("Deleted", mt, mt, file_path), log_entries
 
     elif sym == "y":
-        target = find_link_target(file_path, logs.WORKER_LOG_Q)
+        target = find_link_target(file_path, logs.WORKER_LOG_Q, logger=logger)
 
     if not owner:
-        owner_domain = file_owner(file_path, logs.WORKER_LOG_Q)
+        owner_domain = file_owner(file_path, logs.WORKER_LOG_Q, logger=logger)
+        if owner_domain in (None, "Nosuchfile"):
+            mt = mtime.replace(microsecond=0)
+            return ("Deleted", mt, mt, file_path), log_entries
         owner, domain = owner_domain if owner_domain else (None, None)
 
     if mtime is None:
-        emit_log("DEBUG", f"no mtime from calculate checksum: {file_path} mtime={mtime}", logs.WORKER_LOG_Q)
+        emit_log("DEBUG", f"no mtime from calculate checksum: {file_path} mtime={mtime}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     if c_time and c_time > mtime:
@@ -112,10 +115,10 @@ def process_ps1(line, checksum, filetype, search_start_dt, CACHE_F):
         mtime = c_time
         cam = "y"
     elif not c_time:
-        emit_log("DEBUG", f"creation time was None at casmod check: {file_path} : {line}", logs.WORKER_LOG_Q)
+        emit_log("DEBUG", f"creation time was None at casmod check: {file_path} : {line}", logs.WORKER_LOG_Q, logger=logger)
 
     if mtime < search_start_dt:
-        emit_log("DEBUG", f"Warning system cache conflict: {file_path} mtime={mtime} < cutoff={search_start_dt}", logs.WORKER_LOG_Q)
+        emit_log("DEBUG", f"Warning system cache conflict: {file_path} mtime={mtime} < cutoff={search_start_dt}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     atime = parse_iso8601(access_time)

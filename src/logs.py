@@ -1,82 +1,21 @@
 import logging
 import os
 from pathlib import Path
-from .configfunctions import find_install
 
 WORKER_LOG_Q = None
 
 
-def filename_of_handler():
-    for handler in logging.getLogger().handlers:
-        if isinstance(handler, logging.FileHandler):
-            return Path(handler.baseFilename)
-    return None
-    # root = logging.getLogger()
-    # for h in root.handlers:
-    #     if isinstance(h, logging.FileHandler):
-    #         log_path = Path(h.baseFilename)
-    #         return log_path
+LEVEL_MAP = {
+    "CRITICAL": logging.CRITICAL,
+    "ERROR": logging.ERROR,
+    "WARNING": logging.WARNING,
+    "DEBUG": logging.DEBUG,
+}
 
 
-def set_logger(root, process_label="MAIN", level=None):
-    fmt = logging.Formatter(f'%(asctime)s [%(name)s] [{process_label}] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')  # [%(levelname)s]
-    # if level is not None:
-    #     root.setLevel(level)
-    for handler in root.handlers:
-        handler.setFormatter(fmt)
-        if level is not None:
-            handler.setLevel(level)
-
-
-def set_log_level(log_file, level):
-    level_map = {
-        "CRITICAL": logging.CRITICAL,
-        "ERROR": logging.ERROR,
-        "WARNING": logging.WARNING,
-        "DEBUG": logging.DEBUG,
-    }
-    log_level = level_map.get(level, logging.ERROR)
-    return log_level
-
-
-def set_format(log_file, level, process_label):
-    log_level = set_log_level(log_file, level.upper())
-
-    logging.basicConfig(
-        filename=log_file,
-        level=log_level,
-        format=f'%(asctime)s [%(name)s] [{process_label}] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    # notes: other options: [%(levelname)s]
-
-
-def setup_logger(log_file, level="ERROR", process_label="MAIN"):
-    """  set log level by handler for script or script area  """
-    root = logging.getLogger()
-
-    if not root.hasHandlers():
-        set_format(log_file, level, process_label)
-    else:
-        set_logger(root, process_label, level.upper())
-
-    return root
-
-
-def change_logger(file_name, level, process_label):
-
-    root = logging.getLogger()
-
-    appdata_local = find_install()
-    log_file = appdata_local / "logs" / file_name
-
-    for h in root.handlers[:]:
-        if isinstance(h, logging.FileHandler):
-            root.removeHandler(h)
-
-    set_format(log_file, level, process_label)
-
-    return root, log_file
+def init_process_worker(log_q):
+    global WORKER_LOG_Q
+    WORKER_LOG_Q = log_q
 
 
 def write_log(log, level, message):
@@ -117,9 +56,96 @@ def logging_worker(queue, record_count, strt, endp, show_progress, logger=None):
             write_log(log, level, message)
 
 
+def emit_log(level, message, log_q=None, log_entries=None, logger=None):
+    if log_q is not None:
+        log_q.put((level, message))
+    elif log_entries is not None:
+        log_entries.append((level, message))
+    elif logger:
+        write_log(logger, level, message)
+
+
 def logs_to_queue(log_list, queue):
     for msg in log_list:
         queue.put(msg)
+
+
+def filename_of_handler():
+    for handler in logging.getLogger().handlers:
+        if isinstance(handler, logging.FileHandler):
+            return Path(handler.baseFilename)
+    return None
+    # root = logging.getLogger()
+    # for h in root.handlers:
+    #     if isinstance(h, logging.FileHandler):
+    #         log_path = Path(h.baseFilename)
+    #         return log_path
+
+
+def set_logger(root, process_label="MAIN", level=None):
+    fmt = logging.Formatter(f'%(asctime)s [%(name)s] [{process_label}] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')  # [%(levelname)s]
+    # if level is not None:
+    #     root.setLevel(level)
+    for handler in root.handlers:
+        handler.setFormatter(fmt)
+        if level is not None:
+            handler.setLevel(level)
+
+
+def set_log_level(log_file, level):
+
+    log_level = LEVEL_MAP.get(level, logging.ERROR)
+    return log_level
+
+
+def set_format(log_file, level, process_label):
+    log_level = set_log_level(log_file, level.upper())
+
+    logging.basicConfig(
+        filename=log_file,
+        level=log_level,
+        format=f'%(asctime)s [%(name)s] [{process_label}] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    # notes: other options: [%(levelname)s]
+
+
+def setup_logger(log_file, level="ERROR", process_label="MAIN"):
+    """  set log level by handler for script or script area  """
+    root = logging.getLogger()
+
+    if not root.hasHandlers():
+        set_format(log_file, level, process_label)
+    else:
+        set_logger(root, process_label, level.upper())
+
+    return root
+
+
+def change_logger(log_file, level, process_label):
+
+    root = logging.getLogger()
+
+    log_level = LEVEL_MAP.get(str(level).upper(), logging.ERROR)
+
+    fmt = logging.Formatter(
+        f"%(asctime)s [%(name)s] [{process_label}] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    for h in root.handlers[:]:
+        if isinstance(h, logging.FileHandler):
+            root.removeHandler(h)
+            h.close()
+
+    fh = logging.FileHandler(Path(log_file))
+    fh.setLevel(log_level)
+    fh.setFormatter(fmt)
+    root.addHandler(fh)
+
+    root.setLevel(log_level)
+
+    return root, log_file
 
 
 def check_log_perms(log_path):
@@ -132,15 +158,3 @@ def check_log_perms(log_path):
                 os.utime(log_path, None)
     except PermissionError:
         pass
-
-
-def init_process_worker(log_q):
-    global WORKER_LOG_Q
-    WORKER_LOG_Q = log_q
-
-
-def emit_log(level, message, log_q=None, logs=None):
-    if log_q is not None:
-        log_q.put((level, message))
-    elif logs is not None:
-        logs.append((level, message))

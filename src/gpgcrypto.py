@@ -148,7 +148,7 @@ def decr_ctime(CACHE_F: str) -> dict:
     if not csv_path:
         if csv_path is None:
             print("if having problems run recentchanges reset to clear .gpg files and keys")
-        print(f"Unable to retrieve cache file {CACHE_F} quitting.")
+        print(f"Unable to retrieve cache file {CACHE_F}. the cache file might be corrupt removing it may resolve problem quitting.")
         sys.exit(1)
 
     cfr_src = {}

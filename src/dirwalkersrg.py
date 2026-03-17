@@ -23,6 +23,7 @@ from .rntchangesfunctions import cnc
 
 
 def hardlinks(basedir, database, target, conn, cur, logger):
+    log = logger if logger else logging
     try:
 
         cur.execute("SELECT filename, inode, symlink FROM logs WHERE hardlinks is NOT NULL and hardlinks != ''")
@@ -51,10 +52,14 @@ def hardlinks(basedir, database, target, conn, cur, logger):
         return True
 
     except sqlite3.Error as e:
-        print(f"hardlinks Error executing database query/update. err: {type(e).__name__}: {e}")
+        em = f"hardlinks Error executing database query/update. err: {type(e).__name__}: {e}"
+        print(em)
+        log.error(em, exc_info=True)
         conn.rollback()
     except Exception as e:
-        print(f"Error setting hardlinks: {e} {type(e).__name__} \n{traceback.format_exc()}")
+        em = f"Error setting hardlinks: {e} {type(e).__name__}"
+        print(em)
+        log.error(em, exc_info=True)
     return None
 
 

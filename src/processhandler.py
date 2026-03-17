@@ -179,6 +179,7 @@ class ProcessHandler(QObject):
         self.args = args
 
         script = str(script)
+
         if getattr(sys, "frozen", False):
             self.process.start(script, args)
         else:

@@ -1,7 +1,6 @@
 import logging
 import os
 import pywintypes
-import stat
 import win32con
 import win32file
 import win32security
@@ -75,11 +74,11 @@ def normalize_timestamp(mod_time: str) -> int:
     return int(sec) * 1_000_000 + int(frac)
 
 
-def iso8601_utc(s, log_q):
+def iso8601_utc(s, log_q, logger=None):
     try:
         return datetime.fromisoformat(s)
     except (ValueError, TypeError, AttributeError) as e:
-        emit_log("ERROR", f"parse_iso8601: invalid date format: {s} {e} ", log_q)
+        emit_log("ERROR", f"parse_iso8601: invalid date format: {s} {e} ", log_q, logger=logger)
         return None
 
 
@@ -99,23 +98,6 @@ def parse_iso8601(s):
         return None
 
 
-def get_reparse_type(path):
-    try:
-        attrs = win32file.GetFileAttributes(path)
-        if not (attrs & win32con.FILE_ATTRIBUTE_REPARSE_POINT):
-            return None
-        if os.path.islink(path):
-            return "symlink"
-        return "reparse"
-    except Exception as e:
-        logging.debug(f"Failed to get reparse type for {path}: {e}")
-        return None
-
-
-def is_reparse_point(st):
-    return bool(getattr(st, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT)
-
-
 # OPEN_REPARSE = getattr(win32file, "FILE_FLAG_OPEN_REPARSE_POINT", 0x00200000)
 def get_file_id(filepath, log_q=None, logger=None):
     try:
@@ -129,6 +111,7 @@ def get_file_id(filepath, log_q=None, logger=None):
             win32file.FILE_FLAG_OPEN_REPARSE_POINT,
             None
         )
+
         try:
             sym = None
 
@@ -157,68 +140,58 @@ def get_file_id(filepath, log_q=None, logger=None):
             # mtime_us = int(mtime_frm) * 1_000_000
             # print("mtime_us", creation_us)
             # mode
-            is_hidden = bool(attrs & win32con.FILE_ATTRIBUTE_HIDDEN)
-            is_system = bool(attrs & win32con.FILE_ATTRIBUTE_SYSTEM)
-            is_archive = bool(attrs & win32con.FILE_ATTRIBUTE_ARCHIVE)
-            is_readonly = bool(attrs & win32con.FILE_ATTRIBUTE_READONLY)
-            mode = ['-'] * 6  # PowerShell
-            if sym == 'y':
-                mode[5] = 'l'
-            if is_readonly or not os.access(filepath, os.W_OK):
-                mode[2] = 'r'
-            if is_hidden:
-                mode[3] = 'h'
-            if is_system:
-                mode[4] = 's'
-            if is_archive:
-                mode[1] = 'a'
-            mode = ''.join(mode)
+            mode = get_mode(attrs, sym)
             # end mode
 
-            return file_index, sym, hard_link, creation_time, mode
+            return file_index, sym, hard_link, creation_time, mode, None
         finally:
             handle.Close()
 
     except pywintypes.error as e:
         if e.winerror in (2, 3):  # file not found, path not found
-            return "not_found", None, None, None
-        emsg = f"get_file_id unable to get inode symlinks hardlinks creationtime mode file: {filepath} {type(e).__name__} error: {e}"
-        if log_q:
-            emit_log("DEBUG", emsg, log_q)
-        elif logger:
-            logger.debug(emsg)
-        return None, None, None, None, None
+            return None, None, None, None, None, "Nosuchfile"
+        emit_log("DEBUG", f"get_file_id unable to get inode symlinks hardlinks creationtime mode for file: {filepath} {type(e).__name__} error: {e}", log_q, logger=logger)
+        return None, None, None, None, None, "Error"
 
 
-def file_owner(fpath, logger=None):
+# emit_log("DEBUG", f"file_owner File not found while getting owner domain for file: {file_path}", log_q)
+
+
+def file_owner(file_path, log_q=None, logger=None):
     try:
-        sd = win32security.GetFileSecurity(fpath, win32security.OWNER_SECURITY_INFORMATION)
+        sd = win32security.GetFileSecurity(file_path, win32security.OWNER_SECURITY_INFORMATION)
         owner_sid = sd.GetSecurityDescriptorOwner()
         name, domain, _ = win32security.LookupAccountSid(None, owner_sid)
         return name, domain
+    except FileNotFoundError:
+        emit_log("DEBUG", f"file_owner File not found while getting owner domain for file: {file_path}", log_q, logger=logger)
+        return "Nosuchfile"
     except Exception as e:
-        emit_log("DEBUG", f"file_owner unable to resolve owner domain file: {fpath} error: {e}", logger)
+        emit_log("DEBUG", f"file_owner unable to resolve owner domain file: {file_path} error: {e}", log_q, logger=logger)
         return None
 
 
-def get_mode(fp, st, is_symlink):
+def get_mode(attrs, is_symlink):
+    # FILE_ATTRIBUTE_READONLY = 0x1
+    # FILE_ATTRIBUTE_HIDDEN = 0x2
+    # FILE_ATTRIBUTE_SYSTEM = 0x4
+    # FILE_ATTRIBUTE_ARCHIVE = 0x20
+    is_hidden = bool(attrs & win32con.FILE_ATTRIBUTE_HIDDEN)
+    is_system = bool(attrs & win32con.FILE_ATTRIBUTE_SYSTEM)
+    is_archive = bool(attrs & win32con.FILE_ATTRIBUTE_ARCHIVE)
+    is_readonly = bool(attrs & win32con.FILE_ATTRIBUTE_READONLY)
 
-    mode = ['-'] * 6  # PowerShell
+    mode = ['-'] * 6  # # PowerShell
     if is_symlink == 'y':
         mode[5] = 'l'
-    if (hasattr(st, 'st_file_attributes') and (st.st_file_attributes & 0x1)) or not os.access(fp, os.W_OK):
+    if is_readonly:  # or not os.access(filepath, os.W_OK):
         mode[2] = 'r'
-    if hasattr(st, 'st_file_attributes'):
-        attr = st.st_file_attributes
-        # FILE_ATTRIBUTE_HIDDEN = 0x2
-        # FILE_ATTRIBUTE_SYSTEM = 0x4
-        # FILE_ATTRIBUTE_ARCHIVE = 0x20
-        if attr & win32con.FILE_ATTRIBUTE_HIDDEN:
-            mode[3] = 'h'
-        if attr & win32con.FILE_ATTRIBUTE_SYSTEM:
-            mode[4] = 's'
-        if attr & win32con.FILE_ATTRIBUTE_ARCHIVE:
-            mode[1] = 'a'
+    if is_hidden:
+        mode[3] = 'h'
+    if is_system:
+        mode[4] = 's'
+    if is_archive:
+        mode[1] = 'a'
     return ''.join(mode)
 
 

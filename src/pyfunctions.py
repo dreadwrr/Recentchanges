@@ -206,3 +206,35 @@ def sys_record_flds(record, sys_records, prev_count):
         prev_count + 1,  # count
         record[15]  # mtime_us
     ))
+
+
+# def collisions(xdata, cerr, c, ps):
+#     """ return collisions from the database. see ln628 pysql.py not used currently """
+#     reported = set()
+#     csum = False
+#     colcheck = collision(c, ps)
+
+#     if colcheck:
+
+#         collision_map = defaultdict(set)
+#         for a_filename, b_filename, file_hash, size_a, size_b in colcheck:
+#             collision_map[a_filename, file_hash].add((b_filename, file_hash, size_a, size_b))
+#             collision_map[b_filename, file_hash].add((a_filename, file_hash, size_b, size_a))
+#         try:
+#             with open(cerr, "a", encoding="utf-8") as f:
+#                 for record in xdata:
+#                     filename = record[1]
+#                     checks = record[5]
+#                     size_non_zero = record[6]
+#                     if size_non_zero:
+#                         key = (filename, checks)
+#                         if key in collision_map:
+#                             for other_file, file_hash, size1, size2 in collision_map[key]:
+#                                 pair = tuple(sorted([filename, other_file]))
+#                                 if pair not in reported:
+#                                     csum = True
+#                                     print(f"COLLISION: {filename} {size1} vs {other_file} {size2} | Hash: {file_hash}", file=f)
+#                                     reported.add(pair)
+#         except IOError as e:
+#             print(f"Failed to write collisions: {e} {type(e).__name__}  \n{traceback.format_exc()}")
+#     return collision_map, csum
