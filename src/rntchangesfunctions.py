@@ -555,7 +555,7 @@ def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, 
     if init and user_setting['checksum']:
         cstart = time.time()
         cprint.cyan("Running checksum")
-    print(len(records))
+    # print(len(records))
     RECENT, COMPLETE = process_lines(process_line, records, file_type, search_start_dt, 'FSEARCH', user_setting, logging_values, cfr, iqt, strt, endp)
     return RECENT, COMPLETE, end, cstart
 
