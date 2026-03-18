@@ -8,8 +8,8 @@ import threading
 import traceback
 import zipfile
 from collections import Counter
+from pathlib import Path
 from .config import load_toml
-from .configfunctions import find_install
 from .configfunctions import get_config
 from .findfileparser import build_parser
 from .fsearchfunctions import set_excl_dirs
@@ -234,13 +234,14 @@ def comp_archive(target_f, target_files, archive, temp_dir, downloads, arch_excl
     return res
 
 
-def main(action, filename, extension, basedir, USR, dspEDITOR, dspPATH, temp_dir, cutoffTIME=None, zipPROGRAM=None, zipPATH=None, USRDIR=None, downloads=None):
+def main(localappdata, action, filename, extension, basedir, USR, dspEDITOR, dspPATH, temp_dir, cutoffTIME=None, zipPROGRAM=None, zipPATH=None, USRDIR=None, downloads=None):
 
     if not (filename or extension):
         print("Invalid input. exiting.")
         return 1
 
-    localappdata = find_install()
+    # localappdata = find_install()
+    localappdata = Path(localappdata)
     log_path = localappdata / "logs" / "errs.log"
 
     toml_file, json_file, USR = get_config(localappdata, USR, platform="Windows")
@@ -486,6 +487,7 @@ def main_entry(argv):
     args = parser.parse_args(argv)
 
     calling_args = [
+        args.appdata,
         args.action,
         args.filename,
         args.extension,

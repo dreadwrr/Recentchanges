@@ -427,7 +427,7 @@ class Ui_MainWindow(object):
 
         self.combftimeout = QComboBox(self.page)
         self.combftimeout.addItem("")
-        self.combftimeout.addItem(u"Downloads")
+        self.combftimeout.addItem(u"Desktop")
         self.combftimeout.setObjectName(u"combftimeout")
         sizePolicy1.setHeightForWidth(self.combftimeout.sizePolicy().hasHeightForWidth())
         self.combftimeout.setSizePolicy(sizePolicy1)
@@ -1089,7 +1089,7 @@ class Ui_MainWindow(object):
         self.ntsb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
         self.ffileb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
         self.ffilecb.setText(QCoreApplication.translate("MainWindow", u"Compress", None))
-        self.combffileout.setItemText(0, QCoreApplication.translate("MainWindow", u"Downloads", None))
+        self.combffileout.setItemText(0, QCoreApplication.translate("MainWindow", u"Desktop", None))
         self.combffileout.setItemText(1, QCoreApplication.translate("MainWindow", u"AppData", None))
 
         self.ffilelabel3.setText(QCoreApplication.translate("MainWindow", u"(Range)", None))
@@ -1159,7 +1159,7 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(tooltip)
         self.downloadButton.setToolTip(QCoreApplication.translate("MainWindow", u"scan for new files by folder mtime", None))
 #endif // QT_CONFIG(tooltip)
-        self.downloadButton.setText(QCoreApplication.translate("MainWindow", u"Downloads", None))
+        self.downloadButton.setText(QCoreApplication.translate("MainWindow", u"Desktop", None))
         self.toollftb.setText(QCoreApplication.translate("MainWindow", u"1", None))
         self.toolhomeb.setText(QCoreApplication.translate("MainWindow", u"2", None))
         self.toolrtb.setText(QCoreApplication.translate("MainWindow", u"3", None))

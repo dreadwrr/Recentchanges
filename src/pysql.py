@@ -100,7 +100,7 @@ def create_table_cache(c, table, unique_columns):
         'modified_time TEXT',
         'filename TEXT',
         'file_count INTEGER',
-        'idx_count INTEGER',
+        'idx_count INTEGER DEFAULT 0',
         'idx_bytes INTEGER',
         'max_depth INTEGER',
         'type TEXT',
@@ -626,7 +626,7 @@ def collision_check(xdata, cerr, sys_tables, c, ps):
 
 
 def collision(cursor, is_sys, sys_tables=None):
-    """ used for collision function in pyfunctions """
+    """ used for collision function in pyfunctions ln211 """
     if is_sys:
         tables = ['logs'] + list(sys_tables or [])
 

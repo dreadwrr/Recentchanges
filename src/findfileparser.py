@@ -4,6 +4,7 @@ from .rntchangesfunctions import multi_value
 
 
 def parse_recent_args(parser):
+    parser.add_argument("appdata", help="app data or app install for config defaults")
     parser.add_argument("action", help="Is it wsl or pwsh")
     parser.add_argument("filename", help="the filename or pattern to search for")
     parser.add_argument("extension", help="extension to match")
