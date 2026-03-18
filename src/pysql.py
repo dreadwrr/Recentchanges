@@ -626,7 +626,7 @@ def collision_check(xdata, cerr, sys_tables, c, ps):
 
 
 def collision(cursor, is_sys, sys_tables=None):
-    """ used for collision function in pyfunctions ln211 """
+    """ used for collision function in pyfunctions """
     if is_sys:
         tables = ['logs'] + list(sys_tables or [])
 
