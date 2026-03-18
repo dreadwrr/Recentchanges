@@ -221,7 +221,7 @@ def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, pa
                                 dir_data[path] = entry_data
 
                         except OSError as e:
-                            logger.error(f"collect_scan Exception scanning {'symlink' if symlink else 'file'} {root}: {type(e).__name__} {e}", exc_info=True)
+                            logger.error(f"collect_scan Exception scanning {'symlink' if symlink else 'file'} {path}: {type(e).__name__} {e}", exc_info=True)
 
                     entry_data = {
                         'modified_time': root_modified_dt if root_modified_dt else '',

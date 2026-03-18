@@ -217,7 +217,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         dspPATH = ""
         if dspEDITOR:  # user wants results output in text editor
             dspEDITOR, dspPATH = resolve_editor(dspEDITOR, dspPATH_frm, toml_file)  # verify we have a working one
-            if not dspEDITOR and not dspPATH:
+            if dspEDITOR is None:
                 return 1
 
         outfile = name_of(dbtarget, '.db')
