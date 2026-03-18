@@ -285,7 +285,7 @@ class MainWindow(QMainWindow):
                 dump_j_settings(self.j_settings, self.sj)
                 print(f"Couldnt find search output setting {so}")
         else:
-            self.ui.combftimeout.setCurrentText("Downloads")
+            self.ui.combftimeout.setCurrentText("Desktop")
         self.initialize_ui(is_startup=True)
         # end one time items
 
@@ -592,7 +592,7 @@ class MainWindow(QMainWindow):
 
         self.ui.combffileout.clear()
         self.ui.combffileout.addItem("AppData")
-        self.ui.combffileout.addItem("Downloads")
+        self.ui.combffileout.addItem("Desktop")
 
         d = self.downloads  # popPATH
         if d.strip():
@@ -602,15 +602,13 @@ class MainWindow(QMainWindow):
 
         do = self.j_settings.get("compress_output")
         if do:
-            si = do
-            if do == "downloads":
-                si = self.downloads
-            ix2 = self.ui.combffileout.findText(si)
+            # self.downloads
+            ix2 = self.ui.combffileout.findText(do)
             if ix2 != -1:
                 self.ui.combffileout.setCurrentIndex(ix2)
             else:
                 update_j_settings(None, self.j_settings, "compress_output", self.sj)
-                # print(f"Couldnt find downloads {si}")
+                print(f"Couldnt find downloads {do}")
 
     def initialize_ui(self, is_startup=False):
 
@@ -646,7 +644,7 @@ class MainWindow(QMainWindow):
         # end fill combos pg_1
 
         if self.wsl:
-            self.wsl = find_wsl(self)
+            self.wsl = find_wsl(self.toml_file)
 
     def remaining_startup(self):
         # if polkit_check():
@@ -887,7 +885,7 @@ class MainWindow(QMainWindow):
                         if dspEDITOR:
                             dspEDITOR = multi_value(dspEDITOR)
                             dspEDITOR, dspPATH = resolve_editor(dspEDITOR, new_dspPATH, toml)
-                            if not dspEDITOR and not dspPATH:
+                            if dspEDITOR is None:
                                 raise ConfigurationError
 
                     is_wsl = False
@@ -983,7 +981,7 @@ class MainWindow(QMainWindow):
                         if not wsl:
                             self.wsl = False
                         else:
-                            self.wsl = find_wsl(self)
+                            self.wsl = find_wsl(self.toml_file)
                     self.proteusEXTN = ["[no extension]" if p == "" else p for p in proteusEXTN]
                     self.proteusPATH = proteusPATH
                     self.checksum = checksum
@@ -1785,8 +1783,8 @@ class MainWindow(QMainWindow):
         self.proc.set_range(str(time_range))
         args = [
             "findfile.py",
-            action,
             str(self.lclhome),
+            action,
             fpath,
             extension,
             self.basedir,
@@ -3106,7 +3104,7 @@ def start_main_window():
     if dspEDITOR:  # user wants results output in text editor
         dspEDITOR = multi_value(dspEDITOR)
         dspEDITOR, dspPATH = resolve_editor(dspEDITOR, dspPATH_frm, toml_file)  # verify we have a working one
-        if not dspEDITOR and not dspPATH:
+        if dspEDITOR is None:
             return 1
     cachermPATTERNS = config['backend']['cachermPATTERNS']
     popPATH = config['display']['popPATH']
