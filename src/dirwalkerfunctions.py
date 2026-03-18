@@ -264,7 +264,7 @@ def get_stat(entry, log_q=None, log_entries=None, logger=None):
     try:
         return entry.stat(follow_symlinks=False)
     except OSError as e:
-        emit_log("DEBUG", f"OSError cannot stat  {type(e).__name__} {e} : {entry.path}", log_q, log_entries, logger)
+        emit_log("DEBUG", f"OSError cannot stat  {type(e).__name__} {e} : {entry}", log_q, log_entries, logger)
         return None
 
 
