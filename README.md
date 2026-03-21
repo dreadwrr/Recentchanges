@@ -9,6 +9,7 @@ Windows 10 windows 11 file search application . search with Powershell or window
 GPG, Ntfstools, 7-zip included <br><br>
 <p>
 Save encrypted notes <br>
+Select from a number of fonts or install your own. also 5 themes unix, wb (white on black), solar, monochrome or modern  <br>
 Quick commands displays saved commands for easy reference <br>
 Create a custom crest with a .png image file max size 255 x 333 <br>
 Will use gpg4win system install or app gpg if not installed <br>
