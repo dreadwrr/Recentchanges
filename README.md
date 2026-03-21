@@ -1,4 +1,4 @@
-Windows 10 11 file search application
+Windows 10 11 file search application <br>
 ![Alt text](https://i.imgur.com/yNnttmU.png) <br><br>
 
 # Recentchanges
