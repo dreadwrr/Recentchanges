@@ -1,4 +1,5 @@
-New release! all updates from recentchanges Qt linux ![Alt text](https://i.imgur.com/yNnttmU.png) <br><br>
+New release! all updates from recentchanges Qt linux  <br>
+![Alt text](https://i.imgur.com/yNnttmU.png) <br><br>
 
 # Recentchanges
 To enable ansi text in powershell try the following command <br>
