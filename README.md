@@ -1,11 +1,11 @@
-
+Windows 10 11 file search application
 ![Alt text](https://i.imgur.com/yNnttmU.png) <br><br>
 
 # Recentchanges
 New release! all updates from recentchanges Qt linux  <br>
 To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
-Windows 10 windows 11 file search application . search with Powershell or windows subsystem of linux. <br>
+search with Powershell or windows subsystem of linux. <br>
 With Hybrid analysis and MFT search <br><br>
 GPG, Ntfstools, 7-zip included <br><br>
 <p>
