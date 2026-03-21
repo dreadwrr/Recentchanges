@@ -1,7 +1,8 @@
-New release! all updates from recentchanges Qt linux  <br>
+
 ![Alt text](https://i.imgur.com/yNnttmU.png) <br><br>
 
 # Recentchanges
+New release! all updates from recentchanges Qt linux  <br>
 To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
 Windows 10 windows 11 file search application . search with Powershell or windows subsystem of linux. With hybrid analysis and MFT search
