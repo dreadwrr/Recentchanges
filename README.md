@@ -58,8 +58,9 @@ copy _internal and main to app folder <br>
 further pyinstall documentation https://github.com/dreadwrr/Recent-Pyinstaller<br>
 which is just updating the .bat files to point to the executable <br><br>
 
-![Alt text](https://i.imgur.com/6q4THX4.png) <br><br>
 
+![Alt text](https://i.imgur.com/6q4THX4.png) <br>
+The app can be used without included gpg or 7-zip and would use gpg4win. if 7-zip or winrar arent installed will use python zipfile. <br><br>
 mft sources <br>
 omerbenamram mft dump and python hooks <br>
 Eric Zimmerman MFTECmd <br>
