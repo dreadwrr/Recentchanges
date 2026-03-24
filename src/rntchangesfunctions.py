@@ -1,4 +1,4 @@
-# 03/15/2026           developer buddy core
+# 03/22/2026           developer buddy core
 import csv
 import ctypes
 import glob
@@ -16,18 +16,19 @@ import sys
 import time
 import traceback
 import winreg
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
 from .config import update_toml_values
 from .configfunctions import find_install
+from .ctime import init_recentchanges
 from .fsearch import process_line
+from .fsearchfunctions import set_excl_dirs
 from .fsearchmft import process_mft
 from .fsearchps1 import process_ps1
 from .fsearchparallel import process_lines
 from .pyfunctions import cprint
 from .pyfunctions import suppress_list
-from .pysql import clear_conn
 install_root = find_install()
 filter_patterns_path = install_root / "filter.py"
 spec = importlib.util.spec_from_file_location("user_filter", filter_patterns_path)
@@ -107,23 +108,6 @@ def get_runtime_exclude_list(appdata_local, USRDIR, MODULENAME, flth, dbtarget, 
         excluded_list += [temp_dir]
 
     return [e.lower() for e in excluded_list if e]
-
-
-# Initialize check no compressio
-def cnc(target_file, compLVL):
-    CSZE = 1024*1024
-    if os.path.isfile(target_file):
-        _, ext = os.path.splitext(target_file)
-        try:
-            file_size = os.stat(target_file).st_size
-            size = file_size
-            if ext == ".gpg":
-                size = file_size // 2
-
-            return size // CSZE >= compLVL  # no compression
-        except Exception as e:
-            print(f"Error setting compression of {target_file}: {e}")
-    return False
 
 
 # term output
@@ -434,8 +418,111 @@ def conv_cdrv(file_entries):
 # end WSL
 
 
-# find command search helper use powershell for find_files() for files the find command cant reach
-# , file_type
+def get_powershell_script(basedir, script_dir, EXCLDIRS, excl_file, tempwork, search_time, proval, endval, iqt):
+    excl_path = os.path.join(tempwork, excl_file)
+    set_excl_dirs(basedir, excl_path, EXCLDIRS)
+
+    s_path = os.path.join(script_dir, "ctime.ps1")
+
+    find_command_cmin = [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", str(s_path),
+        "-rootPath", basedir,
+        "-cutoffMinutes", str(search_time),
+        "-excluded", excl_path,
+        "-StartR", str(proval),
+        "-EndR", str(endval)
+    ]
+    if iqt:
+        find_command_cmin += ["-progress"]
+    # if FEEDBACK:
+    #     find_command_cmin += ["-feedback"]
+    return find_command_cmin
+
+
+# find command search helper use
+# powershell for find_files() for all created files
+def find_cmdcreated(command, s_path, search_start_dt):
+
+    try:
+
+        # proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # output, ermsg = proc.communicate()
+
+        # if proc.returncode not in (0, 1):
+        #     print(proc.stdout)
+        #     print()
+        #     print(f"Err: {ermsg.decode(errors='backslashreplace')}")
+        #     print("Powershell failure for find command helper.")
+        #     return []
+
+        # recent_files = output.decode(errors='backslashreplace').splitlines()
+        # for record in recent_files:
+        #     if not record:
+        #         continue
+        #     fields = record.split(maxsplit=10)
+        #     if len(fields) >= 11:  # 11
+        #         m_time = int(fields[0])
+        #         c_time = int(fields[2])
+
+        #         fields[0] = str(m_time / 1_000_000)
+        #         fields[2] = str(c_time / 1_000_000)
+        #         file_entries.append(fields)
+        # return file_entries
+
+        file_entries = []
+        is_error = True
+
+        print(f"\nCutoff {search_start_dt.replace(microsecond=0).isoformat()} \n")
+        print('Running command:', ' '.join(command), flush=True)
+        print()
+        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:  # stderr=subprocess.STDOUT
+
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                if line.startswith("Merge complete:"):
+                    is_error = False
+                    break
+                elif line.startswith("RESULT:"):
+                    value_str = line.split("RESULT:")[1].strip()
+                    print(value_str)
+                elif line.startswith("Progress: "):
+                    print(line, end="", flush=True)
+                else:
+                    fields = line.split(maxsplit=10)
+
+                    if len(fields) >= 11:
+                        m_time = int(fields[0])
+                        c_time = int(fields[2])
+
+                        fields[0] = str(m_time / 1_000_000)
+                        fields[2] = str(c_time / 1_000_000)
+                        file_entries.append(fields)
+
+            err_output = proc.stderr.read()
+            res = proc.wait()
+
+            if res != 0:
+
+                if err_output:
+                    print(err_output)
+                print("Command failed subprocess fault or script error scanline.ps1")
+                is_error = True
+                file_entries = []
+
+        return file_entries, is_error
+
+    except (FileNotFoundError, PermissionError) as e:
+        print(f"find_created unable to locate script {s_path} or access denied: {e}")
+    except Exception as e:
+        print(f"Unexpected error running powershell find helper find_created in rntchangesfunctions: {type(e).__name__} {e}")
+    return None, None
+
+
+# find command search helper use
+# powershell for find_files() for modified files the find command cant reach.
 def find_cmdhelp(s_path, mmin, USR):
 
     command = [
@@ -453,7 +540,6 @@ def find_cmdhelp(s_path, mmin, USR):
 
     # print('Running command:', ' '.join(command)) debug
 
-    # file_entries = []
     mmin_files = []
     cmin_files = []
     try:
@@ -473,12 +559,21 @@ def find_cmdhelp(s_path, mmin, USR):
             if not record:
                 continue
             fields = record.split(maxsplit=10)
-            if len(fields) >= 11:  # 11
-                if fields[2] > fields[0]:   # 2 , 0
-                    cmin_files.append(fields)
-                else:
-                    mmin_files.append(fields)
-                # file_entries.append(fields)
+            if len(fields) >= 11:
+                m_time = int(fields[0])
+                c_time = int(fields[2])
+
+                fields[0] = str(m_time / 1_000_000)
+                fields[2] = str(c_time / 1_000_000)
+                # original
+                # if fields[2] > fields[0]:
+                #     cmin_files.append(fields)
+                # else:
+                #     mmin_files.append(fields)
+
+                mmin_files.append(fields)
+
+        # note cmin_files are disabled as handled by ctime.py
         return mmin_files, cmin_files
 
     except (FileNotFoundError, PermissionError) as e:
@@ -489,49 +584,111 @@ def find_cmdhelp(s_path, mmin, USR):
 
 # find command search using WSL. One search ctime > mtime for downloaded, copied or preserved metadata files. cmin. Main search for mtime newer than mmin.
 # ported from linux
-# amin is used in place of cmin as cmin isnt updated the same as on linux. amin can be used for cmin loop to check if creation time is greater than mtime to find
+# amin was used in place of cmin as cmin isnt updated the same as on linux. amin can be used for cmin loop to check if creation time is greater than mtime to find
 # downloaded or copied files with preserved metadata.
 
 
-def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, iqt=False, strt=20, endp=60, logger=None):
+def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, search_time, EXCLDIRS, excl_file, toml_file, iqt=False, strt=20, endp=60, logger=None):
 
     # file_entries = []
     records = []
-    try:
-        print('Running command:', ' '.join(find_command), flush=True)
-        proc = subprocess.Popen(find_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)  # stderr=subprocess.DEVNULL
 
-        # output, err = proc.communicate()  # if buffered
-        # if proc.returncode not in (0, 1):
-        #     stderr_str = err.decode("utf-8")
-        #     print(stderr_str)
-        #     print("Find command failed, unable to continue. Quitting.")
-        #     sys.exit(1)
+    if file_type == "ctime":
+        # xRC tout bypass for created files to only run 1 loop
+        if user_setting['xRC']:
+            # try xRC
+            records = init_recentchanges(search_time, search_start_dt, logging_values, search=True)
+            if records not in (None, "db_error", "usn_error"):
+                strt += 10
+                if iqt:
+                    print(f"Progress: {strt}%", flush=True)
+                endp += 10
 
-        for line in proc.stdout:
-            line = line.rstrip()
-            fields = line.split(maxsplit=10)
-            if len(fields) >= 11:
-                wsl_path = fields[10]
-                fields[10] = wsl_to_windows_path(wsl_path)
-                if file_type == "main" and user_setting['FEEDBACK']:
-                    print(fields[10], flush=True)
-                records.append(fields)
+            # normal execution
+            else:
+                print("init_recentchanges returned ", records)
+                print("\nSomething went wrong xRC is set to disabled. resuming")
+                print("logfile", logging_values[0])
+                records = []
 
-        _, err = proc.communicate()
-        rlt = proc.returncode
+                appdata_local = logging_values[2]
+                tempwork = logging_values[3]
+                basedir = user_setting['basedir']
 
-        if rlt not in (0, 1):
-            print(err)
-            print("Find command failed, unable to continue. Quitting.")
+                script_dir = os.path.join(appdata_local, "scripts")
+
+                find_command = get_powershell_script(basedir, script_dir, EXCLDIRS, excl_file, tempwork, search_time, strt, endp, iqt)
+
+                s_path = find_command[5]
+
+                records, is_error = find_cmdcreated(find_command, s_path, search_start_dt)
+                if records is None or is_error:
+                    records = []
+                strt += 10
+                # if iqt:
+                #     print(f"Progress: {strt}%", flush=True)
+                endp += 10
+
+                # disable the setting until the problem is found
+                update_toml_values({'search': {'xRC': False}}, toml_file)
+
+        # normal execution
+        else:
+            # -cmin doesnt update properly on wsl. when a file moves its ctime should change but doesnt
+
+            # use powershell for just the created files which is fast
+            # appdata_local = logging_values[2]
+            # tempwork = logging_values[3]
+            # s_path = os.path.join(appdata_local, "scripts", "ctime.ps1")
+            s_path = find_command[5]
+
+            records, is_error = find_cmdcreated(find_command, s_path, search_start_dt)
+            if records is None or is_error:
+                records = []
+            strt += 10
+            # if iqt:
+            #     print(f"Progress: {strt}%", flush=True)
+            endp += 10
+    elif file_type == "main":
+
+        try:
+            print('Running command:', ' '.join(find_command), flush=True)
+            proc = subprocess.Popen(find_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)  # stderr=subprocess.DEVNULL
+
+            # output, err = proc.communicate()  # if buffered
+            # if proc.returncode not in (0, 1):
+            #     stderr_str = err.decode("utf-8")
+            #     print(stderr_str)
+            #     print("Find command failed, unable to continue. Quitting.")
+            #     sys.exit(1)
+
+            for line in proc.stdout:
+                line = line.rstrip()
+                fields = line.split(maxsplit=10)
+                if len(fields) >= 11:
+                    wsl_path = fields[10]
+                    fields[10] = wsl_to_windows_path(wsl_path)
+                    if file_type == "main" and user_setting['FEEDBACK']:
+                        print(fields[10], flush=True)
+                    records.append(fields)
+
+            _, err = proc.communicate()
+            rlt = proc.returncode
+
+            if rlt not in (0, 1):
+                print(err)
+                print("Find command failed, unable to continue. Quitting.")
+                sys.exit(1)
+
+        except (FileNotFoundError, PermissionError) as e:
+            print(f"Error running WSL find in find_files rntchangesfunctions.py: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Unexpected error running WSL. command: {find_command} \nfind_files func rntchangesfunctions.py: {type(e).__name__} {e}")
             sys.exit(1)
 
-    except (FileNotFoundError, PermissionError) as e:
-        print(f"Error running WSL find in find_files rntchangesfunctions.py: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Unexpected error running WSL. command: {find_command} \nfind_files func rntchangesfunctions.py: {type(e).__name__} {e}")
-        sys.exit(1)
+    else:
+        raise ValueError(f"Invalid search type: {file_type}")
 
     if file_type == "main":
         end = time.time()
@@ -548,9 +705,6 @@ def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, 
     #         if file_type == "main" and user_setting['FEEDBACK']:  # scrolling terminal look
     #             print(fields[10], flush=True)
     #         records.append(fields)
-
-    if file_type not in ("ctime", "main"):
-        raise ValueError(f"Invalid search type: {file_type}")
 
     if init and user_setting['checksum']:
         cstart = time.time()
@@ -614,7 +768,7 @@ def find_ps1(command, RECENT, COMPLETE, mergeddb, init, cfr, search_start_dt, us
 
     if validrlt is None and end is None:
         sys.exit(1)
-    if not validrlt and isinstance(end, int) and not os.path.isfile(mergeddb):
+    if not validrlt and not os.path.isfile(mergeddb):
         print("No new files reported from scanline.ps1. exiting")
         sys.exit(1)
 
@@ -633,8 +787,6 @@ def find_ps1(command, RECENT, COMPLETE, mergeddb, init, cfr, search_start_dt, us
     except (sqlite3.Error, Exception) as e:
         print(f"find_ps1 rntchangesfunctions Error getting results from \\scripts\\scanline.ps1 couldnt connect to {mergeddb} quitting err: {type(e).__name__} : {e}")
         sys.exit(1)
-    finally:
-        clear_conn(conn, cur)
 
     if not file_entries:
         print(f"No new files to report. powershell results empty in {mergeddb}.")
@@ -658,7 +810,8 @@ def find_mft(RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, logging
 
     p = search_time * 60
 
-    compt = (datetime.now(timezone.utc) - timedelta(seconds=p))
+    # compt = (datetime.now(timezone.utc) - timedelta(seconds=p))
+    compt = search_start_dt.astimezone(timezone.utc)
 
     delta_value = (endp - strt)
     endval = strt + (delta_value / 2)
@@ -666,7 +819,7 @@ def find_mft(RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, logging
 
     exec_path = logging_values[2] / "bin" / "MFTECmd.exe"
 
-    csv_data = read_mftmem(str(exec_path), 'C:\\$MFT', compt, iqt, strt, endval)  # search
+    csv_data = read_mftmem(str(exec_path), 'C:\\$MFT', compt, search_start_dt, iqt, strt, endval)  # search
     if csv_data is None:
         print("Error read Mft data in IOString from MFTECmd.exe. exiting.")
         sys.exit(1)
@@ -869,6 +1022,32 @@ def mft_entrycount():
         print(traceback.format_exc())
         return None
 
+# to possiblly increase efficiency but overhead is not an issue. maybe if an error shows up
+# this is for below read_mft
+# proc = subprocess.Popen(
+#     cmd,
+#     stdout=subprocess.PIPE,
+#     stderr=subprocess.PIPE,
+#     bufsize=1024*1024,
+#     text=True,
+#     encoding="utf-8",
+#     errors="replace"
+# )
+#
+# buffer = ""
+#
+# while True:
+#     chunk = proc.stdout.read(1024*1024)   # 1MB
+#     if not chunk:
+#         break
+#
+#     buffer += chunk
+#     lines = buffer.split("\n")
+#     buffer = lines.pop()
+#
+#     for line in lines:
+#         process_line(line)
+
 
 def read_mft_progress(cmd, csv_data, byte_s, strt, endp, show_progress=False, logger=None):
 
@@ -888,6 +1067,9 @@ def read_mft_progress(cmd, csv_data, byte_s, strt, endp, show_progress=False, lo
             continue
         x += 1
         if show_progress:
+
+            #
+            #
 
             if current_step_index < len(steps) and x >= steps[current_step_index]:
                 progress = float(current_step_index) / max(num_steps - 1, 1) * 100
@@ -918,13 +1100,17 @@ def read_mft_progress(cmd, csv_data, byte_s, strt, endp, show_progress=False, lo
     return rlt, err_output
 
 
-def read_mftmem(exec_path, mft, compt, iqt=False, strt=0, endp=100):  # mft='C:\\$MFT'
+def read_mftmem(exec_path, mft, compt, search_start_dt, iqt=False, strt=0, endp=100):
+    # exec_path = '.\\bin\\MFTECmd.exe'
+    # mft='C:\\$MFT'
 
     cutoff = compt.replace(microsecond=0)
     cutoff = cutoff.isoformat().replace("+00:00", "Z")
 
-    cmd = [exec_path, '-f', mft, '--dt', 'yyyy-MM-dd HH:mm:ss.ffffff', '--cutoff', cutoff, '--csv', 'C:\\', '--csvf', 'myfile2.csv']  # '.\\bin\\MFTECmd.exe'
-    # print('Running command:', ' '.join(cmd))
+    cmd = [exec_path, '-f', mft, '--dt', 'yyyy-MM-dd HH:mm:ss.ffffff', '--cutoff', cutoff, '--csv', 'C:\\', '--csvf', 'myfile2.csv']
+    print('Running command:', ' '.join(cmd))
+
+    print(f"\nCutoff {search_start_dt.replace(microsecond=0).isoformat()} \n")
     # print('Running command:' + ' '.join(f'"{c}"' for c in cmd))
 
     byte_s = mft_entrycount()
@@ -1280,9 +1466,6 @@ def build_tsv(SORTCOMPLETE, TMPOPT, logf, rout, escaped_user, outpath, method, f
             SORTCOMPLETE = filter_lines_from_list(SORTCOMPLETE, escaped_user)
 
     tsv_files = []
-    mtyp = is_copy = ""
-
-    is_statable = st = None
 
     try:
         copy_paths = set()
@@ -1305,6 +1488,10 @@ def build_tsv(SORTCOMPLETE, TMPOPT, logf, rout, escaped_user, outpath, method, f
         for entry in SORTCOMPLETE:
             if len(entry) < 13:
                 continue
+
+            is_statable = st = None
+            mtyp = is_copy = ""
+
             dt = entry[0]
             fpath = entry[1]
 
@@ -1431,6 +1618,7 @@ def mergedb(dbopt):
 
 
 def parse_search(command, args):
+    """ findfile.py powershell stream """
     try:
         target_files = []
         cmd = command + args
@@ -1498,6 +1686,7 @@ def check_installed_app(exe_name, product_key=None):
 
 
 def output_results_exit(RECENT, argone, is_calibrate, iswsl, fmt):
+    """ calibrate powershell and find command and see what the mft says """
     file_nm = f"PwshOutput{argone}.txt"
     if is_calibrate:
         file_nm = f"MftOutput{argone}.txt"

@@ -5,15 +5,15 @@ import traceback
 from PySide6.QtCore import Signal
 from .gpgcrypto import encr
 from .gpgcrypto import start_gpg_agent
-from .rntchangesfunctions import reset_csvliteral
 from .pysql import clear_conn
 from .pysql import clear_sys_profile
+from .query import blank_count
 from .query import main as query_main
 from .qtclasses import Worker
 from .qtfunctions import clear_cache
-from .query import blank_count
-from .rntchangesfunctions import cnc
+from .pyfunctions import cnc
 from .rntchangesfunctions import removefile
+from .rntchangesfunctions import reset_csvliteral
 # 03/11/2026
 
 
@@ -71,7 +71,6 @@ class ClearWorker(Worker):
                         self.timer = threading.Timer(9.0, self.on_timeout)
                         self.timer.start()
 
-                    # def main(appdata_local=None, user=None, email=None, reset=None, database=None, log_fn=print):
                     rlt = query_main(self.lclhome, self.usr, self.email, database=self.database, log_fn=self.log.emit)
                     if self.timer and self.timer.is_alive():
                         self.timer.cancel()
@@ -136,7 +135,7 @@ class ClearWorker(Worker):
 
             except Exception as e:
                 rlt = 1
-                self.log.emit(f'Unexpected error in clear worker: {e}')
+                self.log.emit(f'Unexpected error in clear worker: {type(e).__name__} {e}')
             # finally:
             #     sys.stdout = old_stdout
 

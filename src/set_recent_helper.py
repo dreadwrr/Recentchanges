@@ -8,7 +8,4 @@ from src.qtparser import dispatch_internal as dispatcher
 
 
 if __name__ == "__main__":
-    res = dispatcher(sys.argv)
-    if not res:
-        sys.exit(1)
-    sys.exit(res)
+    dispatcher(sys.argv)

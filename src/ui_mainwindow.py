@@ -1159,7 +1159,7 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(tooltip)
         self.downloadButton.setToolTip(QCoreApplication.translate("MainWindow", u"scan for new files by folder mtime", None))
 #endif // QT_CONFIG(tooltip)
-        self.downloadButton.setText(QCoreApplication.translate("MainWindow", u"Desktop", None))
+        self.downloadButton.setText(QCoreApplication.translate("MainWindow", u"Downloads", None))
         self.toollftb.setText(QCoreApplication.translate("MainWindow", u"1", None))
         self.toolhomeb.setText(QCoreApplication.translate("MainWindow", u"2", None))
         self.toolrtb.setText(QCoreApplication.translate("MainWindow", u"3", None))

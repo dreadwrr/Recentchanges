@@ -149,7 +149,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                 original_size = previous[6]
 
                 if not record[5] or not previous[5]:
-                    emit_log("DEBUG", f"No checksum for file {record} \n recent {previous}", logs.WORKER_LOG_Q, logger=logger)
+                    # emit_log("DEBUG", f"No checksum for file {record} \n recent {previous}", logs.WORKER_LOG_Q, logger=logger)
                     continue
 
                 if not os.path.isfile(filename):
@@ -202,7 +202,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                         #          sym = "yes"
                         #     mode = get_mode(attrs, sym)
                         #     or
-                        #     _, _, _, _, mode, status = get_file_id(file_path, logs.WORKER_LOG_Q, logger=logger)  # inode reparse hardlink c_time
+                        #     _, _, _, _, _, mode, status = get_file_id(file_path, logs.WORKER_LOG_Q, logger=logger)  # inode reparse hardlink c_time
                         #     if status in ("Nosuchfile", "Error"):
                         #          entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
                         #          results.append(entry)

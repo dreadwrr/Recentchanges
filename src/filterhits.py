@@ -1,5 +1,5 @@
-import re
 import csv
+import re
 import importlib.util
 from collections import defaultdict
 from .configfunctions import find_install

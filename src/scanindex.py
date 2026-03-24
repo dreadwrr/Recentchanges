@@ -1,7 +1,7 @@
 import os
+from .dirwalkerfunctions import meta_sys
 from . import logs
 from .logs import emit_log
-from .dirwalkerfunctions import meta_sys
 
 
 def scan_index(chunk, is_sym, i, num_chunks, show_progress=False, strt=0, endp=100):

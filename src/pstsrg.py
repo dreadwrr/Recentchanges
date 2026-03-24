@@ -12,14 +12,14 @@ from .hanlyparallel import hanly_parallel
 from .pyfunctions import cprint
 from .pyfunctions import unescf_py
 from .pysql import clear_conn
-from .pysql import create_db
 from .pysql import collision_check
+from .pysql import create_db
 from .pysql import insert
 from .pysql import insert_if_not_exists
 from .pysql import table_has_data
 from .qtdrivefunctions import get_idx_tables
 from .query import blank_count
-from .rntchangesfunctions import cnc
+from .pyfunctions import cnc
 from .rntchangesfunctions import removefile
 
 

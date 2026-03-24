@@ -15,11 +15,11 @@ from .findfileparser import build_parser
 from .fsearchfunctions import set_excl_dirs
 from .pyfunctions import cprint
 from .rntchangesfunctions import display
-from .rntchangesfunctions import get_runtime_exclude_list
-from .rntchangesfunctions import removefile
-from .rntchangesfunctions import parse_search
-from .rntchangesfunctions import wsl_to_windows_path
 from .rntchangesfunctions import filter_lines_from_list
+from .rntchangesfunctions import get_runtime_exclude_list
+from .rntchangesfunctions import parse_search
+from .rntchangesfunctions import removefile
+from .rntchangesfunctions import wsl_to_windows_path
 from .qtdrivefunctions import parse_drive
 # 03/08/2026
 
@@ -240,7 +240,6 @@ def main(localappdata, action, filename, extension, basedir, USR, dspEDITOR, dsp
         print("Invalid input. exiting.")
         return 1
 
-    # localappdata = find_install()
     localappdata = Path(localappdata)
     log_path = localappdata / "logs" / "errs.log"
 
@@ -282,7 +281,7 @@ def main(localappdata, action, filename, extension, basedir, USR, dspEDITOR, dsp
 
             PRUNE = ["\\("]
             for i, d in enumerate(EXCLDIRS):
-                PRUNE += ["-path", f"/mnt/{drv_letter}/{d}"]
+                PRUNE += ["-path", f"/mnt/{drv_letter}/{(d).replace('$', '\\$')}"]
                 if i < len(EXCLDIRS) - 1:
                     PRUNE.append("-o")
             PRUNE += ["\\)", "-prune", "-o"]

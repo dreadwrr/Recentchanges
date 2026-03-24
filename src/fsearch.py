@@ -49,10 +49,14 @@ def process_line(line, checksum, file_type, search_start_dt, CACHE_F, logger=Non
         return None, log_entries
 
     # py32win
-    inode, sym, hardlink, c_time, mode, status = get_file_id(file_path)
-    if status in ("Nosuchfile", "Error"):
+    inode, sym, hardlink, size, c_time, mode, status = get_file_id(file_path)
+
+    if status == "Nosuchfile":
         mt = mtime.replace(microsecond=0)
         return ("Deleted", mt, mt, file_path), log_entries
+    elif status == "Error":
+        return None, log_entries
+
     if not c_time:
         emit_log("DEBUG", f"process_line file no creation time from py32win file: {file_path} line: {line}", logs.WORKER_LOG_Q, logger=logger)
         if file_type == "ctime":
@@ -68,36 +72,36 @@ def process_line(line, checksum, file_type, search_start_dt, CACHE_F, logger=Non
         return None, log_entries
 
     mtime_us = normalize_timestamp(mod_time)
-    if size and checksum:
-        if sym != "y":
-            if size > CSZE:
-                cached = get_cached(CACHE_F, size, mtime_us, file_path)
-                if cached is None:
-                    checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, max_retry=1, cacheable=True, log_q=logs.WORKER_LOG_Q, logger=logger)
-                    if checks is not None:
-                        if status == "Retried":
-                            checks, mtime, st, mtime_us, c_time, inode, size = set_stat(line, checks, file_dt, file_st, file_us, inode, logs.WORKER_LOG_Q, logger=logger)
+    if sym != "y" and size and checksum:
 
-                        if checks:
-                            label = "Cwrite"
-
-                    else:
-                        if status == "Nosuchfile":
-                            mt = mtime.replace(microsecond=0)
-                            return ("Deleted", mt, mt, file_path), log_entries
-                else:
-                    checks = cached.get("checksum")
-
-            else:
-                checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, max_retry=1, cacheable=False, log_q=logs.WORKER_LOG_Q, logger=logger)
+        if size > CSZE:
+            cached = get_cached(CACHE_F, size, mtime_us, file_path)
+            if cached is None:
+                checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, max_retry=1, cacheable=True, log_q=logs.WORKER_LOG_Q, logger=logger)
                 if checks is not None:
                     if status == "Retried":
                         checks, mtime, st, mtime_us, c_time, inode, size = set_stat(line, checks, file_dt, file_st, file_us, inode, logs.WORKER_LOG_Q, logger=logger)
+
+                    if checks:
+                        label = "Cwrite"
 
                 else:
                     if status == "Nosuchfile":
                         mt = mtime.replace(microsecond=0)
                         return ("Deleted", mt, mt, file_path), log_entries
+            else:
+                checks = cached.get("checksum")
+
+        else:
+            checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, max_retry=1, cacheable=False, log_q=logs.WORKER_LOG_Q, logger=logger)
+            if checks is not None:
+                if status == "Retried":
+                    checks, mtime, st, mtime_us, c_time, inode, size = set_stat(line, checks, file_dt, file_st, file_us, inode, logs.WORKER_LOG_Q, logger=logger)
+
+            else:
+                if status == "Nosuchfile":
+                    mt = mtime.replace(microsecond=0)
+                    return ("Deleted", mt, mt, file_path), log_entries
 
     elif sym == "y":
         target = find_link_target(file_path, logs.WORKER_LOG_Q, logger=logger)

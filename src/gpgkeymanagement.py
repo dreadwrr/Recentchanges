@@ -6,7 +6,7 @@ import tempfile
 import traceback
 from typing import Any
 from .config import get_json_settings
-from .config import set_json_settings
+from .config import dump_j_settings
 from .rntchangesfunctions import name_of
 from .rntchangesfunctions import removefile
 
@@ -134,24 +134,28 @@ def set_gpg(appdata_local, sub_dir='gpg'):
 
 def find_gnupg_home(json_file, j_settings=None):
     """ try to find gnupg home for exclusion purposes in build index """
+    if not j_settings and j_settings is not None:
+        print("find_gnupg_home warning json file was empty")
     gnupg_home = None
-    gpg_home = os.environ.get("GNUPGHOME")
     try:
-        if gpg_home:
-            gnupg_home = gpg_home
+        if not j_settings:
+            j_settings = get_json_settings(None, None, json_file)
+
+        gnupg_home = j_settings.get("gnupghome")
+        if gnupg_home:
+            gpg_home = os.environ.get("GNUPGHOME")
+            if gpg_home and gpg_home != gnupg_home:
+                j_settings["gnupghome"] = gpg_home
+                dump_j_settings(j_settings, json_file)
+                gnupg_home = gpg_home
         else:
-            if j_settings:
-                gnupg_home = j_settings.get("gnupghome")
-            else:
-                setting = get_json_settings(["gnupghome"], filepath=json_file)
-                gnupg_home = setting.get("gnupghome")
-            if not gnupg_home:
-                result = subprocess.run(["gpgconf", "--list-dirs", "homedir"], capture_output=True, text=True)
-                if result.returncode == 0:
-                    gpg_home = result.stdout.strip()
-                    if gpg_home:
-                        gnupg_home = gpg_home
-                        set_json_settings({"gnupghome": gpg_home}, None, filepath=json_file)
+            result = subprocess.run(["gpgconf", "--list-dirs", "homedir"], capture_output=True, text=True)
+            if result.returncode == 0:
+                gpg_home = result.stdout.strip()
+                if gpg_home:
+                    gnupg_home = gpg_home
+                    j_settings["gnupghome"] = gpg_home
+                    dump_j_settings(j_settings, json_file)
         return gnupg_home
     except OSError as e:
         print(f"Couldnt get gnupg_home for exclusion file: {json_file} {type(e).__name__} err: {e}")

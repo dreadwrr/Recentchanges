@@ -45,10 +45,8 @@ def find_dir_link_target(dirpath, log_q=None, log_entries=None, logger=None):
 
 
 def is_reparse_point(st):
-    return (
-        stat.S_ISLNK(st.st_mode) or
-        bool(getattr(st, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT)
-    )
+
+    return bool(getattr(st, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT)
 
 
 def get_reparse(path):
@@ -107,8 +105,8 @@ def calculate_checksum(file_path, mtime, mod_time, inode, size_int, prev_hash=No
 
         if retry > 0:
 
-            if not total_size:
-                emit_log("INFO", f"calculate_checksum Size was zero: {file_path} checksum {checks} and total_size {total_size}", log_q, logger=logger)
+            # if not total_size:
+            #     emit_log("INFO", f"calculate_checksum Size was zero: {file_path} checksum {checks} and total_size {total_size} filesize", log_q, logger=logger)
 
             re_st = goahead(file_path, log_q, logger=logger)
             if re_st == "Nosuchfile":
@@ -127,10 +125,10 @@ def calculate_checksum(file_path, mtime, mod_time, inode, size_int, prev_hash=No
                         mtime = epoch_to_date(re_st.st_mtime)
                         status = "Retried"
                     return checks, mtime, mod_time, st, status
-                else:
-                    emit_log("INFO", f"File changed from first stat. the file is Cacheable: {cacheable} doesnt match: {file_path} the follow characteristics: ", log_q, logger=logger)
-                    emit_log("INFO", f"Retry #{retry}\\{max_retry}. Entry mtime {mod_time} size {size_int} inode {inode}", log_q, logger=logger)
-                    emit_log("INFO", f"calculate_checksum checksum size is {total_size} . mtime {a_mod} size {a_size} inode {a_ino}", log_q, logger=logger)
+                # else:
+                #     emit_log("INFO", f"File changed from first stat. the file is Cacheable: {cacheable} doesnt match: {file_path} the follow characteristics: ", log_q, logger=logger)
+                #     emit_log("INFO", f"Retry #{retry}\\{max_retry}. Entry mtime {mod_time} size {size_int} inode {inode}", log_q, logger=logger)
+                #     emit_log("INFO", f"calculate_checksum checksum size is {total_size} . mtime {a_mod} size {a_size} inode {a_ino}", log_q, logger=logger)
 
                 mtime = epoch_to_date(re_st.st_mtime)
                 return calculate_checksum(file_path, mtime, a_mod, a_ino, a_size, checks, re_st, retry - 1, max_retry, cacheable, log_q, logger=logger)

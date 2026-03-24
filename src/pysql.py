@@ -1,7 +1,7 @@
 import logging
-import traceback
 import os
 import sqlite3
+import traceback
 
 
 def create_logs_table(c, unique_columns, add_column=None):
@@ -781,10 +781,9 @@ def increment_f(conn, c, sys_tables, records, logger=None):
 
 
 def find_symmetrics(dbopt, cache_table, systimeche):
-    """ --- dir that had no files at profile creation --- if there are differences in systimeche
-        table compare to cache_table otherwise check if any new files since cache_table
-        also
-        --- new dirs since profile --- """
+
+    # dirs that had no files and now do
+
     cache_records = []
     has_systime = False
     conn = cur = None
@@ -830,6 +829,8 @@ def find_symmetrics(dbopt, cache_table, systimeche):
                                 cache_records.append(record)
                         except (FileNotFoundError, PermissionError):
                             pass
+
+        # new directories
 
         sql = f"""
         SELECT DISTINCT s.filename

@@ -11,8 +11,8 @@ from .config import load_toml
 from .configfunctions import find_install
 from .configfunctions import get_config
 from .gpgcrypto import decr
-from .gpgkeymanagement import delete_gpg_keys
 from .gpgkeymanagement import check_for_gpg
+from .gpgkeymanagement import delete_gpg_keys
 from .gpgkeymanagement import set_gpg
 from .pyfunctions import is_integer
 from .pysql import clear_conn
@@ -21,7 +21,7 @@ from .rntchangesfunctions import name_of
 # 03/11/2026
 
 
-# see pyfunctions.py cache clear patterns for db
+# see config.toml cache clear patterns for db
 
 
 def blank_count(curs):
@@ -288,4 +288,4 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
 
 if __name__ == "__main__":
 
-    sys.exit(main(*sys.argv))
+    sys.exit(main(*sys.argv[1:]))

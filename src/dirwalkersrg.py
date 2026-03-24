@@ -18,7 +18,7 @@ from .pysql import table_has_data
 from .pysql import update_cache
 from .qtdrivefunctions import get_idx_tables
 from .qtdrivefunctions import parse_systimeche
-from .rntchangesfunctions import cnc
+from .pyfunctions import cnc
 # 03/09/2026
 
 

@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-#   Windows 10 / 11                                                                03/13/2026
+#! python3
+#   Windows 10 / 11                                                                03/20/2026
 #   recentchanges. Developer buddy      recentchanges/ recentchanges search
 #   Provide ease of pattern finding ie what files to block we can do this a number of ways
 #   1) if a file was there (many as in more than a few) and another search lists them as deleted its either a sys file or not but unwanted nontheless
@@ -9,8 +9,8 @@
 #   This script is called by two methods. recentchanges and recentchanges search. The former is discussed below
 #
 #   recentchanges make xzm
-#           Searches are saved in /tmp
-#           1. Search results are unfiltered and copied files for the .xzm are from a filter.
+#           Searches are saved in /tmp Linux and <app_install> windows
+#           1. Search results are unfiltered and copied files for the .xzm are from a filter. for windows the filter is used for filtered searches only
 #
 #           The purpose of this script is to save files ideally less than 5 minutes old. So when compiling or you dont know where some files are
 #   or what changed on your system. So if you compiled something you call this script to build a module of it for distribution. If not using for developing
@@ -20,11 +20,11 @@
 #
 #   recentchanges search
 
-#           This has the same names as recentchanges but also includes the tmp files and or a filesearch.
-#           1. old searches can be grabbed from Desktop, <app_install>\Local\save-changesnew\, <app_install>\AppData\Local\save-changesnew\{MODULENAME}_MDY\. for convenience
+#           This has the same name as recentchanges but also includes the tmp files and or a filesearch.
+#           1. old searches can be grabbed from Desktop, <app_install>, <app_install>\\{MODULENAME}_MDY\\. for convenience
 #           if there is no differences it displays the old search for specified search criteria
 #           2. The search is unfiltered and a filesearch is filtered.
-#           2. rnt search inverses the results. rnt.bat   ie for a standard search it will filter the results. For a file search it removes the filter.
+#           2. rnt search inverses the results. rnt.bat   ie for recentchanges search it will filter the results. For a file search it removes the filter.
 #  Also borrowed script features from various scripts on porteus forums
 import logging
 import os
@@ -37,10 +37,11 @@ import time
 from datetime import datetime, timedelta
 from . import processha
 from .config import load_toml
+from .config import update_toml_values
 from .configfunctions import check_config
 from .configfunctions import find_install
-from .configfunctions import get_config
 from .configfunctions import find_user_folder
+from .configfunctions import get_config
 from .config import dump_toml
 from .dirwalker import scan_system
 from .filterhits import update_filter_csv
@@ -58,7 +59,6 @@ from .pyfunctions import user_path
 from .recentchangessearchparser import build_parser
 from .rntchangesfunctions import build_tsv
 from .rntchangesfunctions import clear_logs
-from .rntchangesfunctions import time_convert
 from .rntchangesfunctions import display
 from .rntchangesfunctions import filter_lines_from_list
 from .rntchangesfunctions import filter_output
@@ -68,6 +68,7 @@ from .rntchangesfunctions import find_mft
 from .rntchangesfunctions import find_ps1
 from .rntchangesfunctions import find_wsl
 from .rntchangesfunctions import get_diff_file
+from .rntchangesfunctions import get_powershell_script
 from .rntchangesfunctions import get_runtime_exclude_list
 from .rntchangesfunctions import hsearch
 from .rntchangesfunctions import logic
@@ -77,6 +78,7 @@ from .rntchangesfunctions import name_of
 from .rntchangesfunctions import output_results_exit
 from .rntchangesfunctions import removefile
 from .rntchangesfunctions import resolve_editor
+from .rntchangesfunctions import time_convert
 from .qtdrivefunctions import setup_drive_cache
 
 
@@ -123,6 +125,8 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
     CACHE_F = str(CACHE_F_frm)
     CACHE_S_str = str(CACHE_S_frm)
 
+    j_settings = {}  # convenience for commandline if basedir other than C:\\ always have available.
+    # if basedir is C:\\ doesnt not touch json for speed as its set that way most of the time **
     config = load_toml(toml_file)  # setup_logger(process_label="RECENTCHANGES", wdir=appdata_local)
     if not config:
         return 1
@@ -148,8 +152,9 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
     basedir = config['search']['drive']  # main drive for search
     ll_level = config['logs']['logLEVEL']
     log_file = config['logs']['userLOG']
-    EXCLDIRS = config['search']['EXCLDIRS']
-    driveTYPE = config['search']['driveTYPE']
+    EXCLDIRS = user_path(config['search']['EXCLDIRS'], USR)
+    xRC = config['search']['xRC']
+    driveTYPE_frm = config['search']['driveTYPE']
     wsl = config['search']['wsl']
     dspEDITOR = config['display']['dspEDITOR']
     if dspEDITOR:
@@ -186,12 +191,14 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
     user_setting = {
         'USR': USR,
         'email': email,
-        'driveTYPE': driveTYPE,
+        'basedir': basedir,
+        'driveTYPE': driveTYPE_frm,
         'FEEDBACK': FEEDBACK,
         'ANALYTICS': ANALYTICS,
         'ANALYTICSECT': ANALYTICSECT,
         'checksum': checksum,
         'ps': ps,
+        'xRC': xRC,
         'cdiag': cdiag,
         'compLVL': compLVL
     }
@@ -234,18 +241,23 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         #
         # if for some reason the mount changed for the drive update the json, rename the cache files and rename database tables
 
-        j_settings = None
-
+        # summary if the drive is unkown its detected and the toml is updated
         CACHE_S, _, suffix, driveTYPE = setup_drive_cache(
-            basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, CACHE_S_str, driveTYPE, USR, email, compLVL, j_settings=j_settings
+            basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, CACHE_S_str, driveTYPE_frm, USR, email, compLVL, j_settings=j_settings
         )
         if not CACHE_S or not suffix:
             return 1
+        if not j_settings:
+            if basedir != "C:\\":
+                print("failed to load json in setup_drive_cache")
+                return 1
 
         is_wsl = False
         if wsl:
             is_wsl = find_wsl(toml_file)
 
+    if xRC and basedir != "C:\\":
+        xRC = False
     # end init
 
     # VARS
@@ -305,7 +317,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
     F = ["wsl", "find", f"/mnt/{tgt}"]
     PRUNE = ["\\("]
     for i, d in enumerate(EXCLDIRS):
-        PRUNE += ["-path", f"/mnt/{tgt}/{d}"]
+        PRUNE += ["-path", f"/mnt/{tgt}/{(d).replace('$', '\\$')}"]
         if i < len(EXCLDIRS) - 1:
             PRUNE.append("-o")
     PRUNE += ["\\)", "-prune",  "-o"]
@@ -322,12 +334,16 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         scr = os.path.join(tempwork, "scr")  # feedback
         cerr = os.path.join(tempwork, "cerr")  # priority
 
-        if is_calibrate:
+        if is_calibrate or (is_wsl and xRC):
 
             c_ver = mftec_is_cutoff(appdata_local)
             if not c_ver:
-                print("Mft requires --cutoff argument .NET 9 version to print to stdout", flush=True)
-                return 1
+                print("Mft requires --cutoff argument version to print to stdout .NET 9 or .NET 6", flush=True)
+                if is_calibrate:
+                    return 1
+                if xRC:
+                    xRC = False
+                    update_toml_values({'search': {'xRC': False}}, toml_file)
 
         if not iqt:
             is_key, err = iskey(email)
@@ -349,6 +365,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
 
         # initialize
 
+        # Linux. windows ln 486 start, rntchangesfunction.py findfiles and ctime.py init_recentchanges using journal db dir cache system
         # load ctime or files created or copied with preserved metadata.
         # if xRC
         # tout = init_recentchanges(script_dir, home_dir, xdg_runtime, inotify_creation_file, cfr, xRC, checksum, MODULENAME, log_file)
@@ -416,7 +433,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         if is_calibrate:
             endval += 30
             init = True
-            RECENT, COMPLETE, end, cstart = find_mft(
+            RECENT, COMPLETE_1, end, cstart = find_mft(
                 RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, logging_values, end,
                 cstart, search_time, iqt=iqt, strt=proval, endp=endval
             )
@@ -425,7 +442,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         elif not is_wsl:
             endval += 15
 
-            merged_database = os.path.join(tempwork, mergeddb)  # results from powershell search in tempdir app is in
+            merged_database = os.path.join(tempwork, mergeddb)  # results from powershell search in tempdir this app is in
             excl_path = os.path.join(tempwork, excl_file)
             set_excl_dirs(basedir, excl_path, EXCLDIRS)  # write exclude list to tempdir this app is in
 
@@ -453,79 +470,75 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
             endval += 15
             init = True
 
-            RECENT, COMPLETE, end, cstart = find_ps1(
+            RECENT, COMPLETE_1, end, cstart = find_ps1(
                 command, RECENT, COMPLETE_1, merged_database, init, cfr, search_start_dt,
                 user_setting, logging_values, end, cstart, iqt=iqt, strt=proval, endp=endval
             )
 
         # WSL find command
         else:
-            cmin = ["-amin", f"-{search_time}"]
-            logger = logging.getLogger("FSEARCH")
 
             # minor areas find cant reach with powershell first
             mmin_files, cmin_files = [], []
 
             if basedir == "C:\\":
                 s_path = os.path.join(script_dir, "find_files.ps1")
-                mmin_files, cmin_files = find_cmdhelp(s_path, search_time, USR)
+                mmin_files, _ = find_cmdhelp(s_path, search_time, USR)
             # end minor area
 
-            if tout:
-                mmin = ["-mmin", f"-{search_time}"]
+            find_command_cmin = [] + cmin
 
-                find_command_mmin = F + PRUNE + mmin + TAIL
-                init = True
-                endval += 30
+            if not xRC:
 
-                RECENT, COMPLETE_1, end, cstart = find_files(
-                    find_command_mmin, mmin_files, "main", RECENT, COMPLETE_1, init, cfr, search_start_dt, user_setting,
-                    logging_values, end, cstart, iqt=iqt, strt=proval, endp=endval, logger=logger
-                )
+                find_command_cmin = get_powershell_script(basedir, script_dir, EXCLDIRS, excl_file, tempwork, search_time, proval, endval, iqt)
 
-            else:
-                cmin = ["-amin", f"-{search_time}"]
-                current_time = datetime.now()
+            init = True
 
-                find_command_cmin = F + PRUNE + cmin + TAIL
-                init = True
+            tout, COMPLETE_2, end, cstart = find_files(
+                find_command_cmin, cmin_files, "ctime", tout, COMPLETE_2, init, cfr, search_start_dt, user_setting, logging_values,
+                end, cstart, search_time, EXCLDIRS, excl_file, toml_file, iqt=iqt, strt=proval, endp=endval, logger=logger
+            )
 
-                tout, COMPLETE_2, end, cstart = find_files(
-                    find_command_cmin, cmin_files, "ctime", tout, COMPLETE_2, init, cfr, search_start_dt, user_setting,
-                    logging_values, end, cstart, iqt=iqt, strt=proval, endp=endval, logger=logger
-                )
+            cmin_end = time.time()
+            cmin_start = current_time.timestamp()
+            cmin_offset = time_convert(cmin_end - cmin_start, 60, 2)
 
-                cmin_end = time.time()
-                cmin_start = current_time.timestamp()
-                cmin_offset = time_convert(cmin_end - cmin_start, 60, 2)
-                mmin = ["-mmin", f"-{search_time + cmin_offset:.2f}"]
-                find_command_mmin = F + PRUNE + mmin + TAIL
-                proval += 10
-                endval += 30
-                init = False
+            mmin = ["-mmin", f"-{search_time + cmin_offset:.2f}"]
+            find_command_mmin = F + PRUNE + mmin + TAIL
+            proval += 20
+            endval += 30
+            init = False
 
-                RECENT, COMPLETE_1, end, cstart = find_files(
-                    find_command_mmin, mmin_files, "main", RECENT, COMPLETE_1, init, cfr, search_start_dt, user_setting,
-                    logging_values, end, cstart, iqt=iqt, strt=proval, endp=endval, logger=logger
-                )
+            RECENT, COMPLETE_1, end, cstart = find_files(
+                find_command_mmin, mmin_files, "main", RECENT, COMPLETE_1, init, cfr, search_start_dt, user_setting, logging_values,
+                end, cstart, search_time, EXCLDIRS, excl_file, toml_file, iqt=iqt, strt=proval, endp=endval, logger=logger
+            )
 
         cend = time.time()
-        if iqt:
-            print(f"Progress: {endval + 1}%")
+        # if iqt:
+        #     print(f"Progress: {endval + 1}%")  # for linux for gui knows it can stop without corrupting .gpg
         sys.stdout.flush()
 
         # end Main search
-        if RECENT is None:
+
+        if RECENT is None or tout is None:
             return 1
 
         if cfr and (RECENT or tout):
             encr_cache(cfr, CACHE_F, email, compLVL)
 
         if not RECENT:
-            cprint.cyan("No new files found")
-            if iqt:
-                print("Progress: 100.00%")
-            return 0
+            if not tout:
+                cprint.cyan("No new files found")
+                if iqt:
+                    print("Progress: 100.00%")
+                return 0
+            # for entry in tout:
+            #     tss = entry[0].strftime(fmt)
+            #     fp = entry[1]
+            #     print(f'{tss} {fp}')
+            RECENT = tout[:]
+            tout = []
 
         COMPLETE = COMPLETE_1 + COMPLETE_2  # nsf append to rout in pstsrg before stat insert
         proval = 60  # current progress
@@ -576,10 +589,11 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
             return not any(filepath.startswith(p) for p in exclude_patterns)
 
         SORTCOMPLETE = [
-                entry for entry in deduped
-                if filepath_included(entry[1], exclude_patterns)
+            entry for entry in deduped
+            if filepath_included(entry[1], exclude_patterns)
         ]
 
+        lines = []
         if not flsrh:
             start_dt = SRTTIME
             range_sec = 300 if THETIME == 'noarguser' else int(THETIME)
@@ -751,7 +765,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
                 print("There is a problem in pst_srg no return value. likely database wasnt created, path to database did not exist or permission issue")
                 return 1
             if iqt:
-                print(f"Progress: {proval}")  # print +1 for stop request polling
+                print(f"Progress: {proval}")  # print +1 for stop request polling Linux *
             if scanIDX and not os.path.isfile(dbopt):
                 print(f"dbopt missing from pstsrg. {dbopt} unable to scan profile")
                 scanIDX = False
@@ -823,7 +837,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
             diff_file = diff_file if diffrlt else get_diff_file(appdata_local, USRDIR, MODULENAME)
 
             rlt = scan_system(appdata_local, dbopt, dbtarget, basedir, USR, diff_file, CACHE_S, email, ANALYTICSECT, show_diff, compLVL, dcr=dcr, iqt=iqt, strt=proval, endp=endval)
-            if not iqt and not autoIDX:  # if commandline, turn off so doesnt scan every time
+            if not iqt and not autoIDX:  # if commandline, turn off so doesnt scan every time. autoIDX permissive to auto scan
                 # update_toml_values({'diagnostics': {'scanIDX': False}}, toml_file)
                 config['diagnostics']['scanIDX'] = False
                 dump_toml(None, config, toml_file)

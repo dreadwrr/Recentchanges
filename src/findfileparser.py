@@ -1,6 +1,6 @@
 import argparse
-# from .rntchangesfunctions import to_bool
 from .rntchangesfunctions import multi_value
+# from .rntchangesfunctions import to_bool
 
 
 def parse_recent_args(parser):

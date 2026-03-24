@@ -6,8 +6,8 @@ import re
 import subprocess
 import sys
 import threading
-import traceback
 import time
+import traceback
 from datetime import datetime, timedelta, timezone
 from io import StringIO
 from mft import PyMftParser, PyMftAttributeX10, PyMftAttributeX30  # type: ignore[attr-defined]
@@ -18,8 +18,9 @@ from .rntchangesfunctions import read_mft_progress
 from .rntchangesfunctions import removefile
 from .rntchangesfunctions import mft_entrycount
 from .rntchangesfunctions import str_to_bool
-from .wmipy import ntfsdump
 from .wmipy import mftecparse
+from .wmipy import ntfsdump
+
 # 03/08/2026
 
 
@@ -345,6 +346,9 @@ class MftWorker(Worker):
                     mode = "w"
                     if isdiff:
                         mode = "a"
+                    # 03/20/2026 verify this
+                    #
+                    #
                     cmd = ['fsutil', 'usn', 'readjournal', 'c:', 'csv']  # | findstr /i /C:"`"File create`"" > “log.log”
                     res = subprocess.run(
                         cmd,
@@ -842,14 +846,18 @@ class MftWorker(Worker):
         df = cutoff.isoformat().replace("+00:00", "Z")
         self.log.emit(f"Cutoff {df}")
 
-        # example cutoff time all dates after that time. > write output to file. Note --csvf is ignored in this case
-        # .\MFTECmd.exe -f "C:\`$MFT" --cutoff 2025-10-19T13:45:30 --csv Y:\ --csvf myfile2.csv > Y:\myfile.csv  # default format is 7digits yyyy-MM-dd HH:mm:ss.fffffff           Note parsed from stdout
+        # mftec_commd = '.\\bin\\MFTECmd.exe'
 
-        cmd = [str(self.mftec_command), '-f', mft, '--dt', 'yyyy-MM-dd HH:mm:ss.ffffff', '--cutoff', df, '--csv', 'C:\\', '--csvf', 'myfile2.csv']  # '.\\bin\\MFTECmd.exe'
+        # example cutoff time all dates after that time. write stdout to file Y:\myfile.csv. Note --csvf is ignored in this case mft parsed and sent to stdout from MFTECmd.exe
+
+        # .\MFTECmd.exe -f "C:\`$MFT" --cutoff 2025-10-19T13:45:30 --csv Y:\ --csvf myfile2.csv > Y:\myfile.csv  # default format is 7digits yyyy-MM-dd HH:mm:ss.fffffff  # for python datatime
+
+        cutoff = "2003-03-19T11:13:18Z"  # to trigger entire mft for cross reference path resolution needed by usn jrnl by frn ***
+        cmd = [str(self.mftec_command), '-f', mft, '--dt', 'yyyy-MM-dd HH:mm:ss.ffffff', '--cutoff', cutoff, '--csv', 'C:\\', '--csvf', 'myfile2.csv']
 
         # self.log.emit('Running command:' + ' '.join(f'"{c}"' for c in cmd))
-        byte_s = mft_entrycount()
 
+        byte_s = mft_entrycount()
         csv_data = StringIO()
 
         try:

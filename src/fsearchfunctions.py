@@ -1,4 +1,3 @@
-import logging
 import os
 import pywintypes
 import win32con
@@ -74,11 +73,14 @@ def normalize_timestamp(mod_time: str) -> int:
     return int(sec) * 1_000_000 + int(frac)
 
 
-def iso8601_utc(s, log_q, logger=None):
+def parse_iso(s, log_q, logger=None):
     try:
         return datetime.fromisoformat(s)
     except (ValueError, TypeError, AttributeError) as e:
         emit_log("ERROR", f"parse_iso8601: invalid date format: {s} {e} ", log_q, logger=logger)
+        return None
+    except OSError as e:
+        emit_log("ERROR", f"parse_iso8601: epoch was {s} {type(e).__name__} {e} ", log_q, logger=logger)
         return None
 
 
@@ -93,8 +95,9 @@ def parse_iso8601(s):
             s = f"{main}.{frac}"
 
         return datetime.fromisoformat(s)
-    except (ValueError, TypeError, AttributeError) as e:
-        logging.debug("parse_iso8601: invalid date format: %s : %s", s, e, exc_info=True)
+    except (ValueError, TypeError, AttributeError, OSError) as e:
+        print("epoch was", s, e)
+        # logging.debug("parse_iso8601: invalid date format: %s : %s", s, e, exc_info=True)
         return None
 
 
@@ -120,8 +123,10 @@ def get_file_id(filepath, log_q=None, logger=None):
             attrs = info[0]
             if attrs & win32con.FILE_ATTRIBUTE_REPARSE_POINT:
                 sym = "y"
+            # if attrs & win32file.IO_REPARSE_TAG_SYMLINK:
+            #     sym = "y"
 
-            # size = (info[5] << 32) | info[6]
+            size = (info[5] << 32) | info[6]
 
             file_index = (info[8] << 32) + info[9]
             hard_link = info[7]
@@ -143,15 +148,15 @@ def get_file_id(filepath, log_q=None, logger=None):
             mode = get_mode(attrs, sym)
             # end mode
 
-            return file_index, sym, hard_link, creation_time, mode, None
+            return file_index, sym, hard_link, size, creation_time, mode, None
         finally:
             handle.Close()
 
     except pywintypes.error as e:
         if e.winerror in (2, 3):  # file not found, path not found
-            return None, None, None, None, None, "Nosuchfile"
+            return None, None, None, None, None, None, "Nosuchfile"
         emit_log("DEBUG", f"get_file_id unable to get inode symlinks hardlinks creationtime mode for file: {filepath} {type(e).__name__} error: {e}", log_q, logger=logger)
-        return None, None, None, None, None, "Error"
+        return None, None, None, None, None, None, "Error"
 
 
 # emit_log("DEBUG", f"file_owner File not found while getting owner domain for file: {file_path}", log_q)

@@ -7,7 +7,7 @@ import subprocess
 import traceback
 from io import StringIO
 from typing import Any
-from src.rntchangesfunctions import cnc
+from src.pyfunctions import cnc
 
 
 def encr_cache(cfr, CACHE_F, email, compLVL):

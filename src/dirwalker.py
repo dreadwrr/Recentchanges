@@ -1,4 +1,4 @@
-#   build first to find the files then distribute round-robin to multiprocessing            03/11/2026
+#   build first to find the files then distribute round-robin to multiprocessing            03/19/2026
 # to hash. This was found to be the fastest as other methods have too much overhead
 
 # scan the important files for modified with same mtime or spoofed timestamp
@@ -8,8 +8,8 @@
 # find created or downloads button use the cache to find files created or downloaded
 # for fast search results of new files on the system
 #
-import logging
 import gc
+import logging
 import multiprocessing
 import os
 import queue
@@ -27,17 +27,19 @@ from .buildindex import build_index
 from .config import set_json_settings
 from .dirwalkerfunctions import check_specified_paths
 from .dirwalkerfunctions import chunk_split
+from .dirwalkerfunctions import create_profile_baseline
+from .dirwalkerfunctions import execEXTN
 from .dirwalkerfunctions import decr_cache
 from .dirwalkerfunctions import get_base_folders
 from .dirwalkerfunctions import get_filter_tup
 from .dirwalkerfunctions import get_stat
-from .dirwalkerwin import get_extension_tup
-from .dirwalkerwin import get_config_data
 from .dirwalkersrg import create_new_index
 from .dirwalkersrg import db_sys_changes
+from .dirwalkerwin import get_config_data
+from .dirwalkerwin import get_extension_tup
 from .dirwalkersrg import hardlinks
-from .dirwalkersrg import sync_db
 from .dirwalkersrg import save_db
+from .dirwalkersrg import sync_db
 from .dirwalkerparser import build_dwalk_parser
 from .fileops import find_dir_link_target
 from .fileops import find_link_target
@@ -55,20 +57,19 @@ from .logs import setup_logger
 from .logs import write_logs_to_logger
 from .pyfunctions import cprint
 from .pyfunctions import epoch_to_str
-from .pysql import find_symmetrics
 from .pysql import clear_conn
+from .pysql import find_symmetrics
 from .qtdrivefunctions import get_idx_tables
 from .qtdrivefunctions import parse_systimeche
-from .rntchangesfunctions import name_of
-from .rntchangesfunctions import cnc
+from .pyfunctions import cnc
 from .rntchangesfunctions import display
+from .rntchangesfunctions import name_of
 from .scancreated import scan_created
 from .scanindex import scan_index
 
 
 # Globals
 fmt = "%Y-%m-%d %H:%M:%S"
-execEXTN = (".exe", ".msi", ".bat", ".com")
 
 
 def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, paths_tup, is_noextension, is_exec, is_sym, logger):
@@ -99,7 +100,6 @@ def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, pa
 
                         rtype = target = None
                         symlink = False
-                        junction = False
                         found = False
 
                         path = entry.path
@@ -123,12 +123,10 @@ def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, pa
 
                                 if symlink:
                                     rtype = "symlink"
-                                if not symlink and entry.is_junction():
-                                    junction = True
+                                elif entry.is_junction():
                                     rtype = "junction"
-                                if not (symlink or junction):
-                                    if is_reparse_point(stat_info):
-                                        rtype = "reparse"
+                                elif is_reparse_point(stat_info):
+                                    rtype = "reparse"
 
                                 modified_ep = stat_info.st_mtime
                                 modified_dt = epoch_to_str(modified_ep)
@@ -169,19 +167,20 @@ def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, pa
                                         stat_info = get_stat(entry, logger=logger)
                                         if not stat_info:
                                             continue
-                                        if not symlink:
+
+                                        if symlink:
+                                            target = find_link_target(path, logger=logger)
+
+                                        else:
                                             if is_reparse_point(stat_info):
                                                 symlink = True
                                                 if symlink and not is_sym:
                                                     continue
-                                        if symlink:
-                                            target = find_link_target(path, logger=logger)
-                                        idx_files += 1
-                                        r += 1
+
                                         sze = stat_info.st_size
                                         dev = stat_info.st_dev
                                         if stat_info.st_nlink > 1:
-                                            inode, _, _, _, _, status = get_file_id(path, logger=logger)
+                                            inode, _, _, _, _, _, status = get_file_id(path, logger=logger)
                                             if status in ("Nosuchfile", "Error"):
                                                 continue
                                             elif inode:
@@ -193,6 +192,9 @@ def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, pa
                                                 ix += sze
                                         else:
                                             ix += sze
+
+                                        idx_files += 1
+                                        r += 1
 
                                         all_entries.append((path, stat_info, symlink, target, found))
                             else:
@@ -221,7 +223,7 @@ def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, pa
                                 dir_data[path] = entry_data
 
                         except OSError as e:
-                            logger.error(f"collect_scan Exception scanning {'symlink' if symlink else 'file'} {path}: {type(e).__name__} {e}", exc_info=True)
+                            logger.error(f"collect_scan Exception scanning {'symlink' if symlink else ''} {path}: {type(e).__name__} {e}", exc_info=True)
 
                     entry_data = {
                         'modified_time': root_modified_dt if root_modified_dt else '',
@@ -287,6 +289,11 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, mdltype, tempdir
     MODULENAME = config['paths']['MODULENAME']
 
     EXCLDIRS += nogo
+
+    search_archive = appdata_local / f"{MODULENAME}_MDY_"
+    search_exclude = str(search_archive.relative_to(search_archive.anchor))  # sensitivity adjust
+    EXCLDIRS += search_exclude
+
     filterout_list = [os.path.join(basedir, d) for d in filterout_list]
 
     if basedir == "C:\\":
@@ -535,6 +542,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, mdltype, tempdir
 #
 # 3
 def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, ANALYTICSECT=False, idx_drive=False, gnupghome=None, compLVL=200, iqt=False, strt=0, endp=100):
+
     appdata_local = Path(appdata_local)
     config_data = get_config_data(appdata_local, user)
 
@@ -559,7 +567,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
     deltav = endp - strt
     proval = deltav * .15 + strt
     # if iqt:
-    #     print(f"Progress: {strt}%", flush=True)
+    #     print(f"Progress: {strt}%", flush=True)  # used to stop password prompt in gui
 
     parsedsys = []
     dir_data = {}
@@ -579,9 +587,10 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
 
     # handle exclusions
     # Windows temp folder
-    exclude_temp = Path(f"Users\\{user}\\AppData\\Local\\Temp")
+
+    exclude_temp = f"Users\\{user}\\AppData\\Local\\Temp"
     if exclude_temp not in EXCLDIRS:
-        EXCLDIRS.append(str(exclude_temp))
+        EXCLDIRS.append(exclude_temp)
     # filter out
     filterout_list = [os.path.join(basedir, d) for d in filterout_list]
     if basedir == "C:\\":
@@ -591,23 +600,31 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
         # tempdir\\'{MODULENAME}xcreated.txt'
         # tempdir\\'{MODULENAME}xfindfiles.txt'
         MODULENAME = config['paths']['MODULENAME']
+
         download_results = os.path.join(USRDIR, MODULENAME + "x")
         filterout_list.append(download_results)
         # filterout_list.append(str(file_out))  # linux
+
         if '.gpg' in extension:
+
             CACHE_F_frm = os.path.join(appdata_local, "ctimecache.gpg")
             CACHE_S_frm, _ = parse_systimeche(basedir, CACHE_S)
             CACHE_S_frm = os.path.join(appdata_local, CACHE_S_frm)
+
             filterout_list.append(CACHE_F_frm)
             filterout_list.append(CACHE_S_frm)
             filterout_list.append(dbtarget)
+
         if ".csv" in extension:
+
             flth_frm = appdata_local / "flth.csv"
             filterout_list.append(str(flth_frm))
+
         if ".db" in extension:
             filterout_list.append(dbopt)
 
         if is_noextension and gnupghome:
+
             file_exclude = os.path.join(gnupghome, "random_seed")
             if file_exclude not in filterout_list:
                 filterout_list.append(file_exclude)
@@ -623,21 +640,22 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
         basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup,
         paths_tup, is_noextension, is_exec, is_sym, logger
     )
-
     end = time.time()
     if log_entries:
         write_logs_to_logger(log_entries, logger)
-    if dir_data is None:
+
+    if all_files is None:
         print(f"An error occurred while initially indexing {basedir}")
         return 1
-    if j == 0:
-        print(f"No files found while searching {basedir}.")
+    elif not all_files:  # if j == 0
+        print(f"No files matched while searching {basedir}.")
+        if is_exec:
+            print("if exec setting is True it can filter too many results try to adjust or set different extns to include more results")
         return 1
-    if r == 0:
-        print("failed to build profile an error occured there were no matched files. exitting")
-        return 1
+
     if iqt:
         print(f"Progress: {proval}%")  # 15 %
+
     prog_v = proval
     el = end - start
     if ANALYTICSECT:
@@ -665,6 +683,10 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
         elif res == 4:
             return 52  # likely encryption failure database integrity is fine
         return res
+
+    if r == 0:
+        print("failed to build profile an error occured there were no matched files. exitting")
+        return 1
 
     endval = deltav * .90 + strt
 
@@ -788,9 +810,12 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
 
                 if iqt:
                     print(f"Progress: {endp}%", flush=True)
-
-                extn = extension + configured_paths
-                set_json_settings({"proteusEXTN": extn}, drive=basedir, filepath=str(json_file))
+                else:
+                    if is_exec:
+                        extn = create_profile_baseline(execEXTN)
+                    else:
+                        extn = extension + configured_paths
+                    set_json_settings({"proteusEXTN": extn}, drive=basedir, filepath=str(json_file))
 
                 print("System profile complete")
             elif rlt == 4:
@@ -966,6 +991,9 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, CACHE_S
             systimeche = name_of(CACHE_S)
             dir_diff, new_diff = find_symmetrics(dbopt, cache_table, systimeche)
 
+        if ANALYTICSECT:
+            el = end - start
+            print(f'Search took {el:.3f} seconds\n')
         if x != 0:
             p = (y / x) * 100
             if p > 30:
@@ -973,9 +1001,6 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, CACHE_S
 
         # output terminal
         if all_sys:
-            if ANALYTICSECT:
-                el = end - start
-                print(f'Search took {el:.3f} seconds\n')
 
             # symmetric differences
             # show sylinks that have new targets
@@ -1026,13 +1051,13 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, CACHE_S
                 print(current_time, file=f)
 
         # symmetric differences
+        # symlink target change and files no longer present
         # show directories that had 0 files at indexing but now have files
         # show new directories since profile was created
         if showDiff and are_symmetrics:
 
             if not is_all_results:
                 print("Directory differences found")
-                print(f"{write_type} to difference file {difffile}")
                 f.write("\n")
                 print()
                 print(hdr1, file=f)
@@ -1072,7 +1097,9 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, CACHE_S
                 for d in new_diff:
                     f.write(d + "\n")
 
-            print("Differences included")
+            if is_all_results:
+                print("Differences included")
+            print(f"{write_type} to difference file {difffile}")
         elif showDiff:
             print("no symmetric differences found.")
 

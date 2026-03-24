@@ -11,7 +11,7 @@ from .gpgcrypto import decr
 from .gpgcrypto import encr
 from .pysql import clear_conn
 from .pysql import table_exists
-from .rntchangesfunctions import cnc
+from .pyfunctions import cnc
 from .rntchangesfunctions import name_of
 from .rntchangesfunctions import removefile
 
@@ -86,16 +86,6 @@ def get_idx_tables(basedir, cache_file=None, idx_suffix=None):
     sys_b = "sys2" + sys_a
     sys_a = "sys" + sys_a
     return (sys_a, sys_b), cache_table, key
-
-
-def test_idx_suffix(basedir, j_settings):
-    """ Remove the old json entry """
-    if basedir == "C:\\":
-        return False
-    # key = parse_drive(basedir)
-    if j_settings.get(basedir) is not None:
-        return True  # key = "x" + key
-    return False
 
 
 def get_mount_partguid(basedir: str) -> str | None:
@@ -318,17 +308,27 @@ def setup_drive_settings(basedir, key, driveTYPE, toml_file, user_json=None, j_s
 
 def get_cache_files(basedir, dbopt, dbtarget, CACHE_S, json_file, user, email, compLVL, j_settings=None, partguid=None, iqt=False):
 
+    suffix = "c"
     cache_file = systimeche = None
 
-    if isinstance(j_settings, dict) and not j_settings:  # iqt
-        jdata = get_json_settings(None, None, json_file)
-        j_settings.update(jdata)
+    # qt gui initial load json
+    # this avoids loading json unnecessarily for commandline if basedir is "/"
+    # which is what it would be set to m ost of the time
 
-    suffix = "c"
+    if iqt:
+        if isinstance(j_settings, dict) and not j_settings:  # iqt
+            jdata = get_json_settings(None, None, json_file)
+            j_settings.update(jdata)
+
     if basedir != "C:\\":
 
-        if j_settings is None:  # command line
-            j_settings = get_json_settings(None, None, json_file)
+        # command line
+        if not iqt:
+            if j_settings is None:
+                j_settings = get_json_settings(None, None, json_file)  # original left for legacy
+            elif not j_settings:
+                jdata = get_json_settings(None, None, json_file)
+                j_settings.update(jdata)
 
         if not os.path.exists(basedir):
             print("setup_drive_setting setting drive:", basedir)
@@ -483,15 +483,24 @@ def get_cache_files(basedir, dbopt, dbtarget, CACHE_S, json_file, user, email, c
 
 def setup_drive_cache(basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, CACHE_S, driveTYPE, USR, email, compLVL, j_settings=None, partguid=None, iqt=False):
 
+    if driveTYPE:
+        if driveTYPE.lower() not in ('hdd', 'ssd'):
+            print(f"Incorrect setting driveTYPE: {driveTYPE} in config: {toml_file}")
+            return None, None, None, None
+
     CACHE_S, systimeche, suffix = get_cache_files(basedir, dbopt, dbtarget, CACHE_S, json_file, USR, email, compLVL, j_settings, partguid, iqt)  # confirm the guid and build the CACHE_S and suffix
     if not suffix:
         return None, None, None, None
 
-    if j_settings and basedir != "C:\\":
-        driveTYPE = j_settings.get(basedir, {}).get("drive_type")
-    if iqt:
-        if not j_settings:
-            driveTYPE = None
+    if driveTYPE and j_settings:
+
+        dt = j_settings.get(basedir, {}).get("drive_type")
+        if dt:
+            if dt != driveTYPE:
+                j_settings[basedir]["drive_type"] = driveTYPE
+                dump_j_settings(j_settings, json_file)
+
+            return CACHE_S, systimeche, suffix, driveTYPE
 
     driveTYPE = setup_drive_settings(basedir, suffix, driveTYPE, toml_file, json_file, j_settings, False, appdata_local)
     if driveTYPE is None:

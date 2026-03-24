@@ -22,9 +22,9 @@ from .gpgcrypto import decrypt_from_text
 from .gpgcrypto import encr
 from .gpgcrypto import encrypt_to_text
 from .pyfunctions import is_integer
-from .rntchangesfunctions import is_wsl
 from .rntchangesfunctions import get_default_distro
 from .rntchangesfunctions import get_version1
+from .rntchangesfunctions import is_wsl
 from .rntchangesfunctions import set_to_wsl1
 
 # 03/06/2026
@@ -61,6 +61,20 @@ def window_message(parent, message, title="Status", default=True):  # ok
 
 def window_input(parent, title, value_title):
     return QInputDialog.getText(parent, title, value_title)
+
+
+def profile_to_str(ps, is_exec):
+    sep = ' ' if is_exec else ', '
+    return sep.join(ps)
+
+
+def ps_profile_type(profile):
+    if not profile:
+        return False
+    if len(profile) == 1:
+        if "exec" in profile[0]:
+            return True
+    return False
 
 
 # Take care of setting this so not to prompt repeatedly
@@ -440,7 +454,6 @@ def show_cmddoc(cmddoc, lclhome, default_gpg, gpg_path, gnupg_home, email, examp
             hudt.appendPlainText(f'& "{lclgpg}" --homedir {gnupg_home} --delete-secret-key {fingerprint}')
             hudt.appendPlainText(f'& "{lclgpg}" --homedir {gnupg_home} --delete-key {fingerprint}')
             hudt.appendPlainText("\n")
-
         gpg_command = f'& "{lclgpg}" --homedir "{gnupg_home}"'
 
     else:
@@ -448,6 +461,7 @@ def show_cmddoc(cmddoc, lclhome, default_gpg, gpg_path, gnupg_home, email, examp
             hudt.appendPlainText(f"Delete a GPG key for: {email}\n")
             hudt.appendPlainText(f"gpg --delete-secret-key {fingerprint}")
             hudt.appendPlainText(f"gpg --delete-key {fingerprint}")
+        gpg_command = "gpg"
 
     hudt.appendPlainText("\n")
     hudt.appendPlainText("decrypt something (example check a cache file) from app directory")
@@ -483,7 +497,7 @@ def get_latest_github_release(user, repo):
         resp = requests.get(url, timeout=5)
         resp.raise_for_status()
         data = resp.json()
-        latest_version = data["tag_name"].lstrip("v").rstrip("-py1")  # # .removesuffix("-py1")
+        latest_version = data["tag_name"].lstrip("v")
         download_url = data["html_url"]
         return latest_version, download_url
     except Exception as e:
@@ -496,7 +510,7 @@ def check_for_updates(app_version, user, repo, parent=None):
     latest_version, _ = get_latest_github_release(user, repo)
     if latest_version and version.parse(latest_version) > version.parse(app_version):
         window_message(parent, f"New version available: {latest_version}", "Update msg", default=False)
-    else:
+    elif latest_version:
         window_message(parent, f"You are running the latest version. {app_version}", "Update msg", default=False)
 
 

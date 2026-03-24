@@ -60,7 +60,7 @@ def return_info(file_path, st, symlink, link_target, log_q):
     # inode = st.st_ino
     # hardlink = st.st_nlink
 
-    inode, _, hardlink, _, mode, status = get_file_id(file_path, log_q)  # reparse c_time
+    inode, _, hardlink, _, _, mode, status = get_file_id(file_path, log_q)  # reparse c_time
     if status in ("Nosuchfile", "Error"):
         return sym, target, mode, inode, hardlink, None, None, None, st.st_mtime_ns, None, None, None, st.st_size, status
     resolve_owner = file_owner(file_path, log_q)

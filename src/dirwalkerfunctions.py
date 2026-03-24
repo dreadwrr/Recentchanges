@@ -1,16 +1,18 @@
 import csv
 import os
+import stat
 from io import StringIO
 from .dirwalkerwin import return_info
 from .fileops import calculate_checksum
 from .fileops import find_link_target
-from .fileops import set_stat
 from .fileops import is_reparse_point
+from .fileops import set_stat
 from .gpgcrypto import decrm
 from .logs import emit_log
 # 03/16/2026
 
 fmt = "%Y-%m-%d %H:%M:%S"
+execEXTN = (".exe", ".msi", ".bat", ".com")
 
 
 # Cache read
@@ -121,6 +123,18 @@ def get_base_folders(basedir, EXCLDIRS_FULLPATH):
     return base_folders, c
 
 
+def create_profile_baseline(execEXTN):
+    """ build list format so can differentiate between psEXTN """
+    # template
+    #     "exec exe msi bat com",
+
+    extn = []
+
+    exec_str = ' '.join(execEXTN)
+    extn.append("exec " + exec_str)
+    return extn
+
+
 # os.scandir meta DirEntry object formerly walk_meta
 # for Build IDX meta - either to specifications or XzmProfile template
 # take initial stat. run the checksum then stat again to confirm hash.
@@ -204,7 +218,8 @@ def meta_sys(file_path, previous_md5, previous_symlink, previous_target, previou
         symlink = False
         if is_reparse_point(st):
             symlink = True
-            target = find_link_target(file_path, log_q)
+            if stat.S_ISLNK(st.st_mode):
+                target = find_link_target(file_path, log_q)
 
         file_info = return_info(file_path, st, symlink, target, log_q)
 

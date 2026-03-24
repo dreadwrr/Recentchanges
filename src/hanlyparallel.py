@@ -1,10 +1,10 @@
 import gc
 import logging
-import traceback
 import multiprocessing as mp
 import os
 import sqlite3
 import threading
+import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from concurrent.futures.process import BrokenProcessPool
 from .hanlymc import hanly
@@ -16,7 +16,6 @@ from .pyfunctions import cprint
 from .pyfunctions import escf_py
 from .pysql import detect_copy
 from .pysql import increment_f
-# import queue
 # 03/16/2026
 
 
@@ -131,7 +130,7 @@ def hanly_parallel(drive_type, rout, scr, cerr, parsed, cachermPATTERNS, ANALYTI
 
     if len_parsed < 80 or drive_type.lower() == "hdd":
 
-        # avoid starting the queue and use logging to avoid overhead
+        # avoid starting the queue and use logging directly to avoid overhead
 
         # log_q = queue.SimpleQueue()
         # init_process_worker(log_q)
