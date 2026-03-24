@@ -58,6 +58,7 @@ pip install pyinstaller <br>
 pyinstaller main.spec icon=rntchanges.ico <br><br>
 copy _internal and main to app folder <br>
 <br>
+also recentchanges.bat and rnt.bat change remove python in two places and change src\set_recent_helper.py to main <br>
 further pyinstall documentation https://github.com/dreadwrr/Recent-Pyinstaller<br>
 which is just updating the .bat files to point to the executable <br><br>
 
