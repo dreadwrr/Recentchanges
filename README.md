@@ -4,8 +4,8 @@ Released 3.0.4! with key changes and optimizations <br>
 
 # Recentchanges
 Can be used with system python or one step pyinstall build <br><br> 
-3.0.3 saw Recentchanges, that was first made on windows, being overhauled with new features plus updates from <br>
-recentchanges Qt linux <br><br>
+3.0.3 saw Recentchanges, that was first made on windows, being overhauled with new features plus updates from recentchanges Qt linux <br><br>
+
 To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
 search with Powershell or windows subsystem of linux. <br>
