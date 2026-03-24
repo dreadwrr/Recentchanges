@@ -523,7 +523,11 @@ class MainWindow(QMainWindow):
         y = self.basedirs.current_index
         x = self.ui.sbasediridx.value()
 
-        suffix = None
+        # currently hasnt change so set drive_suffix for current suffix for debugging
+        # current text of drive button parse_drive(self.ui.basedirButton.currentText())
+        _, di, _ = self.basedirs.get_current_item()
+        suffix = di.suffix  # or self.suffix
+
         try:
 
             guid, drive_info, info = self.basedirs.get_item(x)
@@ -3179,6 +3183,8 @@ def start_main_window():
             is_key, err = iskey(email)
             if is_key is False:
 
+                # from PySide6.QtWidgets import QInputDialog, QLineEdit
+                # pawd, ok = QInputDialog.getText(None, "Enter new GPG Password", "Password:", QLineEdit.EchoMode.Password)
                 icon = str(appdata_local / "Resources" / "gnupg-streamline.png")
                 key_error = res = False
                 dlg = PassphraseDialog(icon_path=icon)
@@ -3229,13 +3235,15 @@ def start_main_window():
             # from user install
             if not gnupg_home:
                 gnupg_home = os.environ.get("GNUPGHOME")
+                gpg_home = j_settings.get("gnupghome")
                 if gnupg_home:
-                    gpg_home = j_settings.get("gnupghome")
                     if gnupg_home != gpg_home:
                         j_settings["gnupghome"] = gnupg_home
                         json_dump = True
-                else:
-                    gnupg_home = find_gnupg_home(json_file, j_settings)  # detect and save
+                elif not gpg_home:
+                    gnupg_home = find_gnupg_home(json_file, j_settings, iqt=True)  # detect and save
+                    if gnupg_home:
+                        json_dump = True
 
             distro_name = j_settings.get("distro_name")
             if not distro_name:
