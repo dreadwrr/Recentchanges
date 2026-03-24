@@ -5,12 +5,12 @@ backend = "database"
 
 # patterns to delete from db.
 cachermPATTERNS = [
-    "%caches%",
-    "%.cache%",
-    "%FontCache%",
-    "%__pycache__%",
-    "%C:\\Users\\{{user}}\\AppData\\Local\\save-changesnew\\flth%",
-    "%\\Microsoft\\Windows\\Recent\\%"
+    '%caches%',
+    '%.cache%',
+    '%FontCache%',
+    '%__pycache__%',
+    '%C:\Users\{{user}}\AppData\Local\save-changesnew\flth%',
+    '%\Microsoft\Windows\Recent\%'
 ]
 
 # default for asymmetrical gpg auth for STATPST
@@ -27,7 +27,6 @@ compLVL = 200
 
 					# default ERROR
 					# DEBUG
-					# INFO
 logLEVEL = "ERROR"
 userLOG = "errs.log"
 
@@ -52,12 +51,9 @@ EXCLDIRS = ["Windows", "$Recycle.Bin"]
 				# default false 
 wsl = false
 
-
 						# How many old searches to save. These can be grabbed by `recentchanges search` and `recentchanges`
 						# for comparisons in diff file
 archivesrh = 5
-
-
 
 
 # find file default extensions. added here as well as in qt which are stored in database 
@@ -79,6 +75,11 @@ extension = [
  ".iso", ".md5", ".sha1", ".torrent", ".dat"
 ]
 
+# alternative to inotifywait for Windows. which for one hour would to look for new files where ctime > mtime in /. this is for downloads or copies with preserved metadata
+# for Windows this uses a journal database with MFT data and USN updates. requires WSL
+						# false - default. if false the files will still show up
+xRC = false             	# true - With this setting can bypass 1 of 2 search loops and reduce process overhead as the search is already there effectively increasing the overall speed
+							    
 
 [compress]
 
@@ -167,18 +168,18 @@ dspEDITOR = "notepad"
 # if the value "" is used the app will check registry for dspEDITOR to see if its installed. notepad and notepad++ are checked anything
 # else needs dspPATH specifcally
 															# ""
-															# "C:\Program Files (x86)\myeditor\someexe.exe"
+															# "C:\\Program Files (x86)\\myeditor\\someexe.exe"
 dspPATH = ""															
 #dspPATH = "C:\\Program Files\\Notepad++\\notepad++.exe" 		
 
 
 # color for main term display 
 									# unix   default
-										# wb  white on black
-										# solar   solarize cyan
-										# monochrome   for grey
-										# modern
-hudCOLOR = "monochrome"
+									# wb  white on black
+									# solar   solarize cyan
+									# monochrome   for grey
+									# modern
+hudCOLOR = "unix"
 
 								# default 12
 hudSZE = 12
@@ -212,7 +213,7 @@ cdiag = true
 
 
 
-# supress cache warnings on terminal from known browsers? Mozilla... ect list top of pyfunctions.py
+# supress cache warnings on terminal from known browsers? Mozilla... ect
 supbrw = true
 
 
@@ -277,18 +278,23 @@ proteusEXTN = [
 	".vhd", ".vmdk", ".wsf",
 	".ini", ".conf", ".cfg", ".sqlite", ".db"
 ]
+
 # hash all in the following 
 proteusPATH = [
+
 ]
+
 # append to EXCLDIRS for profile builds. irrelevant folders
 nogo = [
-	"Users\\{{user}}\\AppData\\Local\\Opera Software"
+	'Users\{{user}}\AppData\Local\Temp',
+	'Users\{{user}}\AppData\Local\Opera Software'
 	
 ]
 
 # no match file patterns removes noise.
 filterout = [
-	"Users\\{{user}}\\AppData\\Local\\save-changesnew\\gpg\\gnupghome\\random_seed"
+	'Users\{{user}}\AppData\Roaming\Microsoft\Windows\Recent',
+	'Users\{{user}}\AppData\Local\save-changesnew\gpg\gnupghome\random_seed'
 ]
 
 
