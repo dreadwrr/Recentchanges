@@ -29,6 +29,7 @@ from .fsearchps1 import process_ps1
 from .fsearchparallel import process_lines
 from .pyfunctions import cprint
 from .pyfunctions import suppress_list
+from .pysql import clear_conn
 install_root = find_install()
 filter_patterns_path = install_root / "filter.py"
 spec = importlib.util.spec_from_file_location("user_filter", filter_patterns_path)
@@ -774,19 +775,23 @@ def find_ps1(command, RECENT, COMPLETE, mergeddb, init, cfr, search_start_dt, us
 
     # retrieve results from merged database to prepare for multiprocessing
     file_entries = []
+    conn = cur = None
     try:
-        with sqlite3.connect(mergeddb) as conn:
-            cur = conn.cursor()
+        conn = sqlite3.connect(mergeddb)
 
-            # if filename:  # any removals here
-            #    cur.execute("DELETE from files WHERE filename = ?", (filename))
-            #    conn.commit()
+        cur = conn.cursor()
 
-            file_entries = get_recent_changes(cur, "files")
+        # if filename:  # any removals here
+        #    cur.execute("DELETE from files WHERE filename = ?", (filename))
+        #    conn.commit()
+
+        file_entries = get_recent_changes(cur, "files")
 
     except (sqlite3.Error, Exception) as e:
         print(f"find_ps1 rntchangesfunctions Error getting results from \\scripts\\scanline.ps1 couldnt connect to {mergeddb} quitting err: {type(e).__name__} : {e}")
         sys.exit(1)
+    finally:
+        clear_conn(conn, cur)
 
     if not file_entries:
         print(f"No new files to report. powershell results empty in {mergeddb}.")
