@@ -1,0 +1,13 @@
+To generate a key manually
+
+gpg --gen-key
+1
+4096
+0
+y
+John r
+john.r@email.com     <---------   has to match recentchanges  email at top of config file
+na
+O
+
+Put custom commands here to save for reference

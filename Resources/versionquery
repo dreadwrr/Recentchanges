@@ -1,0 +1,53 @@
+
+version 5.0
+
+recentchanges aka Developer buddy
+
+recentchanges. aka Developer buddy      recentchanges / recentchanges search
+Provide ease of pattern finding ie what files to block we can do this a number of ways
+1) if a file was there (many as in more than a few) and another search lists them as deleted its either a sys file or not but unwanted nontheless
+2) Is a system file inherent to the specifc platform
+3) intangibles ie trashed items that may pop up infrequently and are not known about
+
+Modes available Search Query See bottom after usage how to use modes
+
+
+recentchanges s         where s is time in seconds	output AppData
+
+usage:    recentchanges		system search 5 minutes or new these will include system search as well
+usage:    recentchanges 30		system search 30 seconds or newer
+
+
+Modes
+
+Search        for just a system search	output Desktop
+
+recentchanges search	search for files 5 minutes or newer
+recentchanges search 30		search for files 30 seconds or newer
+
+Search for files newer than a file or directory
+
+recentchanges search /home/guest/myfile.txt    search for files newer than myfile
+recentchanges search myfile.txt
+recentchanges search /home/guest/My\ Directory\ two/with\ spaces/   ... newer than directory
+
+
+Query
+
+Find out information about files from searches.
+
+Inverse the search with Symlink
+
+rnt.bat	shortcut for recentchanges
+rnt n			doesnt inverse output AppData
+rnt search		search for filtered rather than unfiltered files	output Desktop
+rnt search 30		search for filtered files 30 seconds or newer
+rnt search myfile.txt	search for unfiltered rather than filtered files newer than myfile
+
+
+If having problems with keys.
+1. Try to delete the all .gpg to make new ones. 2. Failing that do the same as 1 but change email in config.toml to make a new keypair
+
+or option 3.
+use recentchanges reset. to delete the key pair and gpgs and reset
+
