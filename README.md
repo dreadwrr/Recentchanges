@@ -30,7 +30,7 @@ Links for MFTCmd with cutoff allowing to read the Mft into memory while doing an
 https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0#bookmark=id.ct8qv65gr0wc <br><br>
 
 if python is installed. <br><br>
-If you dont have python installed use Windows Setup in releases <br>
+If you dont have python installed a Windows setup release will be released <br>
 ## Installation
 make a venv if preferred <br>
 pip install -r requirements.txt <br>
