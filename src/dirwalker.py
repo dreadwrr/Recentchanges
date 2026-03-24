@@ -290,9 +290,13 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, mdltype, tempdir
 
     EXCLDIRS += nogo
 
-    search_archive = appdata_local / f"{MODULENAME}_MDY_"
-    search_exclude = str(search_archive.relative_to(search_archive.anchor))  # sensitivity adjust
-    EXCLDIRS += search_exclude
+    # search_archive = os.path.join(appdata_local, f"{MODULENAME}_MDY_*")  # sensitivity adjust
+    # excluded = glob.glob(dir_pth)
+    # search_exclude = [
+    #     str(Path(f).relative_to(Path(f).anchor))
+    #     for f in excluded
+    # ]
+    # EXCLDIRS += search_exclude
 
     filterout_list = [os.path.join(basedir, d) for d in filterout_list]
 
@@ -586,14 +590,14 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
     EXCLDIRS += nogo
 
     # handle exclusions
-    # Windows temp folder
-
-    exclude_temp = f"Users\\{user}\\AppData\\Local\\Temp"
-    if exclude_temp not in EXCLDIRS:
-        EXCLDIRS.append(exclude_temp)
     # filter out
     filterout_list = [os.path.join(basedir, d) for d in filterout_list]
     if basedir == "C:\\":
+        # Windows temp folder
+        exclude_temp = f"Users\\{user}\\AppData\\Local\\Temp"
+        if exclude_temp not in EXCLDIRS:
+            EXCLDIRS.append(exclude_temp)
+
         # biggest exclude is gnupg\\random_seed and any runtime files
         # windows is primarily tempdir from qt app. these files are intermittent so are not
         # a problem
