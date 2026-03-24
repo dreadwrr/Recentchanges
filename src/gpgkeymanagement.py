@@ -132,7 +132,7 @@ def set_gpg(appdata_local, sub_dir='gpg'):
     return gpg_default, gnupg_home
 
 
-def find_gnupg_home(json_file, j_settings=None):
+def find_gnupg_home(json_file, j_settings=None, iqt=False):
     """ try to find gnupg home for exclusion purposes in build index """
     if not j_settings and j_settings is not None:
         print("find_gnupg_home warning json file was empty")
@@ -146,8 +146,9 @@ def find_gnupg_home(json_file, j_settings=None):
             gpg_home = os.environ.get("GNUPGHOME")
             if gpg_home and gpg_home != gnupg_home:
                 j_settings["gnupghome"] = gpg_home
-                dump_j_settings(j_settings, json_file)
                 gnupg_home = gpg_home
+                if not iqt:
+                    dump_j_settings(j_settings, json_file)
         else:
             result = subprocess.run(["gpgconf", "--list-dirs", "homedir"], capture_output=True, text=True)
             if result.returncode == 0:
