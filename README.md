@@ -3,7 +3,7 @@ Released 3.0.4! with key changes and optimizations <br>
 ![Alt text](https://i.imgur.com/yNnttmU.png) <br><br>
 
 # Recentchanges
-New release! all updates from recentchanges Qt linux  <br>
+All new features plus updates from recentchanges Qt linux  <br>
 To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
 search with Powershell or windows subsystem of linux. <br>
