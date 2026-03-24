@@ -251,6 +251,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
             if basedir != "C:\\":
                 print("failed to load json in setup_drive_cache")
                 return 1
+        user_setting["driveTYPE"] = driveTYPE
 
         is_wsl = False
         if wsl:
