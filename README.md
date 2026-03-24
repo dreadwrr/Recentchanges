@@ -1,4 +1,5 @@
 Windows 10 11 <br>
+Released 3.0.4! with key changes and optimizations <br>
 ![Alt text](https://i.imgur.com/yNnttmU.png) <br><br>
 
 # Recentchanges
