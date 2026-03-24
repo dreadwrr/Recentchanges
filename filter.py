@@ -1,9 +1,9 @@
 
-# Filter modified date: 12/02/2025       SN:049BN6KZ01
+# Filter modified date: 03/20/2026       SN:049BN6KZ01
 #
 # Notes: Windows 11
 #
-# examples
+# examples note regex
 # [^\\\\]+ match up to next directory  and ends with \\LocalCache
 # \\.*?\\ non greedily match up to and including first \\LocalCache
 #

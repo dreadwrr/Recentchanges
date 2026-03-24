@@ -1,4 +1,4 @@
-# 03/15/2026               Qt gui windows 11                  Developer buddy 5.0
+# 03/23/2026               Qt gui windows 11                  Developer buddy 5.0
 import glob
 import logging
 import multiprocessing
@@ -21,10 +21,12 @@ from src.config import load_toml
 from src.config import update_dict
 from src.config import update_j_settings
 from src.config import update_toml_values
-from src.configfunctions import find_user_folder
 from src.configfunctions import check_config
+from src.configfunctions import find_user_folder
 from src.configfunctions import get_config
 from src.dbworkerstream import DbWorkerIncremental
+from src.dirwalkerfunctions import create_profile_baseline
+from src.dirwalkerfunctions import execEXTN
 from src.gpgcrypto import decr
 from src.gpgcrypto import encr
 from src.gpgkeymanagement import check_for_gpg
@@ -36,21 +38,21 @@ from src.imageraster import raised_image
 from src.logs import change_logger
 from src.logs import setup_logger
 from src.mftworker import MftWorker
+from src.processhandler import ProcessHandler
 from src.pyfunctions import cache_clear_patterns
 from src.pyfunctions import is_integer
 from src.pyfunctions import user_path
 from src.pysql import clear_extn_tbl
 from src.pysql import create_db
 from src.pysql import dbtable_has_data
-from src.qtclasses import BasedirProfiles
 from src.qtclasses import BasedirDrive
+from src.qtclasses import BasedirProfiles
 from src.qtclasses import ConfigurationError
 from src.qtclasses import DriveLogicError
 from src.qtclasses import DriveSelectorDialog
 from src.qtclasses import FastColorText
 from src.qtclasses import PassphraseDialog
 from src.qtclasses import QTextEditLogger
-from src.processhandler import ProcessHandler
 from src.qtfunctions import add_new_extension
 from src.qtfunctions import available_fonts
 from src.qtfunctions import check_for_updates
@@ -67,6 +69,8 @@ from src.qtfunctions import load_explorer
 from src.qtfunctions import load_gpg
 from src.qtfunctions import load_pshell
 from src.qtfunctions import open_html_resource
+from src.qtfunctions import profile_to_str
+from src.qtfunctions import ps_profile_type
 from src.qtfunctions import show_cmddoc
 from src.qtfunctions import sort_right
 from src.qtfunctions import table_loaded
@@ -82,10 +86,10 @@ from src.qtdrivefunctions import get_mount_partguid
 from src.qtdrivefunctions import parse_drive
 from src.qtdrivefunctions import setup_drive_cache
 from src.qtdrivefunctions import setup_drive_settings
-from src.qtdrivefunctions import test_idx_suffix
+from src.qtparser import dispatch_internal as dispatcher
 from src.rntchangesfunctions import check_installed_app
 from src.rntchangesfunctions import check_utility
-from src.rntchangesfunctions import cnc
+from src.pyfunctions import cnc
 from src.rntchangesfunctions import display
 from src.rntchangesfunctions import get_diff_file
 from src.rntchangesfunctions import is_admin
@@ -96,7 +100,6 @@ from src.rntchangesfunctions import removefile
 from src.rntchangesfunctions import resolve_editor
 from src.rntchangesfunctions import time_convert
 from src.rntchangesfunctions import windows_version
-from src.qtparser import dispatch_internal as dispatcher
 from src.ui_mainwindow import Ui_MainWindow
 from src.wmipy import get_disk_and_volume_for_drive
 from src.wmipy import get_mounted_partitions
@@ -163,14 +166,19 @@ class MainWindow(QMainWindow):
         self.proteusPATH = config['shield']['proteusPATH']
         self.checksum = config['diagnostics']['checkSUM']
         self.proteusSHIELD = config['shield']['proteusSHIELD']
+        self.psEXEC = config['shield']['exec']
         self.EXCLDIRS = user_path(config['search']['EXCLDIRS'], usr)
+        self.xRC = config['search']['xRC']
         self.zipPROGRAM = config['compress']['zipPROGRAM'].lower()
         self.zipPATH = config['compress']['zipPATH']
         self.extensions = config['search']['extension']
 
-        self.j_settings = j_settings
+        self.j_settings = j_settings  # usrprofile
 
         self.psEXTN = self.j_settings.get(self.basedir, {}).get("proteusEXTN")
+        self.is_exec_profile = False
+        if self.psEXTN:
+            self.is_exec_profile = ps_profile_type(self.psEXTN)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.remaining_startup)  # any other routines
@@ -180,7 +188,7 @@ class MainWindow(QMainWindow):
         # QTimer.singleShot(5000, self.display_db)
 
         # Vars
-        self.app_version = "3.0.3"
+        self.app_version = "3.0.4"
         self.PWD = os.getcwd()
         self.home_dir = home_dir
         config_local = appdata_local / "config"
@@ -414,7 +422,7 @@ class MainWindow(QMainWindow):
         # end tomlb
 
         # bottom right
-        self.ui.textEdit.textChanged.connect(lambda: setattr(self, 'dirtybit', True))  # self.ui.textEdit.textChanged.connect(self.set_dirtybit)
+        self.ui.textEdit.textChanged.connect(self.set_dirtybit)  # self.ui.textEdit.textChanged.connect(lambda: setattr(self, 'dirtybit', True))  # original
         # Top search
         self.ui.ftimeb.clicked.connect(lambda checked=False, s=self.ui.ftimeb: self.tsearch(s))
         self.ui.ftimebf.clicked.connect(lambda checked=False, s=self.ui.ftimebf: self.tsearch(s, True))
@@ -475,10 +483,10 @@ class MainWindow(QMainWindow):
         self.basedir = basedir
         self.driveTYPE = driveTYPE
         self.psEXTN = psEXTN
+        self.is_exec_profile = ps_profile_type(psEXTN)
         self.CACHE_S = CACHE_S
         self.systimeche = systimeche
         self.suffix = suffix
-
         self.load_drives()  # downloads combo
 
         sys_tables, self.cache_table, _ = get_idx_tables(basedir, self.CACHE_S_str, suffix)
@@ -497,7 +505,6 @@ class MainWindow(QMainWindow):
     def add_basedir(self, basedir, drive_idx, drive_guid, drive, drive_info):
         r = self.basedirs.add_item((drive_guid, drive, drive_info))
         self.update_basedir(basedir, drive_idx, drive, r)  # load the drive
-        self.basedirs.set_current_index(r)
         self.ui.sbasediridx.setMaximum(r)
 
     def rmv_basedir(self, index, current_index):
@@ -836,11 +843,13 @@ class MainWindow(QMainWindow):
                     MODULENAME = updated_config['paths']['MODULENAME']
                     wsl = updated_config['search']['wsl']
                     EXCLDIRS = user_path(updated_config['search']['EXCLDIRS'], self.usr)
+                    xRC = updated_config['search']['xRC']
                     basedir = updated_config['search']['drive']
                     extensions = updated_config['search']['extension']
                     proteusEXTN = updated_config['shield']['proteusEXTN']
                     proteusPATH = updated_config['shield']['proteusPATH']
                     proteusSHIELD = updated_config['shield']['proteusSHIELD']
+                    psEXEC = updated_config['shield']['exec']
                     dspPATH_frm = self.config['display']['dspPATH']
                     new_dspPATH = updated_config['display']['dspPATH']
                     nogo = user_path(self.config['shield']['nogo'], self.usr)
@@ -986,7 +995,9 @@ class MainWindow(QMainWindow):
                     self.proteusPATH = proteusPATH
                     self.checksum = checksum
                     self.proteusSHIELD = proteusSHIELD
+                    self.psEXEC = psEXEC
                     self.EXCLDIRS = EXCLDIRS
+                    self.xRC = xRC
                     self.zipPROGRAM = zipPROGRAM
                     self.zipPATH = zipPATH
                     self.extensions = extensions
@@ -1097,6 +1108,7 @@ class MainWindow(QMainWindow):
             "Drive name/Type": typeModel,
             "Drive type": drive_type,
             "Empty1":  "",
+            "xRC": self.xRC,
             "Proteus Shield active": str(ps),
             "Checksum and Caching": "y" if self.checksum else "n",
             "Empty2a":  "",
@@ -1109,15 +1121,20 @@ class MainWindow(QMainWindow):
         })
 
         hudt = self.ui.hudt.appendPlainText
+
         # self.ui.hudt.clear()
 
         for key, value in stat_value.items():
-            if not key.startswith("Debug") and not value:
+            if key != "xRC" and not key.startswith("Debug") and not value:
                 hudt('')
             elif key == "Exhibit":
                 hudt(value)
             elif key == "Exhibit2":
                 hudt(value)
+            elif key == "xRC":
+                if self.wsl:
+                    if self.basedir == "C:\\":
+                        hudt(f"{key} {value}")
             else:
                 hudt(f"{key} {value}")
 
@@ -1134,9 +1151,9 @@ class MainWindow(QMainWindow):
         if ps:
             psEXTN = self.j_settings.get(self.basedir, {}).get("proteusEXTN")
             if psEXTN:
-                extn = ', '.join(psEXTN)
-
-                hudt("proteusTYPE: extn")
+                is_exec_profile = ps_profile_type(psEXTN)
+                extn = profile_to_str(psEXTN, is_exec_profile)
+                hudt(f"proteusTYPE: {'exec' if is_exec_profile else 'extn'}")
                 hudt("proteusEXTN: " + extn)
 
         # """ stored drive values """
@@ -1751,7 +1768,7 @@ class MainWindow(QMainWindow):
             return
 
         self.proc = ProcessHandler()
-        self.open_proc(120000)
+        self.open_proc(180000)
 
         if compress:
             downloads = self.ui.combffileout.currentText()
@@ -1767,7 +1784,7 @@ class MainWindow(QMainWindow):
             range_value = self.ui.sffile.value()
             if range_value:
                 try:
-                    range_float = time_convert(int(range_value), 60, 2)
+                    range_float = time_convert(range_value, 60, 2)
                 except ValueError:
                     self.ui.hudt.appendPlainText("Invalid number")
                     return
@@ -1845,7 +1862,7 @@ class MainWindow(QMainWindow):
         #     self.ui.hudt.appendPlainText("specify 0 to compress all results. or enter a time range to compress")
         #     return
         try:
-            range_float = time_convert(int(time_range), 60, 2)
+            range_float = time_convert(time_range, 60, 2)
             if range_float == 0:
                 uinpt = window_prompt(self, "Compress archive", "You have entered 0. This will compress all file matches. Continue", "Yes", "No")
                 if not uinpt:
@@ -1861,8 +1878,8 @@ class MainWindow(QMainWindow):
         if not isinstance(cmsg, list):
             self.ui.hudt.appendPlainText(f"error get_ramdrive cmsg {cmsg} is not a list")
             return None
-        filter_values = [self.ui.combd.itemText(i) for i in range(self.ui.combd.count())]
-        dialog = DriveSelectorDialog(self.basedir, self.j_settings, filter_out=filter_values, parent=self)
+        # filter_values = [self.ui.combd.itemText(i) for i in range(self.ui.combd.count())]
+        dialog = DriveSelectorDialog(self.basedir, self.j_settings, parent=self)  # , filter_out=filter_values
         if dialog.exec():
             target = dialog.selected_drive()
             if os.path.exists(target):
@@ -2056,11 +2073,6 @@ class MainWindow(QMainWindow):
             self.ui.hudt.appendPlainText(f"{drive} sys basedir Requires build idx on db page")
             return
 
-        if drive != "C:\\":
-            guid = drive_guid
-            if test_idx_suffix(drive, self.j_settings):
-                update_dict(None, self.j_settings, drive)  # remove it conflicting entry
-
         CACHE_S, systimeche, key = get_cache_s(drive, self.CACHE_S_str)
         sys_tables, cache_table, _ = get_idx_tables(drive, CACHE_S, key)
 
@@ -2071,6 +2083,9 @@ class MainWindow(QMainWindow):
             return
 
         if drive != "C:\\":
+            guid = drive_guid
+            if self.j_settings.get(drive):
+                update_dict(None, self.j_settings, drive)  # remove it conflicting entry
             update_dict({"drive_partguid": guid}, self.j_settings, drive)
 
         drive_type = setup_drive_settings(drive, key, None, None, user_json=self.sj, j_settings=self.j_settings, idx_drive=True)
@@ -3021,17 +3036,19 @@ class MainWindow(QMainWindow):
 
                 if locale == 'add':
 
-                    extn = self.proteusEXTN
-                    paths = self.proteusPATH
-                    extn += paths
+                    if self.psEXEC:
+                        extn = create_profile_baseline(execEXTN)
+                    else:
+
+                        extn = self.proteusEXTN + self.proteusPATH
 
                     if extn:
 
                         self.basedirs.update_current_item(extn, proteusEXTN=extn)
                         update_j_settings({"proteusEXTN": extn}, self.j_settings, self.basedir, self.sj)
                         self.psEXTN = extn
-
-                        extn = ', '.join(extn)
+                        self.is_exec_profile = self.psEXEC
+                        extn = profile_to_str(extn, self.psEXEC)
                         self.ui.hudt.appendPlainText(f'Profile drive {self.basedir} saved profile: {extn}\n')
 
                     else:
@@ -3113,6 +3130,7 @@ def start_main_window():
     compLVL = config['logs']['compLVL']
     ll_level = config['logs']['logLEVEL']
     log_file = config['logs']['userLOG']
+    xRC = config['search']['xRC']
     proteuspaths = config['shield']['proteusPATH']
     nogo = user_path(config['shield']['nogo'], usr)
     suppress_list = user_path(config['shield']['filterout'], usr)
@@ -3162,16 +3180,17 @@ def start_main_window():
             if is_key is False:
 
                 icon = str(appdata_local / "Resources" / "gnupg-streamline.png")
-                key_error = False
+                key_error = res = False
                 dlg = PassphraseDialog(icon_path=icon)
                 if not dlg.exec():
                     key_error = True
-                pawd = dlg.get_password()
+                else:
+                    pawd = dlg.get_password()
 
-                res = genkey(appdata_local, usr, email, email_name, dbtarget, CACHE_F, CACHE_S, flth, tempdir, pawd)
-                if res:
+                    res = genkey(appdata_local, usr, email, email_name, dbtarget, CACHE_F, CACHE_S, flth, tempdir, pawd)
+                    if res:
 
-                    print("Got password (hidden):", "*" * len(pawd) + "\n")
+                        print("Got password (hidden):", "*" * len(pawd) + "\n")
                 if key_error or not res:
                     QMessageBox.critical(None, "Error", "Failed to generate key")
                     return 1
@@ -3190,7 +3209,9 @@ def start_main_window():
                     else:
                         QMessageBox.critical(None, "Error", "Decryption failed .gpg could be corrupt. exitting.")
                     return 1
-            # end startup/initialize
+            else:
+                if xRC:
+                    print("If needing to manually reset xRC mft database remove ctime.db in app install")
 
             # if drive is not "C:\\" resolve partguid. store info in json under suffix ie s for S:\\ drive
             j_settings = {}  # load it once. dump often to avoid desync but saves on unecessary reads
@@ -3202,47 +3223,54 @@ def start_main_window():
             if not CACHE_S or not suffix or not j_settings:
                 return 1
 
-            # if the drive changed in config update the json
-            if driveTYPE_frm:
-                dtype = j_settings.get(basedir, {}).get("drive_type")
-                if dtype != driveTYPE_frm:
-                    j_settings.setdefault(basedir, {})["drive_type"] = driveTYPE_frm
-                    dump_j_settings(j_settings, json_file)
-                    driveTYPE = driveTYPE_frm
+            # config changes
+            json_dump = False
 
+            # from user install
             if not gnupg_home:
-                gnupg_home = find_gnupg_home(json_file, j_settings)
+                gnupg_home = os.environ.get("GNUPGHOME")
+                if gnupg_home:
+                    gpg_home = j_settings.get("gnupghome")
+                    if gnupg_home != gpg_home:
+                        j_settings["gnupghome"] = gnupg_home
+                        json_dump = True
+                else:
+                    gnupg_home = find_gnupg_home(json_file, j_settings)  # detect and save
 
-            distro_name = j_settings.get(basedir, {}).get("distro_name")
+            distro_name = j_settings.get("distro_name")
             if not distro_name:
                 _, distro_name = windows_version()
                 if distro_name:
-                    update_dict({"distro_name": distro_name}, j_settings, basedir)
+                    j_settings["distro_name"] = distro_name
+                    json_dump = True
+
+            # end confnig changes
+
             # end startup/initialize
 
+            if json_dump:
+                dump_j_settings(j_settings, json_file)
+
             print("Qt database in ", tempdir)
+
             icon_path = str(iconPATH)
 
             def excepthook(exc_type, exc_value, exc_traceback):
                 sys.__excepthook__(exc_type, exc_value, exc_traceback)
                 logging.error("Unhandled exception", exc_info=(exc_type, exc_value, exc_traceback))
-                # if QApplication.instance() is not None:
-                #     QMessageBox.critical(None, "Error", f"{exc_value}")
+
                 app_inst = QApplication.instance()
-                if app_inst is None:
-                    print("An error occurred and logged to", log_path)
-                    return
+                if app_inst is not None:
+                    msg = QMessageBox()
+                    msg.setIcon(QMessageBox.Icon.Critical)
+                    msg.setWindowTitle("Error")
+                    msg.setText(f"An unexpected error occurred:\n{exc_value}")
+                    msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+                    msg.exec()
+                # else:
                     # app_inst = QApplication(sys.argv)
 
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Icon.Critical)
-                msg.setWindowTitle("Error")
-                msg.setText(f"An unexpected error occurred:\n{exc_value}")
-                msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-                msg.exec()
-
-                log_pth = os.path.join(appdata_local, "logs", "errs.log")
-                print(f"Unhandled exception {exc_type.__name__} stack trace logged to: {log_pth}")
+                print(f"Unhandled exception {exc_type.__name__} stack trace logged to: {log_path}")
                 sys.exit(1)
             sys.excepthook = excepthook
 
