@@ -57,11 +57,11 @@ function IsExcluded($fullPath, $excludePaths) {
     }
     return $false
 }
-
+# "$rootPath\Program Files",
+# "$rootPath\Program Files (x86)"
 $defaultExcludes = @(
-    "$rootPath\Windows",
-    "$rootPath\Program Files",
-    "$rootPath\Program Files (x86)"
+    "$rootPath\Windows"
+
 )
 
 $excludedFile = $excluded

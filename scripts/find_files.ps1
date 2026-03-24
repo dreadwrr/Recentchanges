@@ -118,10 +118,13 @@ $allRows = @()
 # }
 
 $filter = {
-    ($_.LastWriteTime -gt $cutoff -and $_.LastWriteTime -le $searchStartTime) -or
-    ($_.CreationTime -gt $cutoff -and $_.CreationTime -le $searchStartTime)
+    ($_.LastWriteTime -gt $cutoff -and $_.LastWriteTime -le $searchStartTime) 
+    
 }
+																			# -or
+# ($_.CreationTime -gt $cutoff -and $_.CreationTime -le $searchStartTime)
 
+# note removed creationtime for tout implementation which handles the created files
 
 $dirs = @(
 	"C:\ProgramData",
@@ -150,66 +153,68 @@ try {
 foreach ($file in $rootFiles) {
     try {
 
-        try {
-            $onr = (Get-Acl $file.FullName).Owner
-            $ownerParts = $onr.Split('\')
-            $domain = if ($ownerParts.Count -gt 1) { $ownerParts[0] } else { $null }
-            $user = if ($ownerParts.Count -gt 1) { $ownerParts[1] } else { $ownerParts[0] }
-        } catch {
-            $onr = "None"
-            $domain = "None"
-            $user = "None"
-        }
+        # try {
+            # $onr = (Get-Acl $file.FullName).Owner
+            # $ownerParts = $onr.Split('\')
+            # $domain = if ($ownerParts.Count -gt 1) { $ownerParts[0] } else { $null }
+            # $user = if ($ownerParts.Count -gt 1) { $ownerParts[1] } else { $ownerParts[0] }
+        # } catch {
+            # $onr = "None"
+            # $domain = "None"
+            # $user = "None"
+        # }
+		# note integer
+		$t_dtOffset = [DateTimeOffset]$file.LastWriteTimeUtc
+		$ticksDiff = $t_dtOffset.UtcDateTime.Ticks - $unixEpochTicks
+		$t_epoch = [int64]($ticksDiff / 10)
+
+		$c_dtOffset = [DateTimeOffset]$file.CreationTimeUtc
+		$ticksDiff = $c_dtOffset.UtcDateTime.Ticks - $unixEpochTicks
+		$c_epoch = [int64]($ticksDiff / 10)
 		# current
 		# $t_iso = $file.LastWriteTime.ToString("o")
-		$t_secs = ([DateTimeOffset]$file.LastWriteTimeUtc).ToUnixTimeSeconds()
-		$t_micros = ($file.LastWriteTimeUtc.ToString("o").Split('.')[1]).Substring(0,6)
-		$t_epoch = "$t_secs.$t_micros"
+
+		# $t_secs = ([DateTimeOffset]$file.LastWriteTimeUtc).ToUnixTimeSeconds()
+		# $t_micros = ($file.LastWriteTimeUtc.ToString("o").Split('.')[1]).Substring(0,6)
+		# $t_epoch = "$t_secs.$t_micros"
 
 		# alternative
-		# $t_dtOffset = [datetimeoffset]$file.LastWriteTimeUtc
+		# $t_dtOffset = [DateTimeOffset]$file.LastWriteTimeUtc
 		# $ticks = $t_dtOffset.Ticks - $unixEpochTicks
 		# $secs = [int64]([decimal]$ticks / 10000000)
 		# $micros = [int64]([decimal]($ticks % 10000000L) / 10)
 		# $t_epoch = "{0}.{1:D6}" -f $secs, $micros
 
-		# $t_dtOffset = [datetimeoffset]$file.LastWriteTime
-		# [math]::Round(($t_dtOffset.ToUniversalTime() - $epochStart).TotalSeconds)
-		# $t_epoch = ($t_dtOffset.ToUniversalTime() - $epochStart).TotalSeconds
-		
-		# rounds - original
+		# integer
+		# rounds 
 		# $t_epoch = [int64](($c_dtOffset.UtcDateTime.Ticks - $unixEpochTicks) / 10)
-		
 		# truncate  - preferred over above for matching mtime_us to not be off by 1 or 2 us
 		# $t_epoch = ([DateTimeOffset]$file.LastWriteTimeUtc).Ticks - $unixEpochTicks
 		# $t_epoch = [int64]([decimal]$ticks / 10)
-
+						
 		# current
 		# $c_iso = $file.CreationTime.ToString("o")
-		$c_secs = ([DateTimeOffset]$file.CreationTimeUtc).ToUnixTimeSeconds()
-		$c_micros = ($file.CreationTimeUtc.ToString("o").Split('.')[1]).Substring(0,6)
-		$c_epoch = "$c_secs.$c_micros"
+
+		# $c_secs = ([DateTimeOffset]$file.CreationTimeUtc).ToUnixTimeSeconds()
+		# $c_micros = ($file.CreationTimeUtc.ToString("o").Split('.')[1]).Substring(0,6)
+		# $c_epoch = "$c_secs.$c_micros"
 
 		# alternative
-		# $c_dtOffset = [datetimeoffset]$file.CreationTimeUtc
+		# $c_dtOffset = [DateTimeOffset]$file.CreationTimeUtc
 		# $ticks = $c_dtOffset.Ticks - $unixEpochTicks
 		# $secs = [int64]([decimal]$ticks / 10000000)
 		# $micros = [int64]([decimal]($ticks % 10000000L) / 10)
 		# $c_epoch = "{0}.{1:D6}" -f $secs, $micros
 		
-		# $c_dtOffset = [datetimeoffset]$file.CreationTime
-		# [math]::Round(($c_dtOffset.ToUniversalTime() - $epochStart).TotalSeconds)
-		# $c_epoch = ($c_dtOffset.ToUniversalTime() - $epochStart).TotalSeconds
-		
-		# rounds - original 
+		# integer
+		# rounds
 		# $c_epoch = [int64](($c_dtOffset.UtcDateTime.Ticks - $unixEpochTicks) / 10)
-		
 		# truncate
 		# $c_epoch = ([DateTimeOffset]$file.CreationTimeUtc).Ticks - $unixEpochTicks
 		# $c_epoch = [int64]([decimal]$ticks / 10)
 		
-		$a_dtOffset = [datetimeoffset]$file.LastAccessTime
-		$a_secs = ([DateTimeOffset]$file.LastAccessTimeUtc).ToUnixTimeSeconds()
+		$a_dtOffset = [DateTimeOffset]$file.LastAccessTime
+		$a_epoch = ([DateTimeOffset]$file.LastAccessTimeUtc).ToUnixTimeSeconds()
 		# $a_epoch = [math]::Round(($a_dtOffset.ToUniversalTime() - $epochStart).TotalSeconds)  # original
 
         # $isSymlink = if ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) { 'y' } else { $null }
@@ -221,8 +226,8 @@ foreach ($file in $rootFiles) {
             inode        = 777
             hardlink    = 1
             filesize     = $file.Length
-            owner        = $user
-            domain       = $domain
+            owner        = "None" # $user
+            domain       = "None" # $domain
             mode         = $file.Mode
             filename     = $file.FullName
         }
@@ -260,26 +265,34 @@ foreach ($dir in $dirs) {
     foreach ($file in $files) {
         try {
 
-            try {
-                $onr = (Get-Acl $file.FullName).Owner
-                $ownerParts = $onr.Split('\')
-                $domain = if ($ownerParts.Count -gt 1) { $ownerParts[0] } else { "None" } # $null
-                $user = if ($ownerParts.Count -gt 1) { $ownerParts[1] } else { $ownerParts[0] }
-            } catch {
-                #Write-Warning "Failed to get owner for $($file.FullName): $($_.Exception.Message)"
-                $onr = "None"
-                $domain = "None"
-                $user = "None"
-            }
-			$t_dtOffset = [datetimeoffset]$file.LastWriteTime
-			#$t_epoch = ($t_dtOffset.ToUniversalTime() - $epochStart).TotalSeconds
-			$t_epoch = [int64](($t_dtOffset.UtcDateTime.Ticks - $unixEpochTicks) / 10)
-			
-			$c_dtOffset = [datetimeoffset]$file.CreationTime
-			$c_epoch = [int64](($c_dtOffset.UtcDateTime.Ticks - $unixEpochTicks) / 10)
-			# $c_epoch = ($c_dtOffset.ToUniversalTime() - $epochStart).TotalSeconds
-			$a_dtOffset = [datetimeoffset]$file.LastAccessTime
-			$a_epoch = ($a_dtOffset.ToUniversalTime() - $epochStart).TotalSeconds
+            # try {
+                # $onr = (Get-Acl $file.FullName).Owner
+                # $ownerParts = $onr.Split('\')
+                # $domain = if ($ownerParts.Count -gt 1) { $ownerParts[0] } else { "None" } # $null
+                # $user = if ($ownerParts.Count -gt 1) { $ownerParts[1] } else { $ownerParts[0] }
+            # } catch {
+                ## Write-Warning "Failed to get owner for $($file.FullName): $($_.Exception.Message)"
+                # $onr = "None"
+                # $domain = "None"
+                # $user = "None"
+            # }
+			# note integer
+			$t_dtOffset = [DateTimeOffset]$file.LastWriteTimeUtc
+			$ticksDiff = $t_dtOffset.UtcDateTime.Ticks - $unixEpochTicks
+			$t_epoch = [int64]($ticksDiff / 10)
+
+			$c_dtOffset = [DateTimeOffset]$file.CreationTimeUtc
+			$ticksDiff = $c_dtOffset.UtcDateTime.Ticks - $unixEpochTicks
+			$c_epoch = [int64]($ticksDiff / 10)
+		
+			# $t_secs = ([DateTimeOffset]$file.LastWriteTimeUtc).ToUnixTimeSeconds()
+			# $t_micros = ($file.LastWriteTimeUtc.ToString("o").Split('.')[1]).Substring(0,6)
+		
+			# $c_secs = ([DateTimeOffset]$file.CreationTimeUtc).ToUnixTimeSeconds()
+			# $c_micros = ($file.CreationTimeUtc.ToString("o").Split('.')[1]).Substring(0,6)
+		
+			$a_dtOffset = [DateTimeOffset]$file.LastAccessTime
+			$a_epoch = ([DateTimeOffset]$file.LastAccessTimeUtc).ToUnixTimeSeconds()
 
 			$row = [PSCustomObject]@{
 				timestamp    = $t_epoch # $file.LastWriteTime.ToString("o")
@@ -288,8 +301,8 @@ foreach ($dir in $dirs) {
                 inode        = 777
                 hardlink    = 1
                 filesize     = $file.Length
-                owner        = $user
-                domain       = $domain
+                owner        = "None" # $user
+                domain       = "None" # $domain
                 mode         = $file.Mode
                 filename     = $file.FullName
             }

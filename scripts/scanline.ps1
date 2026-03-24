@@ -97,7 +97,87 @@ $currentDirIndex = 0
 $skippedDirs = @()
 
 $rows = @()
-# Invoke-SqliteQuery -Connection $conn -Query "BEGIN TRANSACTION;"
+# Invoke-SqliteQuery -Connection $conn -Query "BEGIN TRANSACTION;"  # original
+
+#get all files in root
+Get-ChildItem -Path $rootPath -File -Force -ErrorAction SilentlyContinue |
+	ForEach-Object {
+		$file = $_
+		$skip = $false
+		# original exclude block
+		# foreach ($ex in $excludedPaths) {
+			# if ($file.FullName.StartsWith($ex, [System.StringComparison]::InvariantCultureIgnoreCase)) {
+				# $skip = $true
+				# break
+			# }
+		# }
+		if ($file.FullName -match "^($exRegex)") {
+			continue
+		}
+
+		# $file.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0 -and
+		if 	( -not $skip -and 
+				(($file.LastWriteTime -ge $cutoff -and $file.LastWriteTime -le $now) -or
+				($file.CreationTime -ge $cutoff -and $file.CreationTime -le $now)) ) {
+
+			if ($feedback) { Write-Host $file.FullName }
+
+				try {
+
+					try {
+						# $acl = Get-Acl $file -ErrorAction Stop
+						# $parts = $acl.Owner.Split('\')
+						$acl = [System.IO.File]::GetAccessControl($file.FullName)
+						$owner = $acl.GetOwner([System.Security.Principal.NTAccount]).Value
+						$parts = $owner.Split('\')
+						$domain = $parts[0]
+						$user   = $parts[1]
+					} catch {
+						$domain = $null
+						$user   = $null
+					}
+
+					$isSymlink = if (
+						($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -or
+						($file.LinkType -eq 'SymbolicLink')
+					) { 'y' } else { $null }
+
+					# $deltaTicks = [int64]($file.LastWriteTimeUtc.Ticks - $unixEpochTicks)   # 100ns units
+					# $t_epoch = [int64][math]::Truncate(([decimal]$deltaTicks) / 10)   
+					
+					#$t_epoch = [int64](($file.LastWriteTimeUtc.Ticks - $unixEpochTicks) / 10)
+					
+					# $deltaTicks = [int64]($file.CreationTimeUtc.Ticks - $unixEpochTicks)   # 100ns units
+					# $c_epoch = [int64][math]::Truncate(([decimal]$deltaTicks) / 10)
+					
+					# $c_epoch = [int64](($file.CreationTimeUtc.Ticks - $unixEpochTicks) / 10)
+
+					$rows += ,@{
+						timestamp    = $file.LastWriteTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff")  # "o"
+						filename     = $file.FullName
+						creationtime = $file.CreationTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff")
+						inode        = $null
+						accesstime   = $file.LastAccessTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff")
+						checksum     = $null
+						filesize     = $file.Length #.ToString()
+						symlink      = $isSymlink
+						owner		 = $user
+						domain       = $domain
+						mode         = $file.Mode
+						casmod       = $null
+						lastmodified = $null
+						hardlinks    = $null
+					}
+				} catch {
+					# Write-Warning "Failed to process file: $($_.Exception.Message)"
+					continue
+					# ignore file errors rare
+				}
+			}
+		}
+	
+
+
 
 foreach ($dir in $topDirs) {
     $currentDirIndex++
@@ -119,9 +199,10 @@ foreach ($dir in $topDirs) {
 				{
 					continue
 				}
-				if (-not $skip -and ($file.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0 -and
-					( ($file.LastWriteTime -ge $cutoff -and $file.LastWriteTime -le $now) -or
-					  ($file.CreationTime -ge $cutoff -and $file.CreationTime -le $now) )) {
+				# ($file.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0 -and
+				if (-not $skip -and 
+					(($file.LastWriteTime -ge $cutoff -and $file.LastWriteTime -le $now) -or
+					 ($file.CreationTime -ge $cutoff -and $file.CreationTime -le $now)) ) {
 
 					if ($feedback) { Write-Host $file.FullName }
 
@@ -156,11 +237,11 @@ foreach ($dir in $topDirs) {
 						# $c_epoch = [int64](($file.CreationTimeUtc.Ticks - $unixEpochTicks) / 10)
 
 						$rows += ,@{
-							timestamp    = $file.LastWriteTime.ToString("o")
+							timestamp    = $file.LastWriteTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff")  # "o"
 							filename     = $file.FullName
-							creationtime = $file.CreationTime.ToString("o")
+							creationtime = $file.CreationTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff")
 							inode        = $null
-							accesstime   = $file.LastAccessTime.ToString("o")
+							accesstime   = $file.LastAccessTime.ToString("yyyy-MM-ddTHH:mm:ss.ffffff")
 							checksum     = $null
 							filesize     = $file.Length #.ToString()
 							symlink      = $isSymlink
@@ -173,7 +254,7 @@ foreach ($dir in $topDirs) {
 						}
 				
 						# $insertQuery = @"
-# INSERT INTO files (timestamp, filename, creationtime, inode, accesstime, checksum, filesize, symlink, owner, domain, mode, casmod, lastmodified, hardlinks)
+# INSERT INTO files (timestamp, filename, creationtime, inode, accesstime, checksum, filesize, symlink, owner, domain, mode, casmod, lastmodified, hardlinks)  # original
 # VALUES (
     # '$($file.LastWriteTime.ToString("o"))',
     # '$($file.FullName.Replace("'", "''"))',
@@ -201,12 +282,12 @@ foreach ($dir in $topDirs) {
 				}
 			}
 		}
-    $rawPercent = ($currentDirIndex / $totalDirs) * 100
-    $progressPercent = [math]::Round($StartR + ($rawPercent / 100 * ($EndR - $StartR)))
+		$rawPercent = ($currentDirIndex / $totalDirs) * 100
+		$progressPercent = [math]::Round($StartR + ($rawPercent / 100 * ($EndR - $StartR)))
 
-	if ($progress) {
-		Write-Host "Progress: $progressPercent%"
-	}
+		if ($progress) {
+			Write-Host "Progress: $progressPercent%"
+		}
 	} catch {
 		#Write-Warning " $($dir.FullName): $_ $($_.Exception.Message)"
 		# $skippedDirs += $dir.FullName      some
@@ -253,7 +334,7 @@ INSERT INTO files (
     }
 }
 # Commit 
-# Invoke-SqliteQuery -Connection $conn -Query "COMMIT;"
+# Invoke-SqliteQuery -Connection $conn -Query "COMMIT;"  # original
 
 # Write-Host "Skipped directories:"
 # $skippedDirs | ForEach-Object { Write-Host $_ }
