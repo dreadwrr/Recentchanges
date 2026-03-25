@@ -40,6 +40,7 @@ from src.logs import setup_logger
 from src.mftworker import MftWorker
 from src.processhandler import ProcessHandler
 from src.pyfunctions import cache_clear_patterns
+from src.pyfunctions import cnc
 from src.pyfunctions import is_integer
 from src.pyfunctions import user_path
 from src.pysql import clear_extn_tbl
@@ -53,6 +54,14 @@ from src.qtclasses import DriveSelectorDialog
 from src.qtclasses import FastColorText
 from src.qtclasses import PassphraseDialog
 from src.qtclasses import QTextEditLogger
+from src.qtdrivefunctions import current_drive_type_model_check
+from src.qtdrivefunctions import get_cache_s
+from src.qtdrivefunctions import get_drive_from_partguid
+from src.qtdrivefunctions import get_idx_tables
+from src.qtdrivefunctions import get_mount_partguid
+from src.qtdrivefunctions import parse_drive
+from src.qtdrivefunctions import setup_drive_cache
+from src.qtdrivefunctions import setup_drive_settings
 from src.qtfunctions import add_new_extension
 from src.qtfunctions import available_fonts
 from src.qtfunctions import check_for_updates
@@ -78,18 +87,9 @@ from src.qtfunctions import user_data_from_database
 from src.qtfunctions import user_data_to_database
 from src.qtfunctions import window_prompt
 from src.qtfunctions import window_message
-from src.qtdrivefunctions import current_drive_type_model_check
-from src.qtdrivefunctions import get_cache_s
-from src.qtdrivefunctions import get_drive_from_partguid
-from src.qtdrivefunctions import get_idx_tables
-from src.qtdrivefunctions import get_mount_partguid
-from src.qtdrivefunctions import parse_drive
-from src.qtdrivefunctions import setup_drive_cache
-from src.qtdrivefunctions import setup_drive_settings
 from src.qtparser import dispatch_internal as dispatcher
 from src.rntchangesfunctions import check_installed_app
 from src.rntchangesfunctions import check_utility
-from src.pyfunctions import cnc
 from src.rntchangesfunctions import display
 from src.rntchangesfunctions import get_diff_file
 from src.rntchangesfunctions import is_admin
@@ -1083,7 +1083,7 @@ class MainWindow(QMainWindow):
             self.open_proc()
             self.proc.complete.connect(lambda code, _: self.update_ui_sn.emit(code, "editor"))
             # self.proc.complete.connect(lambda code, _: self.set_config(code))
-            self.proc.complete.connect(lambda code, status: QTimer.singleShot(1000, lambda: self.set_config(code)))
+            self.proc.complete.connect(lambda code, status: QTimer.singleShot(3000, lambda: self.set_config(code)))
             self.proc.start_tomledit(self.dspPATH, [str(self.toml_file)])
 
         else:
