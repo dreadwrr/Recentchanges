@@ -291,17 +291,19 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
 
     EXCLDIRS += nogo
 
-    # search_archive = os.path.join(appdata_local, f"{MODULENAME}_MDY_*")  # sensitivity adjust
-    # excluded = glob.glob(dir_pth)
-    # search_exclude = [
-    #     str(Path(f).relative_to(Path(f).anchor))
-    #     for f in excluded
-    # ]
-    # EXCLDIRS += search_exclude
-
     filterout_list = [os.path.join(basedir, d) for d in filterout_list]
 
     if basedir == "C:\\":
+        # sensitivity adjust
+        # left out for speed so dont have to glob. these are intermettitent runtime files so doesnt effect anything
+        # search_archive = os.path.join(appdata_local, f"{MODULENAME}_MDY_*")
+        # excluded = glob.glob(dir_pth)
+        # search_exclude = [
+        #     str(Path(f).relative_to(Path(f).anchor))
+        #     for f in excluded
+        # ]
+        # EXCLDIRS += search_exclude
+
         MODULENAME = config['paths']['MODULENAME']
         download_results = os.path.join(USRDIR, MODULENAME + 'x')  # desktop
         # pst_data linux or app install windows
