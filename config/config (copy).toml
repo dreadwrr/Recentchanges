@@ -5,17 +5,12 @@ backend = "database"
 
 # patterns to delete from db.
 cachermPATTERNS = [
-    "%caches%",
-    "%cache2%",
-    "%Cache2%",
-    "%.cache%",
-    "%share/Trash%",
-    "%home/{{user}}/.local/state/wireplumber%",
-    "%root/.local/state/wireplumber%",
-    "%usr/share/mime/application%",
-    "%usr/share/mime/text%",
-    "%usr/share/mime/image%",
-    "%release/cache%",
+    '%caches%',
+    '%.cache%',
+    '%FontCache%',
+    '%__pycache__%',
+    '%C:\Users\{{user}}\AppData\Local\save-changesnew\flth%',
+    '%\Microsoft\Windows\Recent\%'
 ]
 
 # default for asymmetrical gpg auth for STATPST
@@ -27,31 +22,39 @@ name = "John e"
 [logs]
 # size to disable compression on pydbpst size
 				# default 200
-compLVL = 200
+compLVL = 200								
+
 
 					# default ERROR
 					# DEBUG
 logLEVEL = "ERROR"
 userLOG = "errs.log"
-rootLOG = "errs2.log"
 
 [search]
 
-# Focus drive for the app search and or sys profile. 
-						# /
-						# /mnt/sdx
-drive = "/"
+# Focus drive for the app search and or sys profile 
+drive = "C:\\"
 
-# used for determining areas of multicore. SSD is multicore and HDD is serial the script will try to auto detect. If its set to SSD it will run multicore if over a certain file threshold 
+# used for determining areas of multicore. the script will try to auto detect. If its set to SSD it will run multicore if over a certain file threshold
 					# ""  default
 					# SSD
 					# HDD
-driveTYPE = ""
+driveTYPE=""
 
-# Directories to exclude from the searches. ie 
-# default directories that are left "/bin", "/etc", "/home", "/lib", "/lib64", "/opt", "/root", "/sbin", "/tmp", "/usr",  "/var"
-# prevent permission errors.  # eg var/cache, home/{{user}}/.cache or home/guest/somefolder
-EXCLDIRS = ["dev", ".cache", "media", "mnt", "proc", "run", "srv", "sys"]
+# Directories to exclude from the searches      Default Windows
+# Applies to both pwrshell and wsl find
+# prevent windows permission error. this applies to both powershell and wsl find command.
+							# eg ["Windows", "Users\\{{user}}\\AppData\\Local\\Opera Software\\"]
+EXCLDIRS = ["Windows", "$Recycle.Bin"]	
+
+# Windows subsystem of linux - if it is unable to set it fall back to powershell.
+				# default false 
+wsl = false
+
+						# How many old searches to save. These can be grabbed by `recentchanges search` and `recentchanges`
+						# for comparisons in diff file
+archivesrh = 5
+
 
 # find file default extensions. added here as well as in qt which are stored in database 
 extension = [
@@ -66,74 +69,72 @@ extension = [
 ".sql", ".db", ".sqlite", ".db3", ".mdb", ".accdb", ".bak", ".frm", ".dbf",
 ".py", ".js", ".html", ".css", ".cpp", ".h", ".java", ".rb", ".go", ".rs", ".swift", ".php", ".pl",
 ".ttf", ".otf", ".woff", ".woff2", ".eot",
-".vmdk", ".vdi", ".vhd", ".ova", ".barly",
+".vmdk", ".vdi", ".vhd", ".ova",
 ".dll", ".sys", ".drv", ".ini", ".cfg", ".bak",
 ".bak", ".backup", ".swp", ".tmp", ".~",
  ".iso", ".md5", ".sha1", ".torrent", ".dat"
 ]
 
-# run inotifywait for one hour to look for new files where ctime > mtime in /changes. this is for downloads or copies with preserved metadata pacman slackpkg ect.
-# It just dynamically bypasses a section of the script if tout result is already made. It is also inserted into the cache ctimecache.gpg.
-xRC = false              # false - default. if false the files will still show up
-							    # true - With this setting can bypass 1 of 2 search loops and reduce process overhead as the search is already there effectively increasing the overall speed
-
-
-						# How many old searches to save. These can be grabbed by `recentchanges search` and `recentchanges`
-						# for comparisons in diff file
-archivesrh = 5
-
+# alternative to inotifywait for Windows. which for one hour would to look for new files where ctime > mtime in /. this is for downloads or copies with preserved metadata
+# for Windows this uses a journal database with MFT data and USN updates. requires WSL
+						# false - default. if false the files will still show up
+xRC = false             	# true - With this setting can bypass 1 of 2 search loops and reduce process overhead as the search is already there effectively increasing the overall speed
+							    
 
 [compress]
 
-# Find file feature compress. what program to use when making archive.
-						# zipfile
-						# zip
-						# tar
+# Find file feature compress. what program to use when making archive. 7zip is included by default
+						# zipfile default python
+						# winrar																	
+						# 7zip
 zipPROGRAM = "zipfile"
+#zipPROGRAM = "7zip"													
+#zipPROGRAM = "winrar"
 
 
 # fallback incase cant find it in Path
-						#"" default
-zipPATH = ""
+# if the value "" is used the app will look in the registry for zipPROGRAM 7zip or winrar
+# 7z will be used in app install if zipPROGRAM is not found
+																#"" default		
+zipPATH = ""																
+#zipPATH = "C:\\Program Files\\7-Zip\\7z.exe"					
+#zipPATH = "C:\\Program Files\\WinRAR\\WinRAR.exe"
 
 
-# compression algorithm for zip.
+# zipfile compression algorithm
 							# 1-2 ZIP_STORED no compression
 							# 3-4 ZIP_DEFLATED standard default
 							# 5-7 ZIP_BZIP 
 							# 8-9 ZIP_LZMA
 zipcmode = 3
-
-# file compress level 0-9 default 9
+# zipfile compress level 0-9 default 9
 ziplevel= 9
 
-						# tar
-						# gz
-						# bz2
-						# xz
-						# zstd
-tarcmode = "gz"
+# 7zip compression level 9 ultra 0-9 ultra 7 maximum # default
+_7zipcmode = 7
 
-# tar compression program. if not zstd maximum 9. if 0 use above defaults
-						# default 0
-						# 0-22
-tarclevel = 0
+# Winrar compression level
+							# default 3
+							# 0-5
+winrarcmode = 3
 
-# remove paths or absolute. if there is a duplicate filename the duplicate will retain path
+# remove paths or absolute. if there is a duplicate filename the duplicate will retain path                    
 									# false - absolute default
 									# true - no paths
 strip = true
 
 
-# path for archives from compress button search. Combobox output can be used to direct to /tmp or /home/user/Downloads.
- 												# "" default
-												# ie "/home/guest/Documents", "/mnt/sda3"
-downloads = ""
+# path for archives from compress button search. Combobox output can be used to direct to AppData or Desktop.
+# downloads is used if specified
+												# "" default
+												# ie "D:\\mydownloads\\"  , "C:\\users\\{{user}}\\Downloads"
+downloads = ""									
 
 
 [analytics]
 							# display more verbose output
 ANALYTICS = true
+# provides more feedback
 							# provides more feedback
 							# total search time ect
 							# we dont want too much output on the terminal just a slight bit more
@@ -150,48 +151,52 @@ FEEDBACK = true
 # gui start page 1 default 2 database
 pageIDX = 1
 
-# location to open explorer or terminal from settings button
-						# default ""
-popPATH = ""
+# location to open explorer, cmd prompt or powershell from settings button
+				# default ""
+popPATH = ""														
 
 #launch text editor?
 # if using somethingelse specifying dspPATH is required
-						# xed  default 
-							# "false" or false
-							# ""
-							# featherpad
-dspEDITOR = "xed"
+								# notepad  default 
+									# "" "false" or false
+									# notepad++
+									# somethingelse
+dspEDITOR = "notepad"
 
 
-# specify absolute directory as a fallback incase cant find it in Path. xed is fine but needed for other editors. recommended
-# if the value "" is used the app will check registry for dspEDITOR to see if its installed. featherpad and xed
-# else needs dspPATH specifcally for other editor or if xed featherpad are installed somewhere not in path
-													# ""
-													# "/usr/bin/xed"
-													# "/usr/bin/somebinary"
-dspPATH = ""
+# specify absolute directory as a fallback incase cant find it in Path. Notepad is fine but needed for other editors. recommended
+# if the value "" is used the app will check registry for dspEDITOR to see if its installed. notepad and notepad++ are checked anything
+# else needs dspPATH specifcally
+															# ""
+															# "C:\\Program Files (x86)\\myeditor\\someexe.exe"
+dspPATH = ""															
+#dspPATH = "C:\\Program Files\\Notepad++\\notepad++.exe" 		
 
 
 # color for main term display 
 									# unix   default
-										# wb  white on black
-										# solar   solarize cyan
-										# monochrome   for grey
-                                        # modern
-hudCOLOR = "solar"
+									# wb  white on black
+									# solar   solarize cyan
+									# monochrome   for grey
+									# modern
+hudCOLOR = "unix"
 
 								# default 12
 hudSZE = 12
 
-# to install more fonts install with package manger and run print(QFontDatabase().families()) to see if it lists it and then set here.
-						# default is Monospace
-						# DejaVu Sans
-						# DejaVu Sans Mono
-						# DejaVu Serif
-						# Monospace
-						# Sans Serif
-						# Serif
-hudFNT = "Monospace"
+# see help - resources for more fonts
+						# default Consolas									
+						# Lucida	
+						# Lucida Console
+						# Courier New
+						# Microsoft Sans Serif
+						# serif
+						# Monaco
+						# Verdana
+						# Times New Roman
+						# Georgia
+						# Tahoma
+hudFNT = "Monaco"              	            
 
 
 
@@ -201,114 +206,98 @@ hudFNT = "Monospace"
 						# slower useful if you want to check deeper level of stats
 checkSUM = true
 
+
  # Include more info a file was changed but has the same checksum and filesize subtle edit  ie cache items or string was changed
 						# also check for hash collisions
 cdiag = true
 
 
-# supress cache warnings on terminal from known browsers? Mozilla... ect list top of pyfunctions.py
+
+# supress cache warnings on terminal from known browsers? Mozilla... ect
 supbrw = true
 
 
 # terminal and hardlink suppression. note regex
 supbrwLIST = [
-    'mozilla',
-    '\.mozilla',
-    'chromium-ungoogled',
-    '/home/{{user}}/\.config/recentchanges/config\.bak',
-    '\.local/share/Trash'
-    # 'google-chrome',
+    'Mozilla\Firefox',
+    'chromium-ungoogled',  # unconfirmed
+    'Chrome\User Data',
+    'Microsoft\Edge',
+    'Opera Software',
+    'C:\Users\{{user}}\AppData\Local\SomeFolder',
+    'Default\Cache',   # spotify
+    'Chrome\User Data\Default'
 ]
 
 
-#        all cdiag output to terminal except critical events
+# ..      all cdiag output to terminal except critical events
 suppress = false
 
 
 # commandline use
-# Diagnostics. Create file doctrine. Runs post search operation that can only be done at this time as search is relevant
-                                    # more overhead so recommend off unless one off. output /Downloads
-                                    #
-                                    # if it is run again and a file is still there it will not run the POSTOP and the script will set POSTOP to false to itself
+# Create file doctrine. Runs post search operation that can only be done at this time as search is relevant
+						# more overhead so recommend off unless one off. output /Downloads
+						#
+						# if it is run again and a file doctrine is still there it will not run the POSTOP and the script will set POSTOP to false to itself
 POSTOP = false
 
+
 # commandline use
-# Scan  the sys profile. The profile is created automatically if proteusSHIELD is enabled. 
+# Scan  the sys profile. This is for commandline use. The profile is created automatically if proteusSHIELD is enabled. 
 									# Once run once the script will set scanIDX to false.
 scanIDX = false
 # keep scanIDX on after scanning index
 autoIDX = false
 
 # commandline use
-# Show symmetric differences in diff file for sys profile scan. For 
-showDIFF = true
+# Show symmetric differences in diff file for sys profile scan. For commandline use
+showDIFF = false
 
+		
 
 [shield]
 # commandline use
 # take initial hash of key system files to put in database for system protection
 									# builds a sys table in database of system files and is compared in hybrid analysis in addition to the logs table.
-proteusSHIELD = false
+									# commandline use
+proteusSHIELD = false	
 
 
-# for porteus use the premade template instead and proteusEXTN and proteusPATH. Note: see XzmProfile class in xzmprofile.py
-								# false - default 
-xzm = false
-
-
-# if false include all files found. otherwise only target executables. with this on there would be less results or a narrower profile.
-# for .so files the header is checked
+# if false include all files found. otherwise only target windows executables. with this on there would be less results or a narrower profile.
 exec = false				# false - default
 
 
-# include symlinks in xzm, proteusEXTN and proteusPATH. symlinks are still mapped in dir cache for early exit in recursion and avoid tranversing in find downloads.
+# include symlinks in proteusEXTN and proteusPATH. symlinks are still mapped in dir cache for early exit in recursion and avoid tranversing in find downloads.
 sym = true		# true - default
 
 
 # files to include in the index. "" would means to include files with no extensions
+# executable .exe, .msi, .bat, .com
 proteusEXTN = [
-    "", ".sh", ".bash", ".zsh", ".py", ".pl", ".rb", ".lua", ".php", ".js", ".db", ".so", ".sqlite",
-    ".sqlite3", ".mdb", ".desktop", ".service", ".socket", ".timer", ".mount", ".target",
-    ".path", ".slice", ".gpg"
+	"", ".exe", ".msi", ".bat", ".com", ".dll", ".vbs", ".js", ".jse", ".ps1", ".reg", ".lnk",
+	".vhd", ".vmdk", ".wsf",
+	".ini", ".conf", ".cfg", ".sqlite", ".db"
 ]
 
 # hash all in the following 
 proteusPATH = [
-	"etc/cron.d",
-    "var/spool/cron"
+
 ]
 
-# appends to EXCLDIRS for profile builds. irrelevant folders
-# "tmp",
+# append to EXCLDIRS for profile builds. irrelevant folders
 nogo = [
-	"home/{{user}}/.cache",
-	"home/guest/.mozilla/firefox/94bktgy4.default-release"
+	'Users\{{user}}\AppData\Local\Temp',
+	'Users\{{user}}\AppData\Local\Opera Software'
+	
 ]
 
 # no match file patterns removes noise.
 filterout = [
-	"home/{{user}}/.local/share/recently-used.xbel"
+	'Users\{{user}}\AppData\Roaming\Microsoft\Windows\Recent',
+	'Users\{{user}}\AppData\Local\save-changesnew\gpg\gnupghome\random_seed'
 ]
 
 
 [paths]
-
 # file label prefix for searches output txt file			# default rntfiles
-MODULENAME="rntfiles"
-
-
-[src]
-
-# recentchanges SRC
-# if not porteus the SRC tag is bypassed
-autooutput = false
-
-# if an xzmname isnt provided a default one Application$$.xzm is used.
-xzmname = ""
-
-                   # default gzip. uses gzip compression level balanced. This is for recentchanges .xzm and SRC tag
-                                           # xz        best compression
-                                           # zstd     faster bootup
-                                            # lzo      faster bootup
-cmode = "gzip"
-
+MODULENAME="rntfiles" 
