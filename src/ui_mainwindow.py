@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'untitled10.ui'
+## Form generated from reading UI file 'untitled12.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.9.3
 ##
@@ -28,7 +28,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(1507, 1028)
+        MainWindow.resize(1515, 1045)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -297,9 +297,9 @@ class Ui_MainWindow(object):
 
         self.sbasediridx = QSpinBox(self.page)
         self.sbasediridx.setObjectName(u"sbasediridx")
-        # self.sbasediridx.setMinimumSize(QSize(15, 22))
+        sizePolicy1.setHeightForWidth(self.sbasediridx.sizePolicy().hasHeightForWidth())
+        self.sbasediridx.setSizePolicy(sizePolicy1)
         self.sbasediridx.setMaximumSize(QSize(34, 20))
-        # self.sbasediridx.setMaximumSize(QSize(34, 10))
         self.sbasediridx.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
         self.sbasediridx.setMaximum(0)
 
@@ -427,7 +427,7 @@ class Ui_MainWindow(object):
 
         self.combftimeout = QComboBox(self.page)
         self.combftimeout.addItem("")
-        self.combftimeout.addItem(u"Desktop")
+        self.combftimeout.addItem(u"Downloads")
         self.combftimeout.setObjectName(u"combftimeout")
         sizePolicy1.setHeightForWidth(self.combftimeout.sizePolicy().hasHeightForWidth())
         self.combftimeout.setSizePolicy(sizePolicy1)
@@ -463,7 +463,7 @@ class Ui_MainWindow(object):
         self.jpgv.setSizePolicy(sizePolicy1)
         self.jpgv.setMinimumSize(QSize(533, 300))
         self.jpgv.setMaximumSize(QSize(533, 300))
-        self.jpgv.setPixmap(QPixmap(u"../../../mnt/mnt/sda3/mnt/sda3/Untitled Folder/Qinst/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/mnt/sdb1/ventoy/Themes/background.png"))
+        self.jpgv.setPixmap(QPixmap(u"../../../mnt/mnt/mnt/sda3/mnt/sda3/Untitled Folder/Qinst/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/mnt/sdb1/ventoy/Themes/background.png"))
         self.jpgv.setScaledContents(True)
 
         self.verticalLayout_4.addWidget(self.jpgv)
@@ -976,7 +976,7 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 1507, 19))
+        self.menubar.setGeometry(QRect(0, 0, 1515, 19))
         self.menuRecent_changes = QMenu(self.menubar)
         self.menuRecent_changes.setObjectName(u"menuRecent_changes")
         self.menuHelp = QMenu(self.menubar)
@@ -1089,8 +1089,8 @@ class Ui_MainWindow(object):
         self.ntsb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
         self.ffileb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
         self.ffilecb.setText(QCoreApplication.translate("MainWindow", u"Compress", None))
-        self.combffileout.setItemText(0, QCoreApplication.translate("MainWindow", u"Desktop", None))
-        self.combffileout.setItemText(1, QCoreApplication.translate("MainWindow", u"AppData", None))
+        self.combffileout.setItemText(0, QCoreApplication.translate("MainWindow", u"Downloads", None))
+        self.combffileout.setItemText(1, QCoreApplication.translate("MainWindow", u"/tmp", None))
 
         self.ffilelabel3.setText(QCoreApplication.translate("MainWindow", u"(Range)", None))
 #if QT_CONFIG(tooltip)
@@ -1122,7 +1122,7 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(tooltip)
         self.hudt.setToolTip(QCoreApplication.translate("MainWindow", u"hudt", None))
 #endif // QT_CONFIG(tooltip)
-        self.combftimeout.setItemText(0, QCoreApplication.translate("MainWindow", u"AppData", None))
+        self.combftimeout.setItemText(0, QCoreApplication.translate("MainWindow", u"/tmp", None))
 
 #if QT_CONFIG(tooltip)
         self.combftimeout.setToolTip(QCoreApplication.translate("MainWindow", u"unfiltered search output", None))

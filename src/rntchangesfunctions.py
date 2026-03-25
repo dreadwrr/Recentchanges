@@ -612,8 +612,8 @@ def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, 
             # normal execution
             else:
                 print("init_recentchanges returned ", records)
-                print("\nSomething went wrong xRC is set to disabled. resuming")
-                print("logfile", logging_values[0])
+                print("Something went wrong xRC is set to disabled. resuming")
+                print("logfile\n", logging_values[0])
                 records = []
 
                 appdata_local = logging_values[2]

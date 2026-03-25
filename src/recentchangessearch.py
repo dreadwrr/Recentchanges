@@ -345,11 +345,12 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
 
             c_ver = mftec_is_cutoff(appdata_local)
             if not c_ver:
-                print("Mft requires --cutoff argument version to print to stdout .NET 9 or .NET 6", flush=True)
+                print("Mft requires --cutoff argument version to print to stdout .NET 9 or .NET 6\n", flush=True)
                 if is_calibrate:
                     return 1
                 if xRC:
                     xRC = False
+                    user_setting['xRC'] = False
                     update_toml_values({'search': {'xRC': False}}, toml_file)
 
         if not iqt:
@@ -884,6 +885,7 @@ def main_entry(argv):
         args.method,
         args.iqt,
         args.drive,
+        args.dtype,
         args.db_output,
         args.cache_file,
         args.POST_OP,

@@ -1,4 +1,4 @@
-#   build first to find the files then distribute round-robin to multiprocessing            03/19/2026
+#   build first to find the files then distribute round-robin to multiprocessing            03/24/2026
 # to hash. This was found to be the fastest as other methods have too much overhead
 
 # scan the important files for modified with same mtime or spoofed timestamp
@@ -33,14 +33,14 @@ from .dirwalkerfunctions import decr_cache
 from .dirwalkerfunctions import get_base_folders
 from .dirwalkerfunctions import get_filter_tup
 from .dirwalkerfunctions import get_stat
+from .dirwalkerparser import build_dwalk_parser
 from .dirwalkersrg import create_new_index
 from .dirwalkersrg import db_sys_changes
-from .dirwalkerwin import get_config_data
-from .dirwalkerwin import get_extension_tup
 from .dirwalkersrg import hardlinks
 from .dirwalkersrg import save_db
 from .dirwalkersrg import sync_db
-from .dirwalkerparser import build_dwalk_parser
+from .dirwalkerwin import get_config_data
+from .dirwalkerwin import get_extension_tup
 from .fileops import find_dir_link_target
 from .fileops import find_link_target
 from .fsearchfunctions import get_file_id
@@ -597,10 +597,11 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
     # handle inclusions EXCLDIRS suppress_list get converted to tuples after
     EXCLDIRS += nogo
 
-    # handle exclusions
     # filter out
     filterout_list = [os.path.join(basedir, d) for d in filterout_list]
     if basedir == "C:\\":
+
+        # handle exclusions
         # Windows temp folder
         exclude_temp = f"Users\\{user}\\AppData\\Local\\Temp"
         if exclude_temp not in EXCLDIRS:
@@ -616,7 +617,6 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, CACHE_S, email, 
         download_results = os.path.join(USRDIR, MODULENAME + "x")
         filterout_list.append(download_results)
         # filterout_list.append(str(file_out))  # linux
-
         if '.gpg' in extension:
 
             CACHE_F_frm = os.path.join(appdata_local, "ctimecache.gpg")

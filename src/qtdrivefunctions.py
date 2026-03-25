@@ -294,9 +294,9 @@ def setup_drive_settings(basedir, key, driveTYPE, toml_file, user_json=None, j_s
     if basedir == "C:\\" and toml_file and not idx_drive:
         update_toml_values({'search': {'driveTYPE': drive_type}}, toml_file)  # update config.toml the basedir
 
-    # config.toml is where basedir ie C:\\ info is stored. the 'modelTYPE' HDD or SSD
-    # if its a basedir we only want to put the info in the usrprofile.toml if we have it. This is used for diagnostics to return more info about settings in ui.
-    # if we were to put the wrong info in usrprofile.toml and config.toml the user would have to update two config files which is unlikely.
+    # config.toml is where basedir ie C:\\ info is stored. the 'driveTYPE' HDD or SSD
+    # if its a basedir we only want to put the info in the usrprofile.json if we have it. This is used for diagnostics to return more info about settings in ui.
+    # if we were to put the wrong info in usrprofile.json and config.toml the user would have to update two config files which is unlikely.
     #
     # if its an idx_drive we need this info regardless as usrprofile.toml is where its info is stored. 'drive_type' and 'drive_model'
     if user_json:
@@ -323,7 +323,7 @@ def get_cache_files(basedir, dbopt, dbtarget, CACHE_S, json_file, user, email, c
     cache_file = systimeche = None
 
     # qt gui initial load json
-    # this avoids loading json unnecessarily for commandline if basedir is "/"
+    # this avoids loading json unnecessarily for commandline if basedir is "C:\\"
     # which is what it would be set to m ost of the time
 
     if iqt:
