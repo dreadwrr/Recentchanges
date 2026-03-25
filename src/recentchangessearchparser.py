@@ -18,8 +18,9 @@ def build_subparser(script):
     if r_args.args == script:
         recent_args = [
             r_args.argone, r_args.argtwo, r_args.USR, r_args.PWD, r_args.argf, r_args.method,
-            r_args.iqt, r_args.drive, r_args.db_output, r_args.cache_file, r_args.POST_OP,
-            r_args.scan_idx, r_args.showDiff, r_args.argwsl, r_args.dspPATH
+            r_args.iqt, r_args.drive, r_args.dtype, r_args.db_output, r_args.cache_file,
+            r_args.POST_OP, r_args.scan_idx, r_args.showDiff, r_args.argwsl,
+            r_args.dspPATH
         ]
         return recent_args
     else:
@@ -38,6 +39,8 @@ def parse_recent_args(parser):
                         help="iqt boolean from Qt app show progress (default: False)")
     parser.add_argument("drive", nargs="?", default=None,
                         help="basedir or drive from qt gui. the target search drive (default:None)")
+    parser.add_argument("dtype", nargs="?", default=None,
+                        help="basedir model ssd or hdd for branch logic serial or multi")
     parser.add_argument("db_output", nargs="?", default=None,
                         help="Path to decrypted database from qt application for pst_srg and ha (default:None)")
     parser.add_argument("cache_file", nargs="?", default=None,

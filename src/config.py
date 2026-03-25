@@ -120,6 +120,8 @@ def dump_j_settings(data, filepath="usrprofile.json"):
             json.dump(data, file, indent=4)
     except IOError as e:
         print(f"Error writing to {filepath}: {e}")
+    except TypeError as e:
+        print("dump_j_settings input data has mixed types while saving", filepath, e)
 
 
 def set_json_settings(updates=None, drive=None, filepath="usrprofile.json"):

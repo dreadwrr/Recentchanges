@@ -65,8 +65,12 @@ def scan_created(chunk, basedir, EXCLDIRS_FULLPATH, filter_tup, CACHE_S, root_co
             else:
                 dirl = True
 
-                rtype = None
-                symlink = record.is_symlink()
+                symlink = rtype = None
+                try:
+                    symlink = record.is_symlink()
+                except OSError as e:
+                    emit_log("DEBUG", f"error could not stat new symlink: {root} {type(e).__name__} {e}", log_entries=log_entries, logger=logger)
+                    return
                 if symlink:
                     rtype = "symlink"
                 elif record.is_junction():
@@ -93,10 +97,12 @@ def scan_created(chunk, basedir, EXCLDIRS_FULLPATH, filter_tup, CACHE_S, root_co
             with os.scandir(root) as entries:
                 for record in entries:
 
+                    is_dir = False
                     path = record.path
 
                     try:
                         if record.is_dir():
+                            is_dir = True
                             if path in EXCLDIRS_FULLPATH:
                                 continue
 
@@ -119,7 +125,7 @@ def scan_created(chunk, basedir, EXCLDIRS_FULLPATH, filter_tup, CACHE_S, root_co
                                     sys_data.append((path, file_mtime))  # new file found
 
                     except OSError as e:
-                        emit_log("DEBUG", f"error could not stat file: {path} {type(e).__name__} {e}", log_entries=log_entries, logger=logger)
+                        emit_log("DEBUG", f"error could not stat {'dir' if is_dir else 'file'}: {path} {type(e).__name__} {e}", log_entries=log_entries, logger=logger)
                         continue
                 if dirl:
                     if prev_entry:

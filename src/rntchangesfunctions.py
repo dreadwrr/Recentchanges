@@ -79,7 +79,7 @@ def check_script_path(script, appdata_local=None):
 
 
 # inclusions from this script. temp_dir is the temp_dir for the qt app
-def get_runtime_exclude_list(appdata_local, USRDIR, MODULENAME, flth, dbtarget, CACHE_F, CACHE_S, log_path, dbopt=None, temp_dir=None):
+def get_runtime_exclude_list(appdata_local, USRDIR, MODULENAME, flth, dbtarget, CACHE_F, CACHE_S, gnupg_home, log_path, dbopt=None, temp_dir=None):
 
     dir_pth = os.path.join(appdata_local, f"{MODULENAME}_MDY_*")
     folders = glob.glob(dir_pth)
@@ -87,6 +87,9 @@ def get_runtime_exclude_list(appdata_local, USRDIR, MODULENAME, flth, dbtarget, 
 
     ad_results = os.path.join(appdata_local, f'{MODULENAME}x')
     download_results = os.path.join(USRDIR, f'{MODULENAME}x')
+
+    if not gnupg_home:
+        gnupg_home = os.environ.get("GNUPGHOME")
     # gnupg_one = f"/home/{user}/.gnupg/random_seed"
     # gnupg_two = "/root/.gnupg/random_seed"
 
@@ -99,7 +102,8 @@ def get_runtime_exclude_list(appdata_local, USRDIR, MODULENAME, flth, dbtarget, 
         CACHE_S,
         log_path
     ]
-
+    if gnupg_home:
+        excluded_list += [str(gnupg_home)]
     for entry in old_searches:
         excluded_list.append(entry)
 
@@ -1285,11 +1289,19 @@ def get_diff_file(lclhome, USRDIR, MODULENAME):
 
     diff_file = None
 
+    all_matches = []
     for pattern in patterns:
-        matches = glob.glob(pattern)
-        if matches:
-            diff_file = sorted(matches, key=os.path.getmtime, reverse=True)[0]
-            break
+        all_matches.extend(glob.glob(pattern))
+
+    if all_matches:
+        diff_file = max(all_matches, key=os.path.getmtime)
+
+    # selects /tmp first # original
+    # for pattern in patterns:
+    #     matches = glob.glob(pattern)
+    #     if matches:
+    #         diff_file = sorted(matches, key=os.path.getmtime, reverse=True)[0]
+    #         break
 
     if not diff_file:
         diff_file = default_diff

@@ -240,13 +240,16 @@ class BasedirProfiles:
         else:
             raise ValueError("Item must be a tuple.")
 
-    def update_current_item(self, psextn, **new_data):
+    def update_current_item(self, psextn, dtype=None, **new_data):
         if self.current_index >= 0 and self.current_index < self.items:
 
-            guid, drive, key = self.data[self.current_index]
+            uuid, drive, key = self.data[self.current_index]
+
             drive.psextn = psextn
+            if dtype:
+                drive.drive_type = dtype
             key.update(new_data)
-            self.data[self.current_index] = (guid, drive, key)
+            self.data[self.current_index] = (uuid, drive, key)
         else:
             raise IndexError("No current item or invalid index.")
 

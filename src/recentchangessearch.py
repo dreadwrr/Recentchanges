@@ -110,7 +110,7 @@ pstsrg with POSTOP and scanIDX 65 - 75%
 '''
 
 
-def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None, dbopt=None, CACHE_S=None, POST_OP=False, scan_idx=False, showDiff=False, argwsl=False, dspPATH=None):
+def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None, dtype=None, dbopt=None, CACHE_S=None, POST_OP=False, scan_idx=False, showDiff=False, argwsl=False, dspPATH=None):
 
     appdata_local = find_install()  # appdata software install aka workdir
     toml_file, json_file, usr = get_config(appdata_local, USR, platform="Windows")
@@ -187,28 +187,18 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         for p in supbrwLIST
     ]
 
-    # make a named tuple or dict for args and to pass less args for clarity
-    user_setting = {
-        'USR': USR,
-        'email': email,
-        'basedir': basedir,
-        'driveTYPE': driveTYPE_frm,
-        'FEEDBACK': FEEDBACK,
-        'ANALYTICS': ANALYTICS,
-        'ANALYTICSECT': ANALYTICSECT,
-        'checksum': checksum,
-        'ps': ps,
-        'xRC': xRC,
-        'cdiag': cdiag,
-        'compLVL': compLVL
-    }
-
     # init
 
     gnupg_home = None
 
     if iqt:
         basedir = drive
+        driveTYPE = driveTYPE_frm
+        if dtype in ("HDD", "SSD"):
+            driveTYPE = dtype
+        else:
+            print("driveTYPE for drive", basedir, " was null check json file", json_file)
+
         show_diff = showDiff
         POSTOP = POST_OP
         scanIDX = scan_idx
@@ -251,7 +241,6 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
             if basedir != "C:\\":
                 print("failed to load json in setup_drive_cache")
                 return 1
-        user_setting["driveTYPE"] = driveTYPE
 
         is_wsl = False
         if wsl:
@@ -259,6 +248,23 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
 
     if xRC and basedir != "C:\\":
         xRC = False
+
+    # make a named tuple or dict for args and to pass less args for clarity
+    user_setting = {
+        'USR': USR,
+        'email': email,
+        'basedir': basedir,
+        'driveTYPE': driveTYPE_frm,
+        'FEEDBACK': FEEDBACK,
+        'ANALYTICS': ANALYTICS,
+        'ANALYTICSECT': ANALYTICSECT,
+        'checksum': checksum,
+        'ps': ps,
+        'xRC': xRC,
+        'cdiag': cdiag,
+        'compLVL': compLVL
+    }
+
     # end init
 
     # VARS
@@ -583,7 +589,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         deduped = list(seen.values())
 
         # inclusions from this script /  sort -u
-        exclude_patterns = get_runtime_exclude_list(appdata_local, USRDIR, MODULENAME, flth, dbtarget, CACHE_F, CACHE_S, str(log_file), dbopt=dbopt)
+        exclude_patterns = get_runtime_exclude_list(appdata_local, USRDIR, MODULENAME, flth, dbtarget, CACHE_F, CACHE_S, gnupg_home, str(log_file), dbopt=dbopt)
 
         def filepath_included(filepath, exclude_patterns):
             filepath = filepath.lower()
