@@ -303,7 +303,7 @@ def setup_drive_settings(basedir, key, driveTYPE, toml_file, user_json=None, j_s
         if idx_drive or model_type:
             if model_type is None:
                 model_type = "Unknown"
-            if key and j_settings:
+            if key and j_settings is not None:
 
                 update_dict({"idx_suffix": key, "drive_id_model": drive_id_model, "mount_of_index": basedir, "model_type": model_type, "drive_type": drive_type}, j_settings, basedir)
                 dump_j_settings(j_settings, user_json)
