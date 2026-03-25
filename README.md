@@ -30,8 +30,8 @@ See required tsk files above <br>
 order is  mftecmd, icat\fstat and ntfstools so remove others when using specific one <br><br>
 
 Links for MFTCmd with cutoff allowing to read the Mft into memory while doing an Mft search. <br>
-https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0#bookmark=id.ct8qv65gr0wc <br><br>
-
+https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0#bookmark=id.ct8qv65gr0wc <br>
+Released the windows ui file https://drive.google.com/file/d/1DAHvPq4yqNQNxdVmFLM0SyX5lRF2Qs72/view?usp=sharing <br><br>
 if python is installed. <br><br>
 If you dont have python installed there is a Windows setup version available <br>
 ## Installation
