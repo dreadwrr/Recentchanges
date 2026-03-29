@@ -1,6 +1,7 @@
 Windows 10 11 <br>
 Released 3.0.4! with key changes and optimizations <br>
-![Alt text](https://i.imgur.com/yNnttmU.png) <br><br>
+![Alt text](https://i.imgur.com/yNnttmU.png) <br>
+![Alt text](https://i.imgur.com/p1kuXYp.png) <br><br>
 
 # Recentchanges
 Can be used with system python or one step pyinstall build <br><br> 
