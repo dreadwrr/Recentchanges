@@ -1,4 +1,4 @@
-# 03/23/2026               Qt gui windows 11                  Developer buddy 5.0
+# 03/30/2026               Qt gui windows 11                  Developer buddy 5.0
 import glob
 import logging
 import multiprocessing
@@ -675,10 +675,13 @@ class MainWindow(QMainWindow):
         else:
             if self.hudSZE == 0:
                 self.hudSZE = 12
+        qx = ""
+        if ccolor:
+            qx = f"background-color: black; color: #{ccolor};"
+
         self.ui.hudt.setStyleSheet(f"""
             QPlainTextEdit {{
-                background-color: black;
-                color: #{ccolor};
+                {qx}
                 font-family: {f_f};
                 font-size: {self.hudSZE}pt;
             }}
