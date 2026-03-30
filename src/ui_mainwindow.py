@@ -427,7 +427,7 @@ class Ui_MainWindow(object):
 
         self.combftimeout = QComboBox(self.page)
         self.combftimeout.addItem("")
-        self.combftimeout.addItem(u"Downloads")
+        self.combftimeout.addItem(u"Desktop")
         self.combftimeout.setObjectName(u"combftimeout")
         sizePolicy1.setHeightForWidth(self.combftimeout.sizePolicy().hasHeightForWidth())
         self.combftimeout.setSizePolicy(sizePolicy1)
@@ -1089,8 +1089,8 @@ class Ui_MainWindow(object):
         self.ntsb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
         self.ffileb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
         self.ffilecb.setText(QCoreApplication.translate("MainWindow", u"Compress", None))
-        self.combffileout.setItemText(0, QCoreApplication.translate("MainWindow", u"Downloads", None))
-        self.combffileout.setItemText(1, QCoreApplication.translate("MainWindow", u"/tmp", None))
+        self.combffileout.setItemText(0, QCoreApplication.translate("MainWindow", u"AppData", None))
+        self.combffileout.setItemText(1, QCoreApplication.translate("MainWindow", u"Desktop", None))
 
         self.ffilelabel3.setText(QCoreApplication.translate("MainWindow", u"(Range)", None))
 #if QT_CONFIG(tooltip)
@@ -1122,7 +1122,7 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(tooltip)
         self.hudt.setToolTip(QCoreApplication.translate("MainWindow", u"hudt", None))
 #endif // QT_CONFIG(tooltip)
-        self.combftimeout.setItemText(0, QCoreApplication.translate("MainWindow", u"/tmp", None))
+        self.combftimeout.setItemText(0, QCoreApplication.translate("MainWindow", u"AppData", None))
 
 #if QT_CONFIG(tooltip)
         self.combftimeout.setToolTip(QCoreApplication.translate("MainWindow", u"unfiltered search output", None))

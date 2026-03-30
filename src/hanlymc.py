@@ -96,7 +96,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                 continue
 
             filename = record[1]
-            label = filename
+            label = filename  # label = record[16]  # on linux escaped in fsearch if can contain new line
 
             recent_entries = get_recent_changes(filename, cur, 'logs', ['mtime_us'])
             recent_sys = get_recent_sys(filename, cur, sys_tables, ['mtime_us', 'count']) if ps else None

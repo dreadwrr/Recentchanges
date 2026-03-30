@@ -479,8 +479,8 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
             init = True
 
             RECENT, COMPLETE_1, end, cstart = find_ps1(
-                command, RECENT, COMPLETE_1, merged_database, init, cfr, search_start_dt,
-                user_setting, logging_values, end, cstart, iqt=iqt, strt=proval, endp=endval
+                command, RECENT, COMPLETE_1, merged_database, init, cfr, search_start_dt, user_setting,
+                logging_values, end, cstart, iqt=iqt, strt=proval, endp=endval
             )
 
         # WSL find command

@@ -313,7 +313,6 @@ def setup_drive_settings(basedir, key, driveTYPE, toml_file, user_json=None, j_s
     print(f"model {drive_id_model}")
     print(f"model_type {model_type}")
     print(f"drive_type {drive_type}")
-
     return drive_type
 
 
@@ -503,19 +502,16 @@ def setup_drive_cache(basedir, appdata_local, dbopt, dbtarget, json_file, toml_f
     if not suffix:
         return None, None, None, None
 
-    if driveTYPE in ("HDD", "SSD"):
-        return CACHE_S, systimeche, suffix, driveTYPE
-
+    saved_dt = None
     if j_settings:
-        drive = j_settings.get(basedir, {})
-        dt = drive.get("drive_type")
-        if dt in ("HDD", "SSD"):
-            return CACHE_S, systimeche, suffix, dt
-        if dt:
-            print("Malformed json defaulting to HDD for drive", basedir, "in json:", json_file)
-            j_settings[basedir]["drive_type"] = "HDD"
-            dump_j_settings(j_settings, json_file)
-            return CACHE_S, systimeche, suffix, "HDD"
+        dtype = j_settings.get(suffix, {}).get("drive_type")
+        if dtype in ("HDD", "SSD"):
+            saved_dt = dtype
+
+    if driveTYPE in ("HDD", "SSD"):
+        if saved_dt and saved_dt != driveTYPE:
+            print("saved drive type doesnt match config.toml. using", driveTYPE, "update config.toml if this doesnt match the drive")
+        return CACHE_S, systimeche, suffix, driveTYPE
 
     driveTYPE = setup_drive_settings(basedir, suffix, driveTYPE, toml_file, json_file, j_settings, False, appdata_local)
     if driveTYPE is None:

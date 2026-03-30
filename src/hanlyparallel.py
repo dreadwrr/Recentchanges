@@ -13,10 +13,9 @@ from .logs import init_process_worker
 from .logs import logs_to_queue
 from .logs import logging_worker
 from .pyfunctions import cprint
-from .pyfunctions import escf_py
 from .pysql import detect_copy
 from .pysql import increment_f
-# 03/16/2026
+# 03/30/2026
 
 
 # tfile
@@ -72,8 +71,8 @@ def logger_process(results, sys_records, sys_tables, rout, scr, cerr, dbopt, ps,
                                     checksum = msg[5]
                                     result = detect_copy(filepath, inode, checksum, sys_tables, c, ps)
                                     if result:
-                                        label = escf_py(filepath)
-                                        rout.append(f'Copy {timestamp} {ct} {label}')
+                                        # label = escf_py(filepath)
+                                        rout.append(f'Copy {timestamp} {ct} {filepath}')
                             else:
                                 log.debug("Skipping dcp message due to insufficient length: %s", msg)
 

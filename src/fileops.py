@@ -106,11 +106,11 @@ def calculate_checksum(file_path, mtime, mod_time, inode, size_int, prev_hash=No
         if retry > 0:
 
             # if not total_size:
-            #     emit_log("INFO", f"calculate_checksum Size was zero: {file_path} checksum {checks} and total_size {total_size} filesize", log_q, logger=logger)
+            #     emit_log("DEBUG", f"calculate_checksum Size was zero: {file_path} checksum {checks} and total_size {total_size} filesize", log_q, logger=logger)
 
             re_st = goahead(file_path, log_q, logger=logger)
             if re_st == "Nosuchfile":
-                emit_log("INFO", f"calculate_checksum file not found: {file_path}", log_q, logger=logger)
+                emit_log("DEBUG", f"calculate_checksum file not found: {file_path}", log_q, logger=logger)
                 return None, mtime, mod_time, st, "Nosuchfile"
 
             elif re_st:
@@ -126,19 +126,19 @@ def calculate_checksum(file_path, mtime, mod_time, inode, size_int, prev_hash=No
                         status = "Retried"
                     return checks, mtime, mod_time, st, status
                 # else:
-                #     emit_log("INFO", f"File changed from first stat. the file is Cacheable: {cacheable} doesnt match: {file_path} the follow characteristics: ", log_q, logger=logger)
-                #     emit_log("INFO", f"Retry #{retry}\\{max_retry}. Entry mtime {mod_time} size {size_int} inode {inode}", log_q, logger=logger)
-                #     emit_log("INFO", f"calculate_checksum checksum size is {total_size} . mtime {a_mod} size {a_size} inode {a_ino}", log_q, logger=logger)
+                #     emit_log("DEBUG", f"File changed from first stat. the file is Cacheable: {cacheable} doesnt match: {file_path} the follow characteristics: ", log_q, logger=logger)
+                #     emit_log("DEBUG", f"Retry #{retry}\\{max_retry}. Entry mtime {mod_time} size {size_int} inode {inode}", log_q, logger=logger)
+                #     emit_log("DEBUG", f"calculate_checksum checksum size is {total_size} . mtime {a_mod} size {a_size} inode {a_ino}", log_q, logger=logger)
 
                 mtime = epoch_to_date(re_st.st_mtime)
                 return calculate_checksum(file_path, mtime, a_mod, a_ino, a_size, checks, re_st, retry - 1, max_retry, cacheable, log_q, logger=logger)
 
-        emit_log("INFO", f"calculate_checksum file changed returning None: {file_path}", log_q, logger=logger)
+        emit_log("DEBUG", f"calculate_checksum file changed returning None: {file_path}", log_q, logger=logger)
 
         return None, mtime, mod_time, st, "Changed"
 
     except FileNotFoundError:
-        emit_log("INFO", f"calculate_checksum file not found while calculating checksum: {file_path}", log_q, logger=logger)
+        emit_log("DEBUG", f"calculate_checksum file not found while calculating checksum: {file_path}", log_q, logger=logger)
         return None, mtime, mod_time, st, "Nosuchfile"
     except PermissionError as e:
         emit_log("DEBUG", f"calculate_checksum: {file_path} error: {e}", log_q, logger=logger)

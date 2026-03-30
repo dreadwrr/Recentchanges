@@ -13,7 +13,7 @@ from .logs import init_process_worker
 from .logs import logs_to_queue
 from .logs import logging_worker
 # import queue
-# Get metadata hash of files and return array 03/11/2026
+# Get metadata hash of files and return array 03/30/2026
 
 
 def process_line_worker(search_fn, chunk, checksum, file_type, search_start_dt, CACHE_F, show_progress=False, logger=None, strt=20, endp=60):
@@ -37,7 +37,7 @@ def process_line_worker(search_fn, chunk, checksum, file_type, search_start_dt, 
     for i, line in enumerate(chunk):
         try:
 
-            result, log_ = search_fn(line, checksum, file_type, search_start_dt, CACHE_F)
+            result, log_ = search_fn(line, checksum, file_type, search_start_dt, CACHE_F, logger)
 
             if result is not None:
                 results.append(result)
@@ -47,7 +47,7 @@ def process_line_worker(search_fn, chunk, checksum, file_type, search_start_dt, 
         except Exception as e:
             em = f"process_line_worker - Error line {i} of {len(chunk)}: {type(e).__name__} {e}"
             print(em)
-            emit_log("ERROR", f"{em}", logs.WORKER_LOG_Q)
+            emit_log("ERROR", f"{em}", logs.WORKER_LOG_Q, logger=logger)
             raise
         r = i + 1
         x += 1
@@ -93,6 +93,7 @@ def process_lines(search_fn, lines, file_type, search_start_dt, process_label, u
 
     if len_lines < 80 or drive_type.lower() == "hdd":
         try:
+            init_process_worker(None)
             ck_results, _, _ = process_line_worker(search_fn, lines, checksum, file_type, search_start_dt, CACHE_F, show_progress, logger, strt, endp)
         except Exception as e:
             emsg = f"Worker error occurred: {type(e).__name__} : {e}"
