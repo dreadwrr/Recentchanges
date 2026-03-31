@@ -3,7 +3,7 @@ Released 3.0.4! with key changes and optimizations <br>
 ![Alt text](https://i.imgur.com/yNnttmU.png) <br>
 ![Alt text](https://i.imgur.com/p1kuXYp.png) <br><br>
 
-Can be used with system python or one step pyinstall build <br><br> 
+Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br><br> 
 3.0.3 saw Recentchanges, that was first made on windows, being overhauled with new features plus updates from recentchanges Qt linux <br><br>
 
 To enable ansi text in powershell try the following command <br>
