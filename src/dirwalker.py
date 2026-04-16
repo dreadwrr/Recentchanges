@@ -1,4 +1,4 @@
-#   build first to find the files then distribute round-robin to multiprocessing            03/24/2026
+#   build first to find the files then distribute round-robin to multiprocessing            04/14/2026
 # to hash. This was found to be the fastest as other methods have too much overhead
 
 # scan the important files for modified with same mtime or spoofed timestamp
@@ -28,11 +28,11 @@ from .config import set_json_settings
 from .dirwalkerfunctions import check_specified_paths
 from .dirwalkerfunctions import chunk_split
 from .dirwalkerfunctions import create_profile_baseline
+from .dirwalkerfunctions import collect_files
 from .dirwalkerfunctions import execEXTN
 from .dirwalkerfunctions import decr_cache
 from .dirwalkerfunctions import get_base_folders
 from .dirwalkerfunctions import get_filter_tup
-from .dirwalkerfunctions import get_stat
 from .dirwalkerparser import build_dwalk_parser
 from .dirwalkersrg import create_new_index
 from .dirwalkersrg import db_sys_changes
@@ -41,10 +41,6 @@ from .dirwalkersrg import save_db
 from .dirwalkersrg import sync_db
 from .dirwalkerwin import get_config_data
 from .dirwalkerwin import get_extension_tup
-from .fileops import find_dir_link_target
-from .fileops import find_link_target
-from .fsearchfunctions import get_file_id
-from .fileops import is_reparse_point
 from .gpgcrypto import encrm
 from .gpgcrypto import encr
 from .gpgcrypto import dict_string
@@ -71,196 +67,6 @@ from .scanindex import scan_index
 
 # Globals
 fmt = "%Y-%m-%d %H:%M:%S"
-
-
-def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, paths_tup, is_noextension, is_exec, is_sym, logger):
-    ''' proteusEXTN shield os.scandir '''
-    all_entries = []
-    log_entries = []
-    dir_data = {}
-    cckSEEN, idx_bytes = set(), set()
-
-    try:
-
-        def collect_scan(root, root_modified_dt=None, root_modified_ep=None, current_depth=0, max_depth=0, r=0, j=0):
-
-            x = 0
-            ix = 0
-            idx_files = 0
-            rtype = None
-            try:
-
-                if root in cckSEEN:
-                    return max_depth, r, j
-                cckSEEN.add(root)
-
-                max_depth = max(max_depth, current_depth)
-
-                with os.scandir(root) as entries:
-                    for entry in entries:
-
-                        rtype = target = None
-                        symlink = False
-                        found = False
-
-                        path = entry.path
-
-                        inode = None
-                        modified_dt = None
-                        modified_ep = None
-
-                        try:
-
-                            if entry.is_symlink():
-                                symlink = True
-
-                            if entry.is_dir():
-
-                                if path in EXCLDIRS_FULLPATH:
-                                    continue
-                                stat_info = get_stat(entry, logger=logger)
-                                if not stat_info:
-                                    continue
-
-                                if symlink:
-                                    rtype = "symlink"
-                                elif entry.is_junction():
-                                    rtype = "junction"
-                                elif is_reparse_point(stat_info):
-                                    rtype = "reparse"
-
-                                modified_ep = stat_info.st_mtime
-                                modified_dt = epoch_to_str(modified_ep)
-
-                                if not rtype:
-                                    if path != basedir:
-                                        max_depth, r, j = collect_scan(path, modified_dt, modified_ep, current_depth + 1, max_depth, r, j)
-                                else:
-                                    target = find_link_target(path, logger=logger)
-
-                            elif entry.is_file():
-
-                                if not (symlink and not is_sym):
-                                    filename = entry.name
-                                    x += 1
-                                    j += 1
-
-                                    if path.lower().startswith(filter_tup):
-                                        continue
-
-                                    if path.startswith(paths_tup):
-                                        found = True
-                                    else:
-                                        if is_exec:
-                                            filename_lower = filename.lower()
-                                            if filename_lower.endswith(exec_tup):
-                                                found = True
-                                        else:
-                                            if is_noextension:
-                                                if "." not in filename or (filename.startswith(".") and filename.count(".") == 1):
-                                                    found = True
-                                            if not found:
-                                                filename_lower = filename.lower()
-                                                if filename_lower.endswith(extn_tup):
-                                                    found = True
-
-                                    if found:
-                                        stat_info = get_stat(entry, logger=logger)
-                                        if not stat_info:
-                                            continue
-
-                                        if symlink:
-                                            target = find_link_target(path, logger=logger)
-
-                                        else:
-                                            if is_reparse_point(stat_info):
-                                                symlink = True
-                                                if symlink and not is_sym:
-                                                    continue
-
-                                        sze = stat_info.st_size
-                                        dev = stat_info.st_dev
-                                        if stat_info.st_nlink > 1:
-                                            inode, _, _, _, _, _, status = get_file_id(path, logger=logger)
-                                            if status in ("Nosuchfile", "Error"):
-                                                continue
-                                            elif inode:
-                                                key = (dev, inode)
-                                                if key not in idx_bytes:
-                                                    idx_bytes.add(key)
-                                                    ix += sze
-                                            else:
-                                                ix += sze
-                                        else:
-                                            ix += sze
-
-                                        idx_files += 1
-                                        r += 1
-
-                                        all_entries.append((path, stat_info, symlink, target, found))
-                            else:
-                                if symlink:
-                                    target = find_dir_link_target(path, logger=logger)
-                                    if target:
-                                        rtype = "symlink"
-                                        stat_info = get_stat(entry, logger=logger)
-                                        if not stat_info:
-                                            logger.debug(f"could not stat broken dir symlink {path}")
-                                            continue
-                                        modified_ep = stat_info.st_mtime
-                                        modified_dt = epoch_to_str(modified_ep)
-                            if rtype:
-
-                                entry_data = {
-                                    'modified_time': modified_dt if modified_dt else '',
-                                    'modified_ep': modified_ep,
-                                    'file_count': 0,
-                                    'idx_count': 0,
-                                    'idx_bytes': 0,
-                                    'max_depth': path.count(os.sep),
-                                    'type': rtype,
-                                    'target': target
-                                }
-                                dir_data[path] = entry_data
-
-                        except OSError as e:
-                            logger.error(f"collect_scan Exception scanning {'symlink' if symlink else ''} {path}: {type(e).__name__} {e}", exc_info=True)
-
-                    entry_data = {
-                        'modified_time': root_modified_dt if root_modified_dt else '',
-                        'modified_ep': root_modified_ep,
-                        'file_count': x,
-                        'idx_count': idx_files,
-                        'idx_bytes': ix,
-                        'max_depth': root.count(os.sep),
-                        'type': '',
-                        'target': ''
-                    }
-                    dir_data[root] = entry_data
-
-            except PermissionError:
-                logger.debug(f"collect_scan Permission denied scanning: {root}")
-            except OSError as e:
-                logger.error(f"collect_scan Exception scanning {root}: {type(e).__name__} {e}", exc_info=True)
-
-            return max_depth, r, j
-
-        stat_info = os.stat(basedir)
-        modified_ep = stat_info.st_mtime
-        modified_dt = epoch_to_str(modified_ep)
-
-        max_depth, r, j = collect_scan(basedir, modified_dt, modified_ep)
-
-    except OSError as e:
-        print(f"Couldnt stat unable to access drive {basedir}: {e}")
-        return None, None, None, 0, 0, 0
-    except Exception as e:
-        emsg = f"collect_files Exception: {type(e).__name__} {e}"
-        print(emsg)
-        logger.error(f"{emsg}", exc_info=True)
-        return None, None, None, 0, 0, 0
-
-    return all_entries, dir_data, log_entries, max_depth, r, j
 
 
 # Find downloads

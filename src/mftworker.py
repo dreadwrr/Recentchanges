@@ -11,17 +11,20 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from io import StringIO
 from mft import PyMftParser, PyMftAttributeX10, PyMftAttributeX30  # type: ignore[attr-defined]
+from .ctimefunctions import build_paths
+from .ctimefunctions import output_mft
 from .pyfunctions import cprint
 from .qtclasses import Worker
-from .rntchangesfunctions import get_full_path
-from .rntchangesfunctions import read_mft_progress
+from .qtfunctions import build_mftec_path
+from .qtfunctions import build_parsec_path
+from .qtfunctions import mft_entrycount
+from .qtfunctions import read_mft_progress
 from .rntchangesfunctions import removefile
-from .rntchangesfunctions import mft_entrycount
 from .rntchangesfunctions import str_to_bool
 from .wmipy import mftecparse
 from .wmipy import ntfsdump
 
-# 03/08/2026
+# 04/14/2026
 
 
 # Qobject
@@ -81,8 +84,9 @@ class MftWorker(Worker):
         self.ntfs_command = None
         self.fsstat_command = None
 
-    def set_task(self, mftec_command, icat_command, fsstat_command, ntfs_command):  # optional pass ins
+    def set_task(self, parsec_command, mftec_command, icat_command, fsstat_command, ntfs_command):  # optional pass ins
 
+        self.parsec_command = parsec_command
         self.mftec_command = mftec_command
         self.icat_command = icat_command
         self.ntfs_command = ntfs_command
@@ -96,8 +100,9 @@ class MftWorker(Worker):
     def is_non_empty_df(self, df):
         return df is not None and isinstance(df, pd.DataFrame) and not df.empty
 
-    def get_results(self, df, compt, time_field, ctime_field, not_dumphooks=False, prog_v=89):
+    def get_results(self, df, compt, time_field, ctime_field, is_parsec=False, not_dumphooks=False, prog_v=89):
 
+        NTFS_TO_UNIX_EPOCH_TICKS = 116444736000000000
         recent_files = pd.DataFrame()
 
         try:
@@ -105,12 +110,30 @@ class MftWorker(Worker):
 
             dt_cols = [time_field, ctime_field]
 
-            if not_dumphooks:  # mftec not timezone aware
-                for col in dt_cols:
-                    df[col] = pd.to_datetime(df[col], errors='coerce').dt.tz_localize('UTC')  # vectorized
-                self.progress.emit(prog_v)
+            # not timezone aware
+            if not_dumphooks:
 
-            else:  # mft hook timezone aware
+                # mftec
+                if not is_parsec:
+                    for col in dt_cols:
+                        df[col] = pd.to_datetime(df[col], errors='coerce').dt.tz_localize('UTC')  # vectorized
+                # parsec
+                else:
+                    for col in dt_cols:
+                        ticks = df[col].astype("int64")
+                        unix_ns = ((ticks - NTFS_TO_UNIX_EPOCH_TICKS) * 100).where(ticks > 0)
+                        df[col] = pd.to_datetime(
+                            unix_ns,
+                            unit='ns',
+                            errors='coerce',
+                            utc=True
+                        )
+                # .dt.tz_localize('UTC')
+                self.progress.emit(prog_v)
+            # timezone aware
+            else:
+
+                # mft hook
                 for col in dt_cols:
                     df[col] = pd.to_datetime(df[col], errors='coerce')
 
@@ -191,11 +214,11 @@ class MftWorker(Worker):
 
             if self.is_non_empty_df(df):
 
-                recent_files = self.get_results(df, compt, time_field, ctime_field, True, prog_v=endp)  # convert to system time and filter by search criteria
+                recent_files = self.get_results(df, compt, time_field, ctime_field, not_dumphooks=True, prog_v=endp)  # convert to system time and filter by search criteria
                 if self.is_non_empty_df(recent_files):
                     self.progress.emit(endp)
 
-                    recent_files = get_full_path(recent_files)
+                    recent_files = build_mftec_path(recent_files)
                     return df, recent_files
             else:
                 if self.method == "mftec_cutoff":
@@ -207,6 +230,72 @@ class MftWorker(Worker):
             emesg = f'failure get_mftecdf func reading csv to dataframe: {type(e).__name__}: {e} \n{traceback.format_exc()}'
             self.log.emit(emesg)
             self.logger.error(emesg)
+
+        return None, None
+
+    def parsec_read_mft(self, strt=55):
+        exe_path = self.parsec_command
+        target = "C:"
+        self.progress.emit(strt)
+        dir_, fc = output_mft(exe_path, target, dict_output=True)  # get dict of files rather than tuple
+        if not dir_:
+            print("parsec starting fault failed initial parse of mft", exe_path)
+            return None, None
+
+        return dir_, fc
+
+    def read_parsec(self, dir_, fc, compt, strt=75, endp=91, time_field="LastModified0x10", ctime_field="Created0x10"):
+
+        columns = [
+            "EntryNumber", "SequenceNumber", "InUse", "ParentEntryNumber", "ParentSequenceNumber", "ParentPath", "FileName",
+            "FileSize", "ReferenceCount", "IsDirectory", "HasAds", "IsAds", "SiFlags", ctime_field, time_field,
+            "LastRecordChange0x10", "LastAccessed0x10"
+        ]
+
+        dirs = build_paths(dir_)
+
+        ir = int(round((endp - strt) * 0.583))
+        prog_v = strt + ir
+        self.progress.emit(prog_v)
+        endval = endp + 16  # 91
+        data = []
+
+        for frn, entry in fc.items():
+
+            parent_frn = entry["parent_frn"]
+            ParentEntryNumber = parent_frn & 0xFFFFFFFFFFFF
+            ParentSequenceNumber = (parent_frn >> 48) & 0xFFFF
+            ParentPath = dirs.get(parent_frn, {}).get("path")
+
+            IsAds = False
+            data.append([
+                entry["record_number"],
+                entry["sequence_number"],
+                entry["in_use"],
+                ParentEntryNumber,
+                ParentSequenceNumber,
+                ParentPath,
+                entry["name"],
+                entry["size"],
+                entry["hard_link_count"],
+                entry["is_dir"],
+                entry["has_ads"],
+                IsAds,
+                entry["file_attribs"],
+                entry["creation_time"],
+                entry["modification_time"],
+                entry["mft_modification_time"],
+                entry["access_time"]
+            ])
+
+        df = pd.DataFrame(data, columns=columns)
+
+        recent_files = self.get_results(df, compt, time_field, ctime_field, is_parsec=True, not_dumphooks=True, prog_v=endval)  # convert to system time and filter by search criteria
+        if self.is_non_empty_df(recent_files):
+            self.progress.emit(endp)
+            recent_files = build_parsec_path(recent_files)
+
+            return df, recent_files
 
         return None, None
 
@@ -242,6 +331,7 @@ class MftWorker(Worker):
         isdiff = False
         isusn = False
 
+        parsec = False
         is_dumphook = False
 
         rlt = 1
@@ -285,11 +375,18 @@ class MftWorker(Worker):
                 df, recent_files = self.get_mftecdf(compt, None, csvopt, strt=55, endp=91, time_field=time_field, ctime_field=ctime_field)  # already parsed to .csv
 
             elif method == "mftec_cutoff":
-                self.log.emit("\nParsing and loading Mft data")
                 csv_data = self.read_mftmem(compt, strt=55, endp=75)  # parse directly into memory
                 if not csv_data:
                     return 1
                 df, recent_files = self.get_mftecdf(compt, csv_data, None, strt=75, endp=91, time_field=time_field, ctime_field=ctime_field)  # now parsed into memory
+
+            elif method == "parsec":
+                parsec = True
+                dir_, fc = self.parsec_read_mft(strt=55)  # .
+                if not dir_:
+                    return 1
+                df, recent_files = self.read_parsec(dir_, fc, compt, strt=75, endp=91)  # .
+
             else:
                 self.log.emit("\nParsing Mft with python hooks")
                 is_dumphook = True
@@ -417,7 +514,10 @@ class MftWorker(Worker):
                         )
 
                         if not is_dumphook:
-                            merged_df = get_full_path(merged_df)  # its mftec not mft hook
+                            if parsec:
+                                merged_df = build_parsec_path(merged_df)  # parse c parser.exe
+                            else:
+                                merged_df = build_mftec_path(merged_df)  # its mftec not mft hook
 
                         merged_df.sort_values(by='Time stamp', ascending=True, inplace=True)  # merged_df[time_field] = merged_df[time_field].dt.floor('s')  strftime drops microseconds
 
@@ -551,12 +651,14 @@ class MftWorker(Worker):
                     else:
                         self.log.emit('Failed to get parse mft with mftecmd.exe unable to continue. in mftecparse')
 
-                elif method == "mftdump" or method == "mftec_cutoff":
-                    res = 0
                 else:
-                    self.log.emit(f"Invalid method {method} quitting.")
-                    self.clean_up(1)
-                    return 1
+                    if method == "mftec_cutoff" or method == "parsec":
+                        self.log.emit("\nParsing and loading Mft data")
+                    elif method != "mftdump":
+                        self.log.emit(f"Invalid method {method} quitting.")
+                        self.clean_up(1)
+                        return 1
+                    res = 0
 
                 if res == 0:
 

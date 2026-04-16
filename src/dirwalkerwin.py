@@ -56,7 +56,7 @@ def return_info(file_path, st, symlink, link_target, log_q):
         sym = "y"
         target = link_target
     # attrs = getattr(st, "st_file_attributes", 0)
-    # mode = get_mode(attrs, sym)
+    # mode, _ = get_mode(attrs, sym)
     # inode = st.st_ino
     # hardlink = st.st_nlink
 

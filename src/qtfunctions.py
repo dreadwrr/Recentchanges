@@ -8,6 +8,7 @@ import subprocess
 import traceback
 import webbrowser
 import winreg
+from io import StringIO
 from packaging import version
 from pathlib import Path
 from PySide6.QtCore import QDateTime
@@ -26,6 +27,7 @@ from .rntchangesfunctions import get_default_distro
 from .rntchangesfunctions import get_version1
 from .rntchangesfunctions import is_wsl
 from .rntchangesfunctions import set_to_wsl1
+
 
 # 03/06/2026
 # gestures
@@ -800,3 +802,188 @@ def user_data_from_database(logger, textEdit, combffile, extensions, dbopt, pare
         logger.appendPlainText(err_msg)
         logging.error(err_msg, exc_info=True)
     return []
+
+
+def mft_entrycount():
+    KB = 1024
+    MB = KB**2
+    GB = KB**3
+    byte_s = None
+    cmd = ['fsutil', 'fsinfo', 'ntfsinfo', 'C:']
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        stdout, stderr = proc.communicate()
+        output = (stdout + stderr).lower()
+        if "access is denied" in output:
+            print("Error: Access denied. Please run as administrator.")
+            return None
+        elif proc.returncode != 0:
+            print("Command failed with return code", proc.returncode)
+            print("err", stderr.strip())
+            return None
+        else:
+            for line in stdout.splitlines():
+                line = line.strip()
+                if line.startswith("Mft Valid Data Length"):
+                    match = re.search(r"([\d\.]+)\s*(GB|MB|KB|bytes)", line, re.IGNORECASE)
+                    if match:
+                        value = float(match.group(1))
+                        unit = match.group(2).upper()
+                        if unit == "GB":
+                            byte_s = value * GB
+                        elif unit == "MB":
+                            byte_s = value * MB
+                        elif unit == "KB":
+                            byte_s = value * KB
+                        else:
+                            byte_s = value
+        if byte_s is None:
+            print("Unable to read MFT entry count")
+        return byte_s
+    except subprocess.SubprocessError as e:
+        print(f"Error in subprocess execution mft_entrycount: {type(e).__name__}: {e}")
+        print(traceback.format_exc())
+        return None
+
+# to possiblly increase efficiency but overhead is not an issue. maybe if an error shows up
+# this is for below read_mftmem
+# proc = subprocess.Popen(
+#     cmd,
+#     stdout=subprocess.PIPE,
+#     stderr=subprocess.PIPE,
+#     bufsize=1024*1024,
+#     text=True,
+#     encoding="utf-8",
+#     errors="replace"
+# )
+#
+# buffer = ""
+#
+# while True:
+#     chunk = proc.stdout.read(1024*1024)   # 1MB
+#     if not chunk:
+#         break
+#
+#     buffer += chunk
+#     lines = buffer.split("\n")
+#     buffer = lines.pop()
+#
+#     for line in lines:
+#         process_line(line)
+
+
+def read_mft_progress(cmd, csv_data, byte_s, strt, endp, show_progress=False, logger=None):
+
+    total_e = (int(byte_s) // 1024)
+
+    num_steps = 32
+    step_size = total_e / (num_steps - 1)
+    steps = [int(round(step_size * i)) for i in range(num_steps)]
+    current_step_index = 0
+
+    csv_started = False
+    x = 0
+
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
+    for line in iter(proc.stdout.readline, ''):
+        if not line.strip():
+            continue
+        x += 1
+        if show_progress:
+
+            #
+            #
+
+            if current_step_index < len(steps) and x >= steps[current_step_index]:
+                progress = float(current_step_index) / max(num_steps - 1, 1) * 100
+                progress = round(strt + (endp - strt) * (progress / 100), 2)
+
+                if logger:
+
+                    logger(int(progress))
+                else:
+                    print(f'Progress: {progress}%')
+
+                current_step_index += 1
+
+        if ',' not in line:
+            continue
+        if not csv_started:
+            if "EntryNumber,SequenceNumber,InUse" in line:  # if line.startswith("EntryNumber,SequenceNumber,InUse"): weird char at start BOM character discard header and rebuild later
+                csv_started = True
+                continue
+            else:
+                continue
+
+        csv_data.write(line)
+
+    proc.stdout.close()
+    rlt = proc.wait()
+    err_output = proc.stderr.read()
+    return rlt, err_output
+
+
+def read_mftmem(exec_path, mft, compt, search_start_dt, iqt=False, strt=0, endp=100):
+
+    # exec_path = '.\\bin\\MFTECmd.exe'
+    # mft='C:\\$MFT'
+
+    cutoff = compt.replace(microsecond=0)
+    cutoff = cutoff.isoformat().replace("+00:00", "Z")
+
+    cmd = [exec_path, '-f', mft, '--dt', 'yyyy-MM-dd HH:mm:ss.ffffff', '--cutoff', cutoff, '--csv', 'C:\\', '--csvf', 'myfile2.csv']
+    print('Running command:', ' '.join(cmd))
+
+    print(f"\nCutoff {search_start_dt.replace(microsecond=0).isoformat()} \n")
+    # print('Running command:' + ' '.join(f'"{c}"' for c in cmd))
+
+    byte_s = mft_entrycount()
+
+    csv_data = StringIO()
+    try:
+        show_progress = False
+        if byte_s:
+            show_progress = True
+
+        rlt, std_err = read_mft_progress(cmd, csv_data, byte_s, strt, endp, show_progress)
+
+        if rlt == 0:
+            if len(csv_data.getvalue()) != 0:
+
+                print(f'Progress: {float(endp):.2f}')
+                return csv_data
+
+            else:
+                print("No csv_data in read_mftmem read_mftmem rntchangesfunctions")
+        else:
+            # for err_line in iter(proc.stderr.readline, ''):   #     print("ERR:", err_line.strip())
+            if std_err:
+                print(f'Failed. Unable to output csv with mftecmd.exe: {std_err}')
+    except (FileNotFoundError, PermissionError):
+        print(f'Unable to find MFTECmd.exe {exec_path} or permission error \\bin')
+    except Exception as e:
+        emesg = f'error running cmd {cmd} {type(e).__name__} {e}'
+        print(f"{emesg} \n {traceback.format_exc()}")
+        logging.error(f"{emesg} traceback: ", exc_info=True)
+    return None
+
+
+def build_mftec_path(df):
+
+    df = df[df['ParentPath'].notna() & df['FileName'].notna()].copy()  # get rid of warnings by making a copy
+
+    df['ParentPath'] = df['ParentPath'].fillna('').astype(str).str.replace(r'^\.(\\)?', r'C:\\', regex=True)
+    df['FileName'] = df['FileName'].fillna('').astype(str)
+
+    df['FullPath'] = df['ParentPath'].str.rstrip('\\') + '\\' + df['FileName'].str.lstrip('\\')
+
+    return df
+
+
+def build_parsec_path(df):
+    df = df[df['ParentPath'].notna() & df['FileName'].notna()].copy()  # get rid of warnings by making a copy
+    df['ParentPath'] = df['ParentPath'].fillna('').astype(str)  # .str.replace(r'^\.(\\)?', r'C:\\', regex=True)
+    df['FileName'] = df['FileName'].fillna('').astype(str)
+    df['FullPath'] = df['ParentPath'].str.rstrip('\\') + '\\' + df['FileName'].str.lstrip('\\')
+
+    return df

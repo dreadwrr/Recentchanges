@@ -1,18 +1,27 @@
 import csv
+import logging
 import os
 import stat
+from datetime import datetime
 from io import StringIO
 from .dirwalkerwin import return_info
 from .fileops import calculate_checksum
+from .fileops import find_dir_link_target
 from .fileops import find_link_target
 from .fileops import is_reparse_point
 from .fileops import set_stat
+from .fsearchfunctions import get_file_id
 from .gpgcrypto import decrm
 from .logs import emit_log
-# 03/16/2026
+from .pyfunctions import epoch_to_str
+# 04/14/2026
 
 fmt = "%Y-%m-%d %H:%M:%S"
 execEXTN = (".exe", ".msi", ".bat", ".com")
+
+MODE_FILENAME = 1
+MODE_EXT = 2
+MODE_FILENAME_EXT = 3
 
 
 # Cache read
@@ -135,10 +144,477 @@ def create_profile_baseline(execEXTN):
     return extn
 
 
+class ErrorHandler:
+    def __init__(self, logger=None):
+        self.logger = logger if logger else logging
+
+    def __call__(self, list_error):
+        if isinstance(list_error, PermissionError):
+            self.logger.debug(
+                "os.walk Permission denied: %s, skipping...",
+                getattr(list_error, "filename", None)
+            )
+        elif isinstance(list_error, OSError):
+            self.logger.debug("os.walk Error accessing in a root folder: %s", list_error)
+        else:
+            self.logger.debug("os.walk Unexpected error: %s", list_error)
+            raise list_error
+
+
+# os.scandir find
+def files_search(base_dir, search_start_dt, FEEDBACK, EXCLDIRS, logger, filename=None, extension=None, mode=None, iqt=False, strt=0, endp=100):
+
+    if search_start_dt and not isinstance(search_start_dt, datetime):
+        print("search_start_dt is not a valid date time object exitting")
+        return None, 0
+
+    # primary mode use process scan find created files by time for recentchangessearch
+    # modes
+    # process search find filename, extension or filename and extension and or by time for findfile
+
+    def match_name(file_lower, filename, extension):
+        return file_lower == filename
+
+    def match_extn(file_lower, filename, extension):
+        return (file_lower.endswith(extension))
+
+    def match_name_extn(file_lower, filename, extension):
+        base, ext = os.path.splitext(file_lower)
+        return base.startswith(filename) and ext == extension
+
+    all_entries = []
+    buffer = []
+
+    cckSEEN = set()
+
+    max_depth = 0
+    BATCH_SIZE = 5
+
+    filename = filename.lower() if filename else None
+    extension = extension.lower() if extension else None
+
+    cutoff = None
+    if search_start_dt:
+        cutoff = search_start_dt.timestamp()
+
+    # set any modes
+
+    matcher = None
+    if mode:
+        if mode == MODE_FILENAME:
+            matcher = match_name
+        elif mode == MODE_EXT:
+            matcher = match_extn
+        elif mode == MODE_FILENAME_EXT:
+            matcher = match_name_extn
+
+    EXCLDIRS_FULLPATH = set(os.path.join(base_dir, d.lstrip("\\")) for d in EXCLDIRS)
+
+    base_folders, root_count = get_base_folders(base_dir, EXCLDIRS_FULLPATH)
+    if root_count == 0:
+        print(f"Unable to read base folders of drive {base_dir} the drive could be empty or check permissions")
+        return None, 0
+
+    ino = hardlink = owner = domain = None
+
+    try:
+
+        def process_search(root, matcher, current_depth=0, max_depth=0):
+
+            rtype = None
+            try:
+
+                if root in cckSEEN:
+                    return max_depth
+                cckSEEN.add(root)
+
+                max_depth = max(max_depth, current_depth)
+
+                with os.scandir(root) as entries:
+                    for entry in entries:
+
+                        rtype = None
+                        symlink = False
+
+                        full_path = entry.path
+
+                        try:
+
+                            if entry.is_symlink():
+                                symlink = True
+
+                            if entry.is_dir():
+
+                                if full_path in EXCLDIRS_FULLPATH:
+                                    continue
+                                stat_info = get_stat(entry, logger=logger)
+                                if not stat_info:
+                                    continue
+
+                                if symlink:
+                                    rtype = "symlink"
+                                elif entry.is_junction():
+                                    rtype = "junction"
+                                elif is_reparse_point(stat_info):
+                                    rtype = "reparse"
+
+                                if not rtype:
+                                    if full_path != base_dir:
+                                        max_depth = process_search(full_path, matcher, current_depth + 1, max_depth)
+
+                            elif entry.is_file():
+
+                                # filename = entry.name
+                                file_lower = entry.name.lower()
+
+                                if matcher(file_lower, filename, extension):
+                                    if cutoff:
+                                        stat_info = get_stat(entry, logger=logger)
+                                        if not stat_info:
+                                            continue
+                                        mtime = stat_info.st_mtime
+                                        c_time = stat_info.st_birthtime
+                                        if (mtime < cutoff and c_time < cutoff):
+                                            continue
+
+                                    if len(buffer) >= BATCH_SIZE:
+                                        print("\n".join(buffer), flush=True)
+                                        buffer.clear()
+                                    if FEEDBACK:
+                                        buffer.append(full_path)
+
+                                    all_entries.append(full_path)
+
+                        except OSError as e:
+                            logger.error(f"files search process_search Exception scanning {'symlink' if symlink else ''} {full_path}: {type(e).__name__} {e}", exc_info=True)
+
+            except PermissionError:
+                logger.debug(f"files search process_search Permission denied scanning: {root}")
+            except OSError as e:
+                logger.error(f"files search process_search Exception scanning {root}: {type(e).__name__} {e}", exc_info=True)
+
+            return max_depth
+
+        def process_scan(root, current_depth=0, max_depth=0):
+
+            rtype = None
+            try:
+
+                if root in cckSEEN:
+                    return max_depth
+                cckSEEN.add(root)
+
+                max_depth = max(max_depth, current_depth)
+
+                with os.scandir(root) as entries:
+                    for entry in entries:
+
+                        rtype = None
+                        symlink = False
+
+                        full_path = entry.path
+
+                        try:
+
+                            if entry.is_symlink():
+                                symlink = True
+
+                            if entry.is_dir():
+
+                                if full_path in EXCLDIRS_FULLPATH:
+                                    continue
+                                stat_info = get_stat(entry, logger=logger)
+                                if not stat_info:
+                                    continue
+
+                                if symlink:
+                                    rtype = "symlink"
+                                elif entry.is_junction():
+                                    rtype = "junction"
+                                elif is_reparse_point(stat_info):
+                                    rtype = "reparse"
+
+                                if not rtype:
+                                    if full_path != base_dir:
+                                        max_depth = process_scan(full_path, current_depth + 1, max_depth)
+
+                            elif entry.is_file():
+
+                                # filename = entry.name
+                                stat_info = get_stat(entry, logger=logger)
+                                if not stat_info:
+                                    continue
+
+                                mtime = stat_info.st_mtime
+                                c_time = stat_info.st_birthtime
+
+                                atime = stat_info.st_atime
+
+                                size = stat_info.st_size
+
+                                if (mtime >= cutoff or c_time >= cutoff):
+                                    if len(buffer) >= BATCH_SIZE:
+                                        print("\n".join(buffer), flush=True)
+                                        buffer.clear()
+                                    if FEEDBACK:
+                                        buffer.append(full_path)
+
+                                    all_entries.append((str(mtime), str(atime), c_time, ino, symlink, hardlink, size, owner, domain, mode, full_path))
+
+                        except OSError as e:
+                            logger.error(f"files search process_scan Exception scanning {'symlink' if symlink else ''} {full_path}: {type(e).__name__} {e}", exc_info=True)
+
+            except PermissionError:
+                logger.debug(f"files search process_scan Permission denied scanning: {root}")
+            except OSError as e:
+                logger.error(f"files search process_scan Exception scanning {root}: {type(e).__name__} {e}", exc_info=True)
+
+            return max_depth
+
+        f = 0
+        prog_v = 0
+        scale = current_step = 0
+        steps = step_len = 0
+
+        if iqt:
+            scale = (endp - strt) / root_count
+            n = min(10, root_count)
+            steps = sorted(set(int(i * root_count / n) for i in range(n + 1)))
+            step_len = len(steps)
+
+        max_depth = 0
+        for dir_path in base_folders:
+            f += 1
+            try:
+
+                if not mode:
+                    d = process_scan(dir_path)
+
+                else:
+                    d = process_search(dir_path, matcher)
+
+                if d > max_depth:
+                    max_depth = d
+
+                if iqt:
+                    if current_step < step_len and f >= steps[current_step]:
+                        prog_v = strt + (f * scale)
+                        print(f"Progress: {prog_v:.2f}%", flush=True)
+
+                        current_step += 1
+            except OSError as e:
+                emsg = f"Couldnt stat path {dir_path}: {type(e).__name__} err: {e}"
+                print(emsg)
+                logger.debug(emsg)
+                continue
+        if buffer:
+            print("\n".join(buffer))
+        if iqt and current_step <= len(steps) - 1:
+            print(f"Progress: {endp:.2f}%", flush=True)
+
+        return all_entries, max_depth
+
+    except Exception as e:
+        print(f"files_search Exception: {type(e).__name__} {e}")
+        emit_log("ERROR", f"files_search file loop error {f}\\{root_count}, detected files_search line {f} of {root_count} : dir: {dir_path} {type(e).__name__} {e}", logger=logger)
+        raise
+
+
+# create a directory cache of the system
+# return files by specification for multliprocessing hashing
+def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, paths_tup, is_noextension, is_exec, is_sym, logger):
+    ''' proteusEXTN shield os.scandir '''
+    all_entries = []
+    log_entries = []
+    dir_data = {}
+    cckSEEN, idx_bytes = set(), set()
+
+    try:
+
+        def collect_scan(root, root_modified_dt=None, root_modified_ep=None, current_depth=0, max_depth=0, r=0, j=0):
+
+            x = 0
+            ix = 0
+            idx_files = 0
+            rtype = None
+            try:
+
+                if root in cckSEEN:
+                    return max_depth, r, j
+                cckSEEN.add(root)
+
+                max_depth = max(max_depth, current_depth)
+
+                with os.scandir(root) as entries:
+                    for entry in entries:
+
+                        rtype = target = None
+                        symlink = False
+                        found = False
+
+                        path = entry.path
+
+                        inode = None
+                        modified_dt = None
+                        modified_ep = None
+
+                        try:
+
+                            if entry.is_symlink():
+                                symlink = True
+
+                            if entry.is_dir():
+
+                                if path in EXCLDIRS_FULLPATH:
+                                    continue
+                                stat_info = get_stat(entry, logger=logger)
+                                if not stat_info:
+                                    continue
+
+                                if symlink:
+                                    rtype = "symlink"
+                                elif entry.is_junction():
+                                    rtype = "junction"
+                                elif is_reparse_point(stat_info):
+                                    rtype = "reparse"
+
+                                modified_ep = stat_info.st_mtime
+                                modified_dt = epoch_to_str(modified_ep)
+
+                                if not rtype:
+                                    if path != basedir:
+                                        max_depth, r, j = collect_scan(path, modified_dt, modified_ep, current_depth + 1, max_depth, r, j)
+                                else:
+                                    target = find_link_target(path, logger=logger)
+
+                            elif entry.is_file():
+
+                                if not (symlink and not is_sym):
+                                    filename = entry.name
+                                    x += 1
+                                    j += 1
+
+                                    if path.lower().startswith(filter_tup):
+                                        continue
+
+                                    if path.startswith(paths_tup):
+                                        found = True
+                                    else:
+                                        if is_exec:
+                                            filename_lower = filename.lower()
+                                            if filename_lower.endswith(exec_tup):
+                                                found = True
+                                        else:
+                                            if is_noextension:
+                                                if "." not in filename or (filename.startswith(".") and filename.count(".") == 1):
+                                                    found = True
+                                            if not found:
+                                                filename_lower = filename.lower()
+                                                if filename_lower.endswith(extn_tup):
+                                                    found = True
+
+                                    if found:
+                                        stat_info = get_stat(entry, logger=logger)
+                                        if not stat_info:
+                                            continue
+
+                                        if symlink:
+                                            target = find_link_target(path, logger=logger)
+
+                                        else:
+                                            if is_reparse_point(stat_info):
+                                                symlink = True
+                                                if symlink and not is_sym:
+                                                    continue
+
+                                        sze = stat_info.st_size
+                                        dev = stat_info.st_dev
+                                        if stat_info.st_nlink > 1:
+                                            inode, _, _, _, _, _, status = get_file_id(path, logger=logger)
+                                            if status in ("Nosuchfile", "Error"):
+                                                continue
+                                            elif inode:
+                                                key = (dev, inode)
+                                                if key not in idx_bytes:
+                                                    idx_bytes.add(key)
+                                                    ix += sze
+                                            else:
+                                                ix += sze
+                                        else:
+                                            ix += sze
+
+                                        idx_files += 1
+                                        r += 1
+
+                                        all_entries.append((path, stat_info, symlink, target, found))
+                            else:
+                                if symlink:
+                                    target = find_dir_link_target(path, logger=logger)
+                                    if target:
+                                        rtype = "symlink"
+                                        stat_info = get_stat(entry, logger=logger)
+                                        if not stat_info:
+                                            logger.debug(f"could not stat broken dir symlink {path}")
+                                            continue
+                                        modified_ep = stat_info.st_mtime
+                                        modified_dt = epoch_to_str(modified_ep)
+                            if rtype:
+
+                                entry_data = {
+                                    'modified_time': modified_dt if modified_dt else '',
+                                    'modified_ep': modified_ep,
+                                    'file_count': 0,
+                                    'idx_count': 0,
+                                    'idx_bytes': 0,
+                                    'max_depth': path.count(os.sep),
+                                    'type': rtype,
+                                    'target': target
+                                }
+                                dir_data[path] = entry_data
+
+                        except OSError as e:
+                            logger.error(f"collect_scan Exception scanning {'symlink' if symlink else ''} {path}: {type(e).__name__} {e}", exc_info=True)
+
+                    entry_data = {
+                        'modified_time': root_modified_dt if root_modified_dt else '',
+                        'modified_ep': root_modified_ep,
+                        'file_count': x,
+                        'idx_count': idx_files,
+                        'idx_bytes': ix,
+                        'max_depth': root.count(os.sep),
+                        'type': '',
+                        'target': ''
+                    }
+                    dir_data[root] = entry_data
+
+            except PermissionError:
+                logger.debug(f"collect_scan Permission denied scanning: {root}")
+            except OSError as e:
+                logger.error(f"collect_scan Exception scanning {root}: {type(e).__name__} {e}", exc_info=True)
+
+            return max_depth, r, j
+
+        stat_info = os.stat(basedir)
+        modified_ep = stat_info.st_mtime
+        modified_dt = epoch_to_str(modified_ep)
+
+        max_depth, r, j = collect_scan(basedir, modified_dt, modified_ep)
+
+    except OSError as e:
+        print(f"Couldnt stat unable to access drive {basedir}: {e}")
+        return None, None, None, 0, 0, 0
+    except Exception as e:
+        emsg = f"collect_files Exception: {type(e).__name__} {e}"
+        print(emsg)
+        logger.error(f"{emsg}", exc_info=True)
+        return None, None, None, 0, 0, 0
+
+    return all_entries, dir_data, log_entries, max_depth, r, j
+
+
 # os.scandir meta DirEntry object formerly walk_meta
 # for Build IDX meta - either to specifications or XzmProfile template
 # take initial stat. run the checksum then stat again to confirm hash.
-
 
 def scandir_meta(file_path, st, symlink, link_target, found, sys_data, log_q=None):
 

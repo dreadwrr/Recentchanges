@@ -200,9 +200,9 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                         #     sym = None
                         #     if is_reparse_point(st):
                         #          sym = "yes"
-                        #     mode = get_mode(attrs, sym)
+                        #     mode, _ = get_mode(attrs, sym)
                         #     or
-                        #     _, _, _, _, _, mode, status = get_file_id(file_path, logs.WORKER_LOG_Q, logger=logger)  # inode reparse hardlink c_time
+                        #     _, _, _, _, _, mode, status = get_file_id(file_path, logs.WORKER_LOG_Q, logger=logger)  # inode reparse hardlink size c_time
                         #     if status in ("Nosuchfile", "Error"):
                         #          entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
                         #          results.append(entry)

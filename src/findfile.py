@@ -4,24 +4,25 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import threading
 import traceback
 import zipfile
 from collections import Counter
+from datetime import datetime, timedelta
 from pathlib import Path
 from .config import load_toml
 from .configfunctions import get_config
+from .dirwalkerfunctions import files_search
 from .findfileparser import build_parser
 from .fsearchfunctions import set_excl_dirs
+from .logs import setup_logger
 from .pyfunctions import cprint
+from .pyfunctions import user_path
 from .rntchangesfunctions import display
 from .rntchangesfunctions import filter_lines_from_list
 from .rntchangesfunctions import get_runtime_exclude_list
-from .rntchangesfunctions import parse_search
+from .rntchangesfunctions import search_pwsh
 from .rntchangesfunctions import removefile
-from .rntchangesfunctions import wsl_to_windows_path
-from .qtdrivefunctions import parse_drive
-# 03/08/2026
+# 04/14/2026
 
 
 def archive_failure_blk(result, file_list):
@@ -240,15 +241,19 @@ def main(localappdata, action, filename, extension, basedir, USR, dspEDITOR, dsp
         print("Invalid input. exiting.")
         return 1
 
+    current_time = datetime.now()
+
     localappdata = Path(localappdata)
-    log_path = localappdata / "logs" / "errs.log"
+
+    log_file = localappdata / "logs" / "errs.log"
 
     toml_file, json_file, USR = get_config(localappdata, USR, platform="Windows")
     config = load_toml(toml_file)
     if not config:
         return 1
-    EXCLDIRS = config['search']['EXCLDIRS']
+    EXCLDIRS = user_path(config['search']['EXCLDIRS'], USR)
     MODULENAME = config['paths']['MODULENAME']
+    ll_level = config['logs']['logLEVEL']
     zipcmode = config['compress']['zipcmode']
     ziplevel = config['compress']['ziplevel']
     _7zipcmode = config['compress']['_7zipcmode']
@@ -268,139 +273,176 @@ def main(localappdata, action, filename, extension, basedir, USR, dspEDITOR, dsp
 
     tmn = str(cutoffTIME)
 
-    res = 1
+    res = 0
 
     try:
+
+        # using os.scandir **
         if action == "wsl":
-            arge = []
 
-            drv_letter = parse_drive(basedir)
-            ch = f"/mnt/{drv_letter}"
+            # wsl find
+            # arge = []
 
-            F = ["wsl", "find", ch]
+            # drv_letter = parse_drive(basedir)
+            # ch = f"/mnt/{drv_letter}"
 
-            PRUNE = ["\\("]
-            for i, d in enumerate(EXCLDIRS):
-                PRUNE += ["-path", f"/mnt/{drv_letter}/{(d).replace('$', '\\$')}"]
-                if i < len(EXCLDIRS) - 1:
-                    PRUNE.append("-o")
-            PRUNE += ["\\)", "-prune", "-o"]
+            # F = ["wsl", "find", ch]
 
-            TAIL = ["-not", "-type", "d"]
+            # PRUNE = ["\\("]
+            # for i, d in enumerate(EXCLDIRS):
+            #     PRUNE += ["-path", f"/mnt/{drv_letter}/{(d).replace('$', '\\$')}"]
+            #     if i < len(EXCLDIRS) - 1:
+            #         PRUNE.append("-o")
+            # PRUNE += ["\\)", "-prune", "-o"]
 
-            find_command = F + PRUNE  # + TAIL + arge
+            # TAIL = ["-not", "-type", "d"]
 
+            # find_command = F + PRUNE  # + TAIL + arge
+
+            # if cutoffTIME is not None:
+            #     if cutoffTIME != '0':
+            #         find_command += ["-mmin", f"-{tmn}"]
+
+            # if filename and not extension:
+            #     arge = ["-iname", filename, "-print0"]
+            # elif not filename and extension:
+            #     arge = ["-iname", "'*" + extension + "'", "-print0"]
+            # elif filename and extension:
+            #     has_ext = bool(os.path.splitext(filename)[1])
+            #     if has_ext:
+            #         print(f"Searching for {filename}{extension}\n")
+            #     arge = ["-iname", f"{filename}*{extension}", "-print0"]  # arge = ["-iname", filename + "'*" + extension + "'", "-print"] original
+
+            # find_command += TAIL
+            # find_command += arge
+
+            # result_inclusion = ".txt" in filename or ".txt" in extension
+
+            # print('Running command:', ' '.join(find_command), flush=True)
+            # proc = subprocess.Popen(find_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # is_progress = True
+            # base_folder_paths = []
+            # try:
+            #     for item in os.listdir(basedir):
+            #         b_path = os.path.join(basedir, item)
+            #         if os.path.isdir(b_path):
+            #             base_folder_paths.append(b_path)
+            # except (OSError, PermissionError):
+            #     is_progress = False
+
+            # y = len(base_folder_paths)
+            # is_progress = y > 0
+
+            # stderr_thread = None
+            # stderr_output = []
+            # proc = subprocess.Popen(find_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # def process_stderr(stderr_pipe, sink):
+            #     try:
+            #         for raw in iter(stderr_pipe.readline, b''):
+            #             text = raw.decode("utf-8", errors="replace").strip()
+            #             if text:
+            #                 sink.append(text)
+            #     finally:
+            #         stderr_pipe.close()
+
+            # if proc.stderr is not None:
+            #     stderr_thread = threading.Thread(target=process_stderr, args=(proc.stderr, stderr_output), daemon=True)
+            #     stderr_thread.start()
+
+            # buffer = b''
+
+            # emitted = set()
+            # with open(recent_files, "w", encoding="utf-8") as f1:
+            #     while True:
+            #         if proc.stdout is None:
+            #             break
+            #         chunk = proc.stdout.read(8192)
+            #         if not chunk:
+            #             break
+            #         buffer += chunk
+            #         while b'\0' in buffer:
+            #             part, buffer = buffer.split(b'\0', 1)
+            #             if part.strip():
+
+            #                 line = part.decode("utf-8", errors="replace")
+            #                 if line:
+            #                     otline = wsl_to_windows_path(line)
+
+            #                     for i, prefix in enumerate(base_folder_paths, start=1):
+            #                         if otline.startswith(prefix):
+            #                             if is_progress and i not in emitted:
+            #                                 print(f"Progress: {round((i / y) * 100, 2)}", flush=True)
+            #                                 emitted.add(i)
+            #                             break
+
+            #                     if not (result_inclusion and otline == recent_files):
+            #                         if downloads is not None:
+            #                             target_files.append(otline)
+            #                         print(otline, file=f1)
+            #                         print(otline, flush=True)
+
+            #     if buffer.strip():
+            #         try:
+            #             otline = buffer.decode('utf-8', errors='replace')
+            #             if os.path.isfile(otline):
+            #                 if downloads is not None:
+            #                     target_files.append(otline)
+            #                 print(otline)
+            #         except Exception as e:
+            #             print(f"fault in trailing buffer ignored. {type(e).__name__} {e}")
+            #             pass
+
+            # if proc.stdout is not None:
+            #     proc.stdout.close()
+            # proc.wait()
+            # if stderr_thread is not None:
+            #     stderr_thread.join()
+
+            # if proc.returncode not in (0, 1):
+            #     errors = "\n".join(stderr_output)
+            #     if errors:
+            #         print(errors)
+            #     print()
+            #     print("Find failed unable to continue. quitting")
+            #     return proc.returncode
+
+            # os.scandir
+            out_text = ""
+
+            logging_values = (localappdata, ll_level)
+            logger = setup_logger(log_file, logging_values[1], "FINDFILE")
+
+            search_start_dt = None
             if cutoffTIME is not None:
                 if cutoffTIME != '0':
-                    # if zero is specified it means to compress all results
-                    find_command += ["-mmin", f"-{tmn}"]  # dont filter by time if zero
+                    search_start_dt = (current_time - timedelta(minutes=tmn))  # if zero is specified means to compress all results dont filter by time if zero
 
             if filename and not extension:
-                arge = ["-iname", filename, "-print0"]
+                mode = 1
+                out_text = f"filename: {filename}"
             elif not filename and extension:
-                arge = ["-iname", "'*" + extension + "'", "-print0"]
-            elif filename and extension:
+                mode = 2
+                out_text = f"extn: {extension}"
+            if filename and extension:
+                out_text = filename + extension
                 has_ext = bool(os.path.splitext(filename)[1])
                 if has_ext:
-                    print(f"Searching for {filename}{extension}\n")
-                arge = ["-iname", f"{filename}*{extension}", "-print0"]  # arge = ["-iname", filename + "'*" + extension + "'", "-print"] original
+                    print(f"Searching for {out_text}\n")
+                mode = 3
+            print(f'Running os.scandir for {out_text}', flush=True)
+            FEEDBACK = True
+            iqt = True
 
-            find_command += TAIL
-            find_command += arge
+            # def files_search(base_dir, search_start_dt, FEEDBACK, EXCLDIRS, logger, filename=None, extension=None, mode=None, iqt=False, strt=0, endp=100):
 
-            result_inclusion = ".txt" in filename or ".txt" in extension
+            target_files, _ = files_search(basedir, search_start_dt, FEEDBACK, EXCLDIRS, logger, filename, extension, mode, iqt, strt=0, endp=100)
 
-            print('Running command:', ' '.join(find_command), flush=True)
-            proc = subprocess.Popen(find_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            is_progress = True
-            base_folder_paths = []
-            try:
-                for item in os.listdir(basedir):
-                    b_path = os.path.join(basedir, item)
-                    if os.path.isdir(b_path):
-                        base_folder_paths.append(b_path)
-            except (OSError, PermissionError):
-                is_progress = False
-
-            y = len(base_folder_paths)
-            is_progress = y > 0
-
-            stderr_thread = None
-            stderr_output = []
-            proc = subprocess.Popen(find_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            def process_stderr(stderr_pipe, sink):
-                try:
-                    for raw in iter(stderr_pipe.readline, b''):
-                        text = raw.decode("utf-8", errors="replace").strip()
-                        if text:
-                            sink.append(text)
-                finally:
-                    stderr_pipe.close()
-
-            if proc.stderr is not None:
-                stderr_thread = threading.Thread(target=process_stderr, args=(proc.stderr, stderr_output), daemon=True)
-                stderr_thread.start()
-
-            buffer = b''
-
-            emitted = set()
-            with open(recent_files, "w", encoding="utf-8") as f1:
-                while True:
-                    if proc.stdout is None:
-                        break
-                    chunk = proc.stdout.read(8192)
-                    if not chunk:
-                        break
-                    buffer += chunk
-                    while b'\0' in buffer:
-                        part, buffer = buffer.split(b'\0', 1)
-                        if part.strip():
-
-                            line = part.decode("utf-8", errors="replace")
-                            if line:
-                                otline = wsl_to_windows_path(line)
-
-                                for i, prefix in enumerate(base_folder_paths, start=1):
-                                    if otline.startswith(prefix):
-                                        if is_progress and i not in emitted:
-                                            print(f"Progress: {round((i / y) * 100, 2)}", flush=True)
-                                            emitted.add(i)
-                                        break
-
-                                if not (result_inclusion and otline == recent_files):
-                                    if downloads is not None:
-                                        target_files.append(otline)
-                                    print(otline, file=f1)
-                                    print(otline, flush=True)
-
-                if buffer.strip():
-                    try:
-                        otline = buffer.decode('utf-8', errors='replace')
-                        if os.path.isfile(otline):
-                            if downloads is not None:
-                                target_files.append(otline)
-                            print(otline)
-                    except Exception as e:
-                        print(f"fault in trailing buffer ignored. {type(e).__name__} {e}")
-                        pass
-
-            if proc.stdout is not None:
-                proc.stdout.close()
-            proc.wait()
-            if stderr_thread is not None:
-                stderr_thread.join()
-
-            if proc.returncode not in (0, 1):
-                errors = "\n".join(stderr_output)
-                if errors:
-                    print(errors)
-                print()
-                print("Find failed unable to continue. quitting")
-                return proc.returncode
-
-            res = 0
+            if target_files:
+                with open(recent_files, "w", encoding="utf-8") as f1:
+                    for otline in target_files:
+                        print(otline, file=f1)
 
         elif action == "pwsh":
 
@@ -432,15 +474,24 @@ def main(localappdata, action, filename, extension, basedir, USR, dspEDITOR, dsp
                 args.extend(['-fileName', filename])
             else:
                 args.extend(['-extension', extension])
-
-            target_files, err = parse_search(cmd, args)
-            if err:
+            FEEDBACK = True
+            target_files, validrlt = search_pwsh(cmd, args, FEEDBACK)
+            if validrlt is None:
                 return 1
-            res = 0
+            if not validrlt:
+                print("\nNo return from powershell script. quitting")
+                return 1
+            if not os.path.isfile(target_f):
+                print(f"no archive path list: {target_f} couldnt compress")
+                return 1
 
-        if res == 0 and os.path.isfile(recent_files) and os.path.getsize(recent_files) != 0:
+        if target_files is None:
+            return 1
+        elif target_files and os.path.isfile(recent_files) and os.path.getsize(recent_files) != 0:
             print()
-            if target_files and downloads is not None:
+
+            if cutoffTIME is not None and downloads:
+
                 flth_frm = localappdata / "flth.csv"  # filter hits
                 dbtarget_frm = localappdata / "recent.gpg"  # database
                 CACHE_F_frm = localappdata / "ctimecache.gpg"
@@ -454,10 +505,10 @@ def main(localappdata, action, filename, extension, basedir, USR, dspEDITOR, dsp
                 gnupg_home = None
                 # exclude certain files from .rar/.zip. app inclusions and temp work area
 
+                # def get_runtime_exclude_list(appdata_local, USRDIR, MODULENAME, flth, dbtarget, CACHE_F, CACHE_S, gnupg_home, log_path, dbopt=None, temp_dir=None):
                 arch_exclude = get_runtime_exclude_list(
-                    localappdata, USRDIR, MODULENAME, flth, dbtarget, CACHE_F,
-                    CACHE_S, gnupg_home, str(log_path), recent_files,
-                    temp_dir=temp_dir
+                    localappdata, USRDIR, MODULENAME, flth, dbtarget, CACHE_F, CACHE_S,
+                    gnupg_home, str(log_file), recent_files, temp_dir=temp_dir
                 )
 
                 res = comp_archive(
@@ -466,17 +517,12 @@ def main(localappdata, action, filename, extension, basedir, USR, dspEDITOR, dsp
                     winrarcmode, strip
                 )
 
-            elif downloads and cutoffTIME is not None:
-                res = 1
-                print(f"no archive path list: {target_f} couldnt compress")
-                if action == "pwsh" and target_files is None:
-                    print("\nNo return from powershell script. quitting")
-
             display(dspEDITOR, recent_files, True, dspPATH)
-
-        if res == 0:
-            print("Progress: 100%")
-        return res
+            if res != 0:
+                pass
+                # return 1
+        print("Progress: 100%")
+        return 0
 
     except Exception as e:
         print(f'An error occurred in ffsearch: {type(e).__name__} err: {e} \n {traceback.format_exc()}')

@@ -1,5 +1,5 @@
 #! python3
-#   Windows 10 / 11                                                                03/20/2026
+#   Windows 10 / 11                                                                04/14/2026
 #   recentchanges. Developer buddy      recentchanges/ recentchanges search
 #   Provide ease of pattern finding ie what files to block we can do this a number of ways
 #   1) if a file was there (many as in more than a few) and another search lists them as deleted its either a sys file or not but unwanted nontheless
@@ -62,20 +62,15 @@ from .rntchangesfunctions import clear_logs
 from .rntchangesfunctions import display
 from .rntchangesfunctions import filter_lines_from_list
 from .rntchangesfunctions import filter_output
-from .rntchangesfunctions import find_cmdhelp
-from .rntchangesfunctions import find_files
-from .rntchangesfunctions import find_mft
 from .rntchangesfunctions import find_ps1
+from .rntchangesfunctions import find_scan
 from .rntchangesfunctions import find_wsl
 from .rntchangesfunctions import get_diff_file
-from .rntchangesfunctions import get_powershell_script
 from .rntchangesfunctions import get_runtime_exclude_list
 from .rntchangesfunctions import hsearch
 from .rntchangesfunctions import logic
-from .rntchangesfunctions import mftec_is_cutoff
 from .rntchangesfunctions import multi_value
 from .rntchangesfunctions import name_of
-from .rntchangesfunctions import output_results_exit
 from .rntchangesfunctions import removefile
 from .rntchangesfunctions import resolve_editor
 from .rntchangesfunctions import time_convert
@@ -94,10 +89,6 @@ def sighandle(signum, frame):
 signal.signal(signal.SIGINT, sighandle)
 signal.signal(signal.SIGTERM, sighandle)
 
-is_calibrate = False  # use Mft backend to see if results from WSL and powershell are the same.
-calibrate_output = False  # Output results after search and exit early to compare WSL, powershell and Mft
-# Last calibrate date: 03/13/2026
-
 
 '''
 init 0 - 20 %
@@ -115,6 +106,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
     appdata_local = find_install()  # appdata software install aka workdir
     toml_file, json_file, usr = get_config(appdata_local, USR, platform="Windows")
 
+    parser = appdata_local / "bin" / "parser.exe"
     script_dir = appdata_local / "scripts"
     flth_frm = appdata_local / "flth.csv"
     dbtarget_frm = appdata_local / "recent.gpg"
@@ -246,7 +238,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         if wsl:
             is_wsl = find_wsl(toml_file)
 
-    if xRC and basedir != "C:\\":
+    if xRC and basedir != "C:\\":  # updating this to remove wsl for now as creation time isnt mapped to birthtime
         xRC = False
 
     # make a named tuple or dict for args and to pass less args for clarity
@@ -320,19 +312,19 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         raise EnvironmentError("Could not find user Desktop folder")
     # DOC_S = find_user_folder("Documents")
 
-    tgt = basedir.split(":", 1)[0].lower()  # dynamic directory exclusion for WSL
-    F = ["wsl", "find", f"/mnt/{tgt}"]
-    PRUNE = ["\\("]
-    for i, d in enumerate(EXCLDIRS):
-        PRUNE += ["-path", f"/mnt/{tgt}/{(d).replace('$', '\\$')}"]
-        if i < len(EXCLDIRS) - 1:
-            PRUNE.append("-o")
-    PRUNE += ["\\)", "-prune",  "-o"]
+    # tgt = basedir.split(":", 1)[0].lower()  # dynamic directory exclusion for WSL
+    # F = ["wsl", "find", f"/mnt/{tgt}"]
+    # PRUNE = ["\\("]
+    # for i, d in enumerate(EXCLDIRS):
+    #     PRUNE += ["-path", f"/mnt/{tgt}/{(d).replace('$', '\\$')}"]
+    #     if i < len(EXCLDIRS) - 1:
+    #         PRUNE.append("-o")
+    # PRUNE += ["\\)", "-prune",  "-o"]
 
-    TAIL = ["-not", "-type", "d", "-printf", "%T@ %A@ %C@ %i %M %n %s %u %g %m %p\n"]
+    # TAIL = ["-not", "-type", "d", "-printf", "%T@ %A@ %C@ %i %M %n %s %u %g %m %p\n"]
 
-    mmin = []
-    cmin = []
+    # mmin = []
+    # cmin = []
 
     TEMPD = tempfile.gettempdir()
 
@@ -341,17 +333,17 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         scr = os.path.join(tempwork, "scr")  # feedback
         cerr = os.path.join(tempwork, "cerr")  # priority
 
-        if is_calibrate or (is_wsl and xRC):
+        if is_wsl and xRC:  # disable wsl
 
-            c_ver = mftec_is_cutoff(appdata_local)
+            c_ver = (os.path.isfile(parser))
             if not c_ver:
-                print("Mft requires --cutoff argument version to print to stdout .NET 9 or .NET 6\n", flush=True)
-                if is_calibrate:
-                    return 1
-                if xRC:
-                    xRC = False
-                    user_setting['xRC'] = False
-                    update_toml_values({'search': {'xRC': False}}, toml_file)
+                print(f"xRC requires parser.exe version to print to stdout, file not found: {parser}\n", flush=True)
+                xRC = False
+                user_setting['xRC'] = False
+                update_toml_values({'search': {'xRC': False}}, toml_file)
+            # c_ver = mftec_is_cutoff(appdata_local)
+            # if not c_ver:
+            #     print("Mft requires --cutoff argument version to print to stdout .NET 9 or .NET 6\n", flush=True)
 
         if not iqt:
             is_key, err = iskey(email)
@@ -367,7 +359,7 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
 
         start = time.time()
 
-        logging_values = (log_file, ll_level, appdata_local, tempwork)
+        logging_values = (log_file, ll_level, appdata_local, parser, tempwork)
 
         setup_logger(log_file, logging_values[1], "MAIN")
 
@@ -377,8 +369,6 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         # load ctime or files created or copied with preserved metadata.
         # if xRC
         # tout = init_recentchanges(script_dir, home_dir, xdg_runtime, inotify_creation_file, cfr, xRC, checksum, MODULENAME, log_file)
-
-        # initialize
 
         if argone != "search":
             THETIME = argone
@@ -438,16 +428,8 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
         search_start_dt = (current_time - timedelta(minutes=search_time))
         logger = logging.getLogger("FSEARCH")
 
-        if is_calibrate:
-            endval += 30
-            init = True
-            RECENT, COMPLETE_1, end, cstart = find_mft(
-                RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, logging_values, end,
-                cstart, search_time, iqt=iqt, strt=proval, endp=endval
-            )
-
         # Windows default - Powershell
-        elif not is_wsl:
+        if not is_wsl:
             endval += 15
 
             merged_database = os.path.join(tempwork, mergeddb)  # results from powershell search in tempdir this app is in
@@ -483,44 +465,51 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
                 logging_values, end, cstart, iqt=iqt, strt=proval, endp=endval
             )
 
-        # WSL find command
+        # note using os.scandir instead of find command
         else:
 
             # minor areas find cant reach with powershell first
-            mmin_files, cmin_files = [], []
+            # mmin_files, cmin_files = [], []
 
-            if basedir == "C:\\":
-                s_path = os.path.join(script_dir, "find_files.ps1")
-                mmin_files, _ = find_cmdhelp(s_path, search_time, USR)
+            # if basedir == "C:\\":
+            #     s_path = os.path.join(script_dir, "find_files.ps1")
+            #     mmin_files, _ = find_cmdhelp(s_path, search_time, USR)
             # end minor area
 
-            find_command_cmin = [] + cmin
+            # find_command_cmin = [] + cmin
 
-            if not xRC:
+            # if not xRC:
 
-                find_command_cmin = get_powershell_script(basedir, script_dir, EXCLDIRS, excl_file, tempwork, search_time, proval, endval, iqt)
+            #   find_command_cmin = get_powershell_script(basedir, script_dir, EXCLDIRS, excl_file, tempwork, search_time, proval, endval, iqt)
 
             init = True
 
-            tout, COMPLETE_2, end, cstart = find_files(
-                find_command_cmin, cmin_files, "ctime", tout, COMPLETE_2, init, cfr, search_start_dt, user_setting, logging_values,
-                end, cstart, search_time, EXCLDIRS, excl_file, toml_file, iqt=iqt, strt=proval, endp=endval, logger=logger
+            # tout, COMPLETE_2, end, cstart = find_files(
+            #     find_command_cmin, cmin_files, "ctime", tout, COMPLETE_2, init, cfr, search_start_dt, user_setting, logging_values,
+            #     end, cstart, search_time, EXCLDIRS, excl_file, toml_file, iqt=iqt, strt=proval, endp=endval, logger=logger
+            # )
+            # proval += 15
+            # endval += 15
+
+            RECENT, COMPLETE_1, end, cstart = find_scan(
+                RECENT, COMPLETE_1, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, search_time,
+                EXCLDIRS, toml_file, iqt=iqt, strt=proval, endp=endval, logger=logger
             )
 
-            cmin_end = time.time()
-            cmin_start = current_time.timestamp()
-            cmin_offset = time_convert(cmin_end - cmin_start, 60, 2)
+            # cmin_end = time.time()
+            # cmin_start = current_time.timestamp()
+            # cmin_offset = time_convert(cmin_end - cmin_start, 60, 2)
 
-            mmin = ["-mmin", f"-{search_time + cmin_offset:.2f}"]
-            find_command_mmin = F + PRUNE + mmin + TAIL
-            proval += 20
-            endval += 30
-            init = False
+            # mmin = ["-mmin", f"-{search_time + cmin_offset:.2f}"]
+            # find_command_mmin = F + PRUNE + mmin + TAIL
+            # proval += 20
+            # endval += 30
+            # init = False
 
-            RECENT, COMPLETE_1, end, cstart = find_files(
-                find_command_mmin, mmin_files, "main", RECENT, COMPLETE_1, init, cfr, search_start_dt, user_setting, logging_values,
-                end, cstart, search_time, EXCLDIRS, excl_file, toml_file, iqt=iqt, strt=proval, endp=endval, logger=logger
-            )
+            # RECENT, COMPLETE_1, end, cstart = find_files(
+            #     find_command_mmin, mmin_files, "main", RECENT, COMPLETE_1, init, cfr, search_start_dt, user_setting, logging_values,
+            #     end, cstart, search_time, EXCLDIRS, excl_file, toml_file, iqt=iqt, strt=proval, endp=endval, logger=logger
+            # )
 
         cend = time.time()
         # if iqt:
@@ -609,9 +598,6 @@ def main(argone, argtwo, USR, pwrd, argf="bnk", method="", iqt=False, drive=None
             lines = [entry for entry in SORTCOMPLETE if entry[0] <= end_dt]
         else:
             lines = SORTCOMPLETE
-
-        if calibrate_output:
-            output_results_exit(RECENT, argone, is_calibrate, is_wsl, fmt)
 
         temp = os.environ.get('TEMP')
         tmp = os.environ.get('TMP')

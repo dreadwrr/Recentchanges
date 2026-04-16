@@ -1,12 +1,10 @@
-# 03/22/2026           developer buddy core
+# 04/13/2026           developer buddy core
 import csv
 import ctypes
 import glob
 import importlib.util
-import logging
 import magic
 import os
-import pandas as pd
 import platform
 import re
 import shutil
@@ -16,17 +14,17 @@ import sys
 import time
 import traceback
 import winreg
-from datetime import datetime, timezone
-from io import StringIO
+from datetime import datetime
 from pathlib import Path
 from .config import update_toml_values
 from .configfunctions import find_install
 from .ctime import init_recentchanges
+from .dirwalkerfunctions import files_search
 from .fsearch import process_line
 from .fsearchfunctions import set_excl_dirs
-from .fsearchmft import process_mft
 from .fsearchps1 import process_ps1
 from .fsearchparallel import process_lines
+from .fsearchscan import process_scan
 from .pyfunctions import cprint
 from .pyfunctions import suppress_list
 from .pysql import clear_conn
@@ -267,6 +265,31 @@ def windows_version():
         print(f"An error occurred: {e}")
     return None, None
 
+
+def check_installed_app(exe_name, product_key=None):
+    try:
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            fr"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{exe_name}"
+        ) as key:
+            value, _ = winreg.QueryValueEx(key, None)
+            if os.path.isfile(value):
+                return value
+    except (FileNotFoundError):
+        pass
+    if product_key:
+        try:
+            with winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                fr"SOFTWARE\{product_key}"
+            ) as key:
+                value, _ = winreg.QueryValueEx(key, "exe")
+                if os.path.isfile(value):
+                    return value
+        except (FileNotFoundError):
+            pass
+    return None
+
 # WSL
 
 
@@ -449,7 +472,7 @@ def get_powershell_script(basedir, script_dir, EXCLDIRS, excl_file, tempwork, se
 
 # find command search helper use
 # powershell for find_files() for all created files
-def find_cmdcreated(command, s_path, search_start_dt):
+def find_cmdcreated(command, s_path, search_start_dt, strt, endp):
 
     try:
 
@@ -517,13 +540,15 @@ def find_cmdcreated(command, s_path, search_start_dt):
                 is_error = True
                 file_entries = []
 
-        return file_entries, is_error
+        strt += 10
+        endp += 10
+        return file_entries, is_error, strt, endp
 
     except (FileNotFoundError, PermissionError) as e:
         print(f"find_created unable to locate script {s_path} or access denied: {e}")
     except Exception as e:
         print(f"Unexpected error running powershell find helper find_created in rntchangesfunctions: {type(e).__name__} {e}")
-    return None, None
+    return [], None
 
 
 # find command search helper use
@@ -538,12 +563,12 @@ def find_cmdhelp(s_path, mmin, USR):
         "-userName", str(USR)
     ]
 
-    # if file_type == "ctime":
-    #     command += ["-cmin", "True"]
-    # else:
-    #     command += ["-mmin", "True"]
+    # # if file_type == "ctime":
+    # #     command += ["-cmin", "True"]
+    # # else:
+    # #     command += ["-mmin", "True"]
 
-    # print('Running command:', ' '.join(command)) debug
+    # # print('Running command:', ' '.join(command)) debug
 
     mmin_files = []
     cmin_files = []
@@ -570,11 +595,11 @@ def find_cmdhelp(s_path, mmin, USR):
 
                 fields[0] = str(m_time / 1_000_000)
                 fields[2] = str(c_time / 1_000_000)
-                # original
-                # if fields[2] > fields[0]:
-                #     cmin_files.append(fields)
-                # else:
-                #     mmin_files.append(fields)
+                # # original
+                # # if fields[2] > fields[0]:
+                # #     cmin_files.append(fields)
+                # # else:
+                # #     mmin_files.append(fields)
 
                 mmin_files.append(fields)
 
@@ -587,6 +612,62 @@ def find_cmdhelp(s_path, mmin, USR):
         print(f"Unexpected error running powershell find helper find_cmdhelp in rntchangesfunctions: {type(e).__name__} {e}")
     return [], []
 
+
+def find_scan(RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, search_time, EXCLDIRS, toml_file, iqt=False, strt=20, endp=60, logger=None):
+
+    # # file_entries = []
+    records = []
+
+    basedir = user_setting['basedir']
+    FEEDBACK = user_setting['FEEDBACK']
+
+    is_error = False
+
+    if user_setting['xRC']:
+
+        records = init_recentchanges(search_time, search_start_dt, FEEDBACK, EXCLDIRS, logging_values, search=True)  # try xRC
+        if records not in (None, "db_error", "usn_error"):
+            strt += 15
+            if iqt:
+                print(f"Progress: {strt}%", flush=True)
+
+        # normal execution
+        else:
+            print("init_recentchanges returned ", records)
+            print("Something went wrong xRC is set to disabled. resuming")
+            print("logfile\n", logging_values[0])
+
+            is_error = True
+            records, _ = files_search(basedir, search_start_dt, FEEDBACK, EXCLDIRS, logger, iqt=iqt, strt=strt, endp=endp)
+
+            strt += 15
+
+    # normal execution
+    else:
+
+        records, _ = files_search(basedir, search_start_dt, FEEDBACK, EXCLDIRS, logger, iqt=iqt, strt=strt, endp=endp)
+        strt += 15
+    end = time.time()
+    if records is None:
+        return None, [], end, cstart
+    endp += 30
+
+    if init and user_setting['checksum']:
+        out_text = "Running checksum."
+        if user_setting['FEEDBACK']:
+            out_text = "\n" + out_text
+        cprint.cyan(out_text)
+        cstart = time.time()
+
+    file_type = None
+    RECENT, COMPLETE = process_lines(process_scan, records, file_type, search_start_dt, 'FSEARCH', user_setting, logging_values, cfr, iqt, strt, endp)
+
+    if is_error:
+        update_toml_values({'search': {'xRC': False}}, toml_file)  # disable the setting xRC until the problem is found
+    return RECENT, COMPLETE, end, cstart
+
+
+# WSL not using **
 # find command search using WSL. One search ctime > mtime for downloaded, copied or preserved metadata files. cmin. Main search for mtime newer than mmin.
 # ported from linux
 # amin was used in place of cmin as cmin isnt updated the same as on linux. amin can be used for cmin loop to check if creation time is greater than mtime to find
@@ -599,10 +680,10 @@ def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, 
     records = []
 
     if file_type == "ctime":
-        # xRC tout bypass for created files to only run 1 loop
-        if user_setting['xRC']:
-            # try xRC
-            records = init_recentchanges(search_time, search_start_dt, logging_values, search=True)
+
+        if user_setting['xRC']:  # xRC tout bypass for created files to only run 1 loop
+
+            records = init_recentchanges(search_time, search_start_dt, logging_values, search=True)  # try xRC
             if records not in (None, "db_error", "usn_error"):
                 strt += 10
                 if iqt:
@@ -617,7 +698,7 @@ def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, 
                 records = []
 
                 appdata_local = logging_values[2]
-                tempwork = logging_values[3]
+                tempwork = logging_values[4]
                 basedir = user_setting['basedir']
 
                 script_dir = os.path.join(appdata_local, "scripts")
@@ -626,20 +707,13 @@ def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, 
 
                 s_path = find_command[5]
 
-                records, is_error = find_cmdcreated(find_command, s_path, search_start_dt)
-                if records is None or is_error:
-                    records = []
-                strt += 10
-                # if iqt:
-                #     print(f"Progress: {strt}%", flush=True)
-                endp += 10
+                records, is_error, strt, endp = find_cmdcreated(find_command, s_path, search_start_dt, strt, endp)
 
-                # disable the setting until the problem is found
-                update_toml_values({'search': {'xRC': False}}, toml_file)
+                update_toml_values({'search': {'xRC': False}}, toml_file)  # disable the setting until the problem is found
 
         # normal execution
         else:
-            # -cmin doesnt update properly on wsl. when a file moves its ctime should change but doesnt
+            # -change time doesnt update properly on wsl. when a file moves ctime doesnt change
 
             # use powershell for just the created files which is fast
             # appdata_local = logging_values[2]
@@ -647,13 +721,8 @@ def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, 
             # s_path = os.path.join(appdata_local, "scripts", "ctime.ps1")
             s_path = find_command[5]
 
-            records, is_error = find_cmdcreated(find_command, s_path, search_start_dt)
-            if records is None or is_error:
-                records = []
-            strt += 10
-            # if iqt:
-            #     print(f"Progress: {strt}%", flush=True)
-            endp += 10
+            records, is_error, strt, endp = find_cmdcreated(find_command, s_path, search_start_dt, strt, endp)
+
     elif file_type == "main":
 
         try:
@@ -736,42 +805,15 @@ def find_ps1(command, RECENT, COMPLETE, mergeddb, init, cfr, search_start_dt, us
         reslt = cursor.fetchall()
         return reslt
 
+    script_path = command[5]
+    FEEDBACK = user_setting['FEEDBACK']
+
     print("Launching powershell.", flush=True)
 
-    validrlt = False
-    try:
-
-        print('Running command:', ' '.join(command))
-        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:  # stderr=subprocess.STDOUT
-
-            assert proc.stdout is not None
-            for line in proc.stdout:
-                if "Merge complete:" in line:
-                    validrlt = True
-                    break
-                print(line, end="", flush=True)
-
-            err_output = proc.stderr.read()
-            res = proc.wait()
-
-            if res == 0:
-                end = time.time()
-            else:
-                if err_output:
-                    print(err_output)
-                print("Command failed subprocess fault or script error scanline.ps1")
-                sys.exit(res)
-
-    except FileNotFoundError as e:
-        print(f"powershell_run Error launching PowerShell file not found {command} err: {e}")
-        validrlt = None
-        end = None
-    except Exception as e:
-        print(f"powershell_run Unexpected error: {command} : {type(e).__name__} {e}")
-        validrlt = None
-        end = None
-
-    if validrlt is None and end is None:
+    args = []
+    _, validrlt = search_pwsh(command, args, script_path, FEEDBACK)
+    end = time.time()
+    if validrlt is None:
         sys.exit(1)
     if not validrlt and not os.path.isfile(mergeddb):
         print("No new files reported from scanline.ps1. exiting")
@@ -803,366 +845,71 @@ def find_ps1(command, RECENT, COMPLETE, mergeddb, init, cfr, search_start_dt, us
 
     if init and user_setting['checksum']:
         out_text = "Running checksum."
-        if user_setting['FEEDBACK']:
+        if FEEDBACK:
             out_text = "\n" + out_text
         cprint.cyan(out_text)
         cstart = time.time()
 
-    filetype = None
-    RECENT, COMPLETE = process_lines(process_ps1, file_entries, filetype, search_start_dt, "FSEARCHPS1", user_setting, logging_values, cfr, iqt, strt, endp)
+    file_type = None
+    RECENT, COMPLETE = process_lines(process_ps1, file_entries, file_type, search_start_dt, "FSEARCHPS1", user_setting, logging_values, cfr, iqt, strt, endp)
     return RECENT, COMPLETE, end, cstart
 
 
-# calibrate search using Mft
-
-def find_mft(RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, search_time, iqt=False, strt=20, endp=60):
-
-    p = search_time * 60
-
-    # compt = (datetime.now(timezone.utc) - timedelta(seconds=p))
-    compt = search_start_dt.astimezone(timezone.utc)
-
-    delta_value = (endp - strt)
-    endval = strt + (delta_value / 2)
-    logger = logging.getLogger("search_Mft")
-
-    exec_path = logging_values[2] / "bin" / "MFTECmd.exe"
-
-    csv_data = read_mftmem(str(exec_path), 'C:\\$MFT', compt, search_start_dt, iqt, strt, endval)  # search
-    if csv_data is None:
-        print("Error read Mft data in IOString from MFTECmd.exe. exiting.")
-        sys.exit(1)
-    if len(csv_data.getvalue()) == 0:
-        print("No files returned from read_mftmem from reading Mft. exiting.")
-        sys.exit(1)
-
-    prog_v = endval
-
-    file_entries = search_Mft(csv_data, compt, logger)  # convert csv to list of tuples
-    end = time.time()
-    if not file_entries:
-        print(f"No new files from results of search in Mft search time {p} seconds. exiting")
-        sys.exit(1)
-
-    if user_setting["FEEDBACK"]:
-        for entry in file_entries:
-            if len(entry) >= 11:
-                file_path = entry[10]
-                print(file_path, flush=True)
-    if init and user_setting["checksum"]:
-        cprint.cyan('\nRunning checksum.')
-        cstart = time.time()
-
-    filetype = None
-    RECENT, COMPLETE = process_lines(process_mft, file_entries, filetype, search_start_dt, "FSEARCHMFT", user_setting, logging_values, cfr, iqt, prog_v, endp)  # multiprocess
-    return RECENT, COMPLETE, end, cstart
-
-
-def get_full_path(df):
-
-    df = df[df['ParentPath'].notna() & df['FileName'].notna()].copy()  # get rid of warnings by making a copy
-
-    df['ParentPath'] = df['ParentPath'].fillna('').astype(str).str.replace(r'^\.(\\)?', r'C:\\', regex=True)
-    df['FileName'] = df['FileName'].fillna('').astype(str)
-
-    df['FullPath'] = df['ParentPath'].str.rstrip('\\') + '\\' + df['FileName'].str.lstrip('\\')
-
-    return df
-
-
-"""
- Read a parsed mft csv into pandas to diff and process. Return list for recentchangessearch
- MFTECmd
-"""
-
-
-def str_to_bool(x):
-    return str(x).strip().lower() in ("true", "1")
-
-
-def search_Mft(csv_p, compt, logger, iqt=False):  # tmn  csv            dec13/2025
-
-    time_field = "LastModified0x10"
-    ctime_field = "Created0x10"
-    atime_field = "LastAccess0x10"
-    lmtime_field = "LastModified"
-
-    bool_columns = ["InUse", "IsDirectory", "IsAds"]
-
-    local_tz = datetime.now().astimezone().tzinfo
-
-    columns = [
-        "EntryNumber", "SequenceNumber", "InUse", "ParentEntryNumber", "ParentSequenceNumber", "ParentPath", "FileName", "Extension",
-        "FileSize", "ReferenceCount", "ReparseTarget", "IsDirectory", "HasAds", "IsAds", "SI<FN", "uSecZeros", "Copied", "SiFlags", "NameType",
-        "Created0x10", "Created0x30", "LastModified0x10", "LastModified0x30", "LastRecordChange0x10", "LastRecordChange0x30", "LastAccess0x10",
-        "LastAccess0x30", "UpdateSequenceNumber", "LogfileSequenceNumber", "SecurityId", "ObjectIdFileDroid", "LoggedUtilStream", "ZoneIdContents",
-        "SourceFile"
-    ]
+def search_pwsh(command, args, script_path, FEEDBACK=True):
+    """ powershell stream """
     try:
+        target_files = []
+        validrlt = False
 
-        csv_p.seek(0)
-        df = pd.read_csv(
-            csv_p, names=columns,
-            low_memory=False,
-            converters={col: str_to_bool for col in bool_columns}
-        )
+        cmd = command
+        if args:
+            cmd = command + args
 
-        dt_cols = [time_field, ctime_field, atime_field]
+        print('Running command:', ' '.join(cmd), flush=True)
+        print()
+        with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:  # stderr=subprocess.STDOUT
 
-        for col in dt_cols:
-            df[col] = pd.to_datetime(df[col], errors='coerce').dt.tz_localize('UTC')
-
-        df = df.dropna(subset=[time_field])
-
-        recent_files = df[
-            (df['InUse']) &
-            (~df['IsDirectory']) &
-            (~df['IsAds']) &
-            ((df[time_field] >= compt) | (df[ctime_field] >= compt))
-        ].copy()
-
-        recent_files['cam'] = None
-        mask_cam = recent_files[ctime_field] > recent_files[time_field]
-        recent_files.loc[mask_cam, 'cam'] = 'y'
-
-        recent_files['LastModified'] = None
-        recent_files.loc[mask_cam, 'LastModified'] = recent_files.loc[mask_cam, time_field]
-
-        original_mtime = recent_files.loc[mask_cam, time_field].copy()
-        recent_files.loc[mask_cam, time_field] = recent_files.loc[mask_cam, ctime_field]
-        recent_files.loc[mask_cam, ctime_field] = original_mtime
-
-        recent_files["mtime_us"] = (recent_files[time_field].astype("int64") // 1_000).astype("int64")
-
-        seq = pd.to_numeric(recent_files["SequenceNumber"], errors="coerce")
-        ent = pd.to_numeric(recent_files["EntryNumber"], errors="coerce")
-        mask = seq.notna() & ent.notna()
-        recent_files = recent_files.loc[mask].copy()
-
-        recent_files["inode"] = (
-            seq[mask].astype(object) * (1 << 48) + ent[mask].astype(object)
-        )
-
-        recent_files = recent_files.dropna(subset=['ParentPath', 'FileName'])
-        recent_files = get_full_path(recent_files)
-
-        for col in dt_cols + [lmtime_field]:
-            recent_files[col] = pd.to_datetime(recent_files[col], errors="coerce", utc=True).dt.tz_convert(local_tz)
-
-        recent_files[time_field] = (
-            recent_files[time_field].dt.tz_convert(local_tz).dt.tz_localize(None).to_numpy(dtype="datetime64[us]").astype(object)
-        )
-
-        for col in (ctime_field, atime_field, lmtime_field):
-            recent_files[col] = recent_files[col].dt.strftime("%Y-%m-%d %H:%M:%S")
-            recent_files[col] = recent_files[col].where(recent_files[col].notna(), None)
-
-        recent_files['ReferenceCount'] = pd.to_numeric(recent_files['ReferenceCount'], errors='coerce')
-        recent_files["FileSize"] = pd.to_numeric(recent_files["FileSize"], errors="coerce").map(
-            lambda v: None if pd.isna(v) else int(v)
-        )
-
-        remaining_col = [
-            "mtime_us", "FileSize", "SiFlags", "ReferenceCount", "inode", "cam", "FullPath"
-        ]
-
-        for col in remaining_col:
-            recent_files[col] = recent_files[col].astype(object).where(pd.notna(recent_files[col]), None)
-
-        result = list(zip(
-            recent_files[time_field],
-            recent_files['mtime_us'],
-            recent_files[ctime_field],
-            recent_files[atime_field],
-            recent_files['FileSize'],
-            recent_files['LastModified'],
-            recent_files['SiFlags'],
-            recent_files['ReferenceCount'],
-            recent_files['inode'],
-            recent_files['cam'],
-            recent_files['FullPath']
-        ))
-        return result
-    except Exception as e:
-        print("Error reading converting data frame to tuple list search_Mft rntchangesfunctions. quitting")
-        print(f"Error processing MFT data in search_Mft func rntchangesfunctions.py: {type(e).__name__} :{e}")
-        logger.error(f"Error processing MFT data: {type(e).__name__} {e}", exc_info=True)
-        sys.exit(1)
-
-
-def mft_entrycount():
-    KB = 1024
-    MB = KB**2
-    GB = KB**3
-    byte_s = None
-    cmd = ['fsutil', 'fsinfo', 'ntfsinfo', 'C:']
-    try:
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = proc.communicate()
-        output = (stdout + stderr).lower()
-        if "access is denied" in output:
-            print("Error: Access denied. Please run as administrator.")
-            return None
-        elif proc.returncode != 0:
-            print("Command failed with return code", proc.returncode)
-            print("err", stderr.strip())
-            return None
-        else:
-            for line in stdout.splitlines():
-                line = line.strip()
-                if line.startswith("Mft Valid Data Length"):
-                    match = re.search(r"([\d\.]+)\s*(GB|MB|KB|bytes)", line, re.IGNORECASE)
-                    if match:
-                        value = float(match.group(1))
-                        unit = match.group(2).upper()
-                        if unit == "GB":
-                            byte_s = value * GB
-                        elif unit == "MB":
-                            byte_s = value * MB
-                        elif unit == "KB":
-                            byte_s = value * KB
-                        else:
-                            byte_s = value
-        if byte_s is None:
-            print("Unable to read MFT entry count")
-        return byte_s
-    except subprocess.SubprocessError as e:
-        print(f"Error in subprocess execution mft_entrycount: {type(e).__name__}: {e}")
-        print(traceback.format_exc())
-        return None
-
-# to possiblly increase efficiency but overhead is not an issue. maybe if an error shows up
-# this is for below read_mft
-# proc = subprocess.Popen(
-#     cmd,
-#     stdout=subprocess.PIPE,
-#     stderr=subprocess.PIPE,
-#     bufsize=1024*1024,
-#     text=True,
-#     encoding="utf-8",
-#     errors="replace"
-# )
-#
-# buffer = ""
-#
-# while True:
-#     chunk = proc.stdout.read(1024*1024)   # 1MB
-#     if not chunk:
-#         break
-#
-#     buffer += chunk
-#     lines = buffer.split("\n")
-#     buffer = lines.pop()
-#
-#     for line in lines:
-#         process_line(line)
-
-
-def read_mft_progress(cmd, csv_data, byte_s, strt, endp, show_progress=False, logger=None):
-
-    total_e = (int(byte_s) // 1024)
-
-    num_steps = 32
-    step_size = total_e / (num_steps - 1)
-    steps = [int(round(step_size * i)) for i in range(num_steps)]
-    current_step_index = 0
-
-    csv_started = False
-    x = 0
-
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
-    for line in iter(proc.stdout.readline, ''):
-        if not line.strip():
-            continue
-        x += 1
-        if show_progress:
-
-            #
-            #
-
-            if current_step_index < len(steps) and x >= steps[current_step_index]:
-                progress = float(current_step_index) / max(num_steps - 1, 1) * 100
-                progress = round(strt + (endp - strt) * (progress / 100), 2)
-
-                if logger:
-
-                    logger(int(progress))
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                if "Merge complete:" in line:
+                    validrlt = True
+                    break
+                if "RESULT:" in line:
+                    value_str = line.split("RESULT:")[1].strip()
+                    if FEEDBACK:
+                        print(value_str)
+                    target_files.append(value_str)
                 else:
-                    print(f'Progress: {progress}%')
+                    print(line, end="", flush=True)
 
-                current_step_index += 1
+            err_output = proc.stderr.read()
+            res = proc.wait()
 
-        if ',' not in line:
-            continue
-        if not csv_started:
-            if "EntryNumber,SequenceNumber,InUse" in line:  # if line.startswith("EntryNumber,SequenceNumber,InUse"): weird char at start BOM character discard header and rebuild later
-                csv_started = True
-                continue
-            else:
-                continue
+            if res != 0:
 
-        csv_data.write(line)
+                if err_output:
+                    print(err_output)
+                print(f"Command failed subprocess fault or script error {script_path}")
+                return None, None
 
-    proc.stdout.close()
-    rlt = proc.wait()
-    err_output = proc.stderr.read()
-    return rlt, err_output
-
-
-def read_mftmem(exec_path, mft, compt, search_start_dt, iqt=False, strt=0, endp=100):
-    # exec_path = '.\\bin\\MFTECmd.exe'
-    # mft='C:\\$MFT'
-
-    cutoff = compt.replace(microsecond=0)
-    cutoff = cutoff.isoformat().replace("+00:00", "Z")
-
-    cmd = [exec_path, '-f', mft, '--dt', 'yyyy-MM-dd HH:mm:ss.ffffff', '--cutoff', cutoff, '--csv', 'C:\\', '--csvf', 'myfile2.csv']
-    print('Running command:', ' '.join(cmd))
-
-    print(f"\nCutoff {search_start_dt.replace(microsecond=0).isoformat()} \n")
-    # print('Running command:' + ' '.join(f'"{c}"' for c in cmd))
-
-    byte_s = mft_entrycount()
-
-    csv_data = StringIO()
-    try:
-        show_progress = False
-        if byte_s:
-            show_progress = True
-
-        rlt, std_err = read_mft_progress(cmd, csv_data, byte_s, strt, endp, show_progress)
-
-        if rlt == 0:
-            if len(csv_data.getvalue()) != 0:
-
-                print(f'Progress: {float(endp):.2f}')
-                return csv_data
-
-            else:
-                print("No csv_data in read_mftmem read_mftmem rntchangesfunctions")
-        else:
-            # for err_line in iter(proc.stderr.readline, ''):   #     print("ERR:", err_line.strip())
-            if std_err:
-                print(f'Failed. Unable to output csv with mftecmd.exe: {std_err}')
-    except (FileNotFoundError, PermissionError):
-        print(f'Unable to find MFTECmd.exe {exec_path} or permission error \\bin')
+            return target_files, validrlt
+    except FileNotFoundError as e:
+        print(f"powershell_run Error launching PowerShell file not found {command} err: {e}")
     except Exception as e:
-        emesg = f'error running cmd {cmd} {type(e).__name__} {e}'
-        print(f"{emesg} \n {traceback.format_exc()}")
-        logging.error(f"{emesg} traceback: ", exc_info=True)
-    return None
+        print(f"powershell_run Unexpected error: {command} : {type(e).__name__} {e}")
+    return None, None
 
 
 # recentchanges search
 # after checking for a previous search it is required to remove all old searches to keep the workspace clean and avoid write problems later.
-#  Also copy the old search to the MDY folder in /tmpfor later diff retention
+# Also copy the old search to the MDY folder in appinstall for later diff retention
 
 def clear_logs(USRDIR, DIRSRC, method, appdata_local, MODULENAME, archivesrh):
 
     FLBRAND = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M_%S")  # %y-%m-%d better sorting?
     validrlt = ""
 
-    # Archive last search to /tmp
+    # Archive last search to appinstall
     keep = [
         "xSystemchanges",
         "xSystemDiffFromLastSearch"
@@ -1259,8 +1006,10 @@ def filter_lines_from_list(lines, escaped_user, idx=1):
     return filtered
 
 
-# def str_to_bool(x):
-#     return str(x).strip().lower() in ("true", "1")
+def str_to_bool(x):
+    return str(x).strip().lower() in ("true", "1")
+
+
 def to_bool(val):
     return val.lower() == "true" if isinstance(val, str) else bool(val)
 
@@ -1296,7 +1045,7 @@ def get_diff_file(lclhome, USRDIR, MODULENAME):
     if all_matches:
         diff_file = max(all_matches, key=os.path.getmtime)
 
-    # selects /tmp first # original
+    # selects appinstall first and incorrect # original
     # for pattern in patterns:
     #     matches = glob.glob(pattern)
     #     if matches:
@@ -1386,9 +1135,10 @@ def pwsh_7():
         return False, None
 
 
-# Used for calibrate mftec check
+# for recentchangessearch.py
+# Used for calibrate with mftec
 # See if its the right version .NET 9 check version from stdout
-def mftec_is_cutoff(lclappdata):  # recentchangessearch
+def mftec_is_cutoff(lclappdata):
 
     exec_path = os.path.join(lclappdata, "bin", "MFTECmd.exe")
     cmd = [exec_path, '-f', 'C:\\$MFT', '--dt', 'yyyy-MM-dd HH:mm:ss.ffffff', '--cutoff', '2025-11-10T07:48:46Z']  # , '--csv', 'C:\\', '--csvf', 'myfile2.csv' # '.\\bin\\MFTECmd.exe'
@@ -1435,7 +1185,8 @@ def mftec_version(exe_path, tempdir):  # Qt
         result = "mftec"
 
         # Run MFTECmd and redirect the output to version.txt
-        subprocess.run(rf'"{exe_path}" > {version_file}', shell=True)     # .\bin\MFTECmd.exe
+        # .\bin\MFTECmd.exe
+        subprocess.run(rf'"{exe_path}" > {version_file}', shell=True)
 
         if not version_file.is_file():
             return None
@@ -1632,97 +1383,3 @@ def mergedb(dbopt):
     return merge_path
 
 # End Database section
-
-
-def parse_search(command, args):
-    """ findfile.py powershell stream """
-    try:
-        target_files = []
-        cmd = command + args
-
-        is_error = True
-
-        print('Running command:', ' '.join(cmd), flush=True)
-        print()
-        with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:  # stderr=subprocess.STDOUT
-
-            assert proc.stdout is not None
-            for line in proc.stdout:
-                if "Merge complete:" in line:
-                    is_error = False
-                    break
-                if "RESULT:" in line:
-                    value_str = line.split("RESULT:")[1].strip()
-                    print(value_str)
-                    target_files.append(value_str)
-                else:
-                    print(line, end="", flush=True)
-
-            err_output = proc.stderr.read()
-            res = proc.wait()
-
-            if res != 0:
-
-                if err_output:
-                    print(err_output)
-                print("Command failed subprocess fault or script error scanline.ps1")
-                is_error = True
-                target_files = []
-
-            return target_files, is_error
-    except FileNotFoundError as e:
-        print(f"powershell_run Error launching PowerShell file not found {command} err: {e}")
-    except Exception as e:
-        print(f"powershell_run Unexpected error: {command} : {type(e).__name__} {e}")
-    return None, None
-
-
-def check_installed_app(exe_name, product_key=None):
-    try:
-        with winreg.OpenKey(
-            winreg.HKEY_LOCAL_MACHINE,
-            fr"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{exe_name}"
-        ) as key:
-            value, _ = winreg.QueryValueEx(key, None)
-            if os.path.isfile(value):
-                return value
-    except (FileNotFoundError):
-        pass
-    if product_key:
-        try:
-            with winreg.OpenKey(
-                winreg.HKEY_LOCAL_MACHINE,
-                fr"SOFTWARE\{product_key}"
-            ) as key:
-                value, _ = winreg.QueryValueEx(key, "exe")
-                if os.path.isfile(value):
-                    return value
-        except (FileNotFoundError):
-            pass
-    return None
-
-
-def output_results_exit(RECENT, argone, is_calibrate, iswsl, fmt):
-    """ calibrate powershell and find command and see what the mft says """
-    file_nm = f"PwshOutput{argone}.txt"
-    if is_calibrate:
-        file_nm = f"MftOutput{argone}.txt"
-    elif iswsl:
-        file_nm = f"WSLOutput{argone}.txt"
-
-    flnm_frm, ext = os.path.splitext(file_nm)
-    outpath = flnm_frm + "_sample" + ext
-    i = 1
-    while os.path.exists(outpath):
-        outpath = f"{flnm_frm}_sample_{i}{ext}"
-        i += 1
-
-    with open(outpath, 'w') as f:
-        for entry in RECENT:
-            if entry[1].startswith("C:\\Windows"):
-                continue
-            tss = entry[0].strftime(fmt)
-            fp = entry[1]
-            f.write(f'{tss} {fp}\n')
-    print("\n Sample output complete:", outpath)
-    sys.exit(1)

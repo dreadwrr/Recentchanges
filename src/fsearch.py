@@ -1,4 +1,4 @@
-# Get metadata hash of files and return array                       03/11/2025
+# Get metadata hash of files and return array                       03/11/2026
 import os
 from datetime import datetime
 from . import logs

@@ -144,11 +144,11 @@ def get_file_id(filepath, log_q=None, logger=None):
 
             # mtime_us = int(mtime_frm) * 1_000_000
             # print("mtime_us", creation_us)
-            # mode
-            mode = get_mode(attrs, sym)
-            # end mode
 
-            return file_index, sym, hard_link, size, creation_time, mode, None
+            mode, _ = get_mode(attrs, sym)
+
+            is_error = None
+            return file_index, sym, hard_link, size, creation_time, mode, is_error
         finally:
             handle.Close()
 
@@ -176,7 +176,8 @@ def file_owner(file_path, log_q=None, logger=None):
         return None
 
 
-def get_mode(attrs, is_symlink):
+def get_mode(attrs, is_symlink=None):
+    sym = None
     # FILE_ATTRIBUTE_READONLY = 0x1
     # FILE_ATTRIBUTE_HIDDEN = 0x2
     # FILE_ATTRIBUTE_SYSTEM = 0x4
@@ -187,7 +188,11 @@ def get_mode(attrs, is_symlink):
     is_readonly = bool(attrs & win32con.FILE_ATTRIBUTE_READONLY)
 
     mode = ['-'] * 6  # # PowerShell
-    if is_symlink == 'y':
+    if (
+        is_symlink or
+        (attrs & win32con.FILE_ATTRIBUTE_REPARSE_POINT)
+    ):
+        sym = "y"
         mode[5] = 'l'
     if is_readonly:  # or not os.access(filepath, os.W_OK):
         mode[2] = 'r'
@@ -197,7 +202,7 @@ def get_mode(attrs, is_symlink):
         mode[4] = 's'
     if is_archive:
         mode[1] = 'a'
-    return ''.join(mode)
+    return ''.join(mode), sym
 
 
 def get_mft_mode(attribs, is_symlink=None):
