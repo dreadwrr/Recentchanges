@@ -99,6 +99,9 @@ $skippedDirs = @()
 $rows = @()
 # Invoke-SqliteQuery -Connection $conn -Query "BEGIN TRANSACTION;"  # original
 
+$tag = ""
+if ($feedback) { $tag = "RESULT:" }
+
 #get all files in root
 Get-ChildItem -Path $rootPath -File -Force -ErrorAction SilentlyContinue |
 	ForEach-Object {
@@ -120,7 +123,7 @@ Get-ChildItem -Path $rootPath -File -Force -ErrorAction SilentlyContinue |
 				(($file.LastWriteTime -ge $cutoff -and $file.LastWriteTime -le $now) -or
 				($file.CreationTime -ge $cutoff -and $file.CreationTime -le $now)) ) {
 
-			if ($feedback) { Write-Host $file.FullName }
+			Write-Host "$tag$($file.FullName)"
 
 				try {
 
@@ -177,8 +180,6 @@ Get-ChildItem -Path $rootPath -File -Force -ErrorAction SilentlyContinue |
 		}
 	
 
-
-
 foreach ($dir in $topDirs) {
     $currentDirIndex++
 
@@ -204,7 +205,7 @@ foreach ($dir in $topDirs) {
 					(($file.LastWriteTime -ge $cutoff -and $file.LastWriteTime -le $now) -or
 					 ($file.CreationTime -ge $cutoff -and $file.CreationTime -le $now)) ) {
 
-					if ($feedback) { Write-Host $file.FullName }
+					Write-Host "$tag$($file.FullName)"
 
 					try {
 
