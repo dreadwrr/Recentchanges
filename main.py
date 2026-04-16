@@ -1,4 +1,4 @@
-# 03/30/2026               Qt gui windows 11                  Developer buddy 5.0
+# 04/13/2026               Qt gui windows 11                  Developer buddy 5.0
 import glob
 import logging
 import multiprocessing
@@ -210,6 +210,7 @@ class MainWindow(QMainWindow):
         self.defaultzipPATH = appdata_local / "7-zip" / "7z.exe"
 
         self.exe_path = self.lclhome / "bin"
+        self.parsec_command = self.exe_path / "parser.exe"
         self.mftec_command = self.exe_path / "MFTECmd.exe"
         self.icat_command = self.exe_path / "icat.exe"
         self.ntfs_command = self.exe_path / "ntfstool.x86.exe"
@@ -1790,7 +1791,7 @@ class MainWindow(QMainWindow):
             return
 
         self.proc = ProcessHandler()
-        self.open_proc(180000)
+        self.open_proc(360000)
 
         if compress:
             downloads = self.ui.combffileout.currentText()
@@ -2272,6 +2273,8 @@ class MainWindow(QMainWindow):
                 method = "mftec_cutoff"
             elif c_ver:
                 method = "mftec"
+        elif os.path.isfile(self.parsec_command):
+            method = "parsec"
 
         if method == "mftdump":
 
@@ -2413,7 +2416,7 @@ class MainWindow(QMainWindow):
             if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, OLDSORT, flnmout, flnmdffout, drive, self.USRDIR):  # .
                 self.isexec = False
                 return
-            self.worker.set_task(self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
+            self.worker.set_task(self.parsec_command, self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
 
             self.worker_thread.started.connect(self.worker.run)
             self.open_trd(150000)
