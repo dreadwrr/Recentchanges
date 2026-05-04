@@ -5,7 +5,7 @@ Released 3.0.6 <br>
 
 Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br><br>
 3.0.6 added add to and remove from path in settings and with powershell 7 use pwsh and there is a speed boost when using powershell 7<br>
-also python scandir which can be used with pwrshell = False in config. and is really fast. <br><br>
+also there python scandir which can be used with pwrshell = False in config.<br>
 
 To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
