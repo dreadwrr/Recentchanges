@@ -1,4 +1,3 @@
-
 # Filter modified date: 03/20/2026       SN:049BN6KZ01
 #
 # Notes: Windows 11
@@ -7,7 +6,7 @@
 # [^\\\\]+ match up to next directory  and ends with \\LocalCache
 # \\.*?\\ non greedily match up to and including first \\LocalCache
 #
-# any filtername with a . example randonmfile\\.txt
+# any file name with a . example randonmfile\\.txt
 #
 
 _filter = [

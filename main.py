@@ -1,4 +1,4 @@
-# 04/13/2026               Qt gui windows 11                  Developer buddy 5.0
+# 05/03/2026               Qt gui windows 11                  Developer buddy 5.0
 import glob
 import logging
 import multiprocessing
@@ -26,7 +26,7 @@ from src.configfunctions import find_user_folder
 from src.configfunctions import get_config
 from src.dbworkerstream import DbWorkerIncremental
 from src.dirwalkerfunctions import create_profile_baseline
-from src.dirwalkerfunctions import execEXTN
+from src.dirwalkerfunctions import EXEC_EXTN
 from src.gpgcrypto import decr
 from src.gpgcrypto import encr
 from src.gpgkeymanagement import check_for_gpg
@@ -37,6 +37,7 @@ from src.gpgkeymanagement import set_gpg
 from src.imageraster import raised_image
 from src.logs import change_logger
 from src.logs import setup_logger
+from src.mftfunctions import mftec_version
 from src.mftworker import MftWorker
 from src.processhandler import ProcessHandler
 from src.pyfunctions import cache_clear_patterns
@@ -68,7 +69,6 @@ from src.qtfunctions import check_for_updates
 from src.qtfunctions import command_prompt
 from src.qtfunctions import commit_note
 from src.qtfunctions import fill_extensions
-from src.qtfunctions import find_wsl
 from src.qtfunctions import get_conn
 from src.qtfunctions import get_help
 from src.qtfunctions import has_log_data
@@ -80,6 +80,8 @@ from src.qtfunctions import load_pshell
 from src.qtfunctions import open_html_resource
 from src.qtfunctions import profile_to_str
 from src.qtfunctions import ps_profile_type
+from src.qtfunctions import rmv_path
+from src.qtfunctions import set_path
 from src.qtfunctions import show_cmddoc
 from src.qtfunctions import sort_right
 from src.qtfunctions import table_loaded
@@ -93,7 +95,6 @@ from src.rntchangesfunctions import check_utility
 from src.rntchangesfunctions import display
 from src.rntchangesfunctions import get_diff_file
 from src.rntchangesfunctions import is_admin
-from src.rntchangesfunctions import mftec_version
 from src.rntchangesfunctions import multi_value
 from src.rntchangesfunctions import name_of
 from src.rntchangesfunctions import removefile
@@ -119,7 +120,7 @@ class MainWindow(QMainWindow):
 
     def __init__(
         self, appdata_local, home_dir, config, j_settings, toml_file, json_file, log_dir, log_path, driveTYPE, distro_name,
-        dbopt, dbtarget, CACHE_S, CACHE_S_str, systimeche, suffix, gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH,
+        dbopt, dbtarget, cache_s, cache_s_str, systimeche, suffix, gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH,
         downloads, email, usr, cachermPATTERNS, tempdir
     ):
         super().__init__()
@@ -136,8 +137,8 @@ class MainWindow(QMainWindow):
         self.dbtarget = dbtarget  # gpg
         self.gpg_path = gpg_path
         self.gnupg_home = gnupg_home
-        self.CACHE_S = CACHE_S
-        self.CACHE_S_str = CACHE_S_str
+        self.cache_s = cache_s
+        self.cache_s_str = cache_s_str
         self.systimeche = systimeche  # ie C:\\path\\systemche J:\\path\\systimeche_j
         self.suffix = suffix
         self.dspEDITOR = dspEDITOR
@@ -150,15 +151,15 @@ class MainWindow(QMainWindow):
         self.tempdir = tempdir  # thisapp
 
         self.config = None
-        self.ANALYTICSECT = config['analytics']['ANALYTICSECT']
-        self.FEEDBACK = config['analytics']['FEEDBACK']
+        self.analyticSECT = config['analytics']['analyticSECT']
+        self.feedback = config['analytics']['feedback']
         self.compLVL = config['logs']['compLVL']
         self.pageIDX = config['display']['pageIDX']
         self.hudCOLOR = config['display']['hudCOLOR']
         self.hudSZE = config['display']['hudSZE']
         self.hudFNT = config['display']['hudFNT']
-        self.MODULENAME = config['paths']['MODULENAME']  # difffileprefix
-        self.wsl = config['search']['wsl']
+        self.moduleNAME = config['paths']['moduleNAME']  # difffileprefix
+        self.pwrshell = config['search']['pwrshell']
         self.basedir = config['search']['drive']  # search target
         self.oldbasedir = self.basedir
         proteusEXTN = config['shield']['proteusEXTN']
@@ -167,8 +168,7 @@ class MainWindow(QMainWindow):
         self.checksum = config['diagnostics']['checkSUM']
         self.proteusSHIELD = config['shield']['proteusSHIELD']
         self.psEXEC = config['shield']['exec']
-        self.EXCLDIRS = user_path(config['search']['EXCLDIRS'], usr)
-        self.xRC = config['search']['xRC']
+        self.exclDIRS = user_path(config['search']['exclDIRS'], usr)
         self.zipPROGRAM = config['compress']['zipPROGRAM'].lower()
         self.zipPATH = config['compress']['zipPATH']
         self.extensions = config['search']['extension']
@@ -188,12 +188,12 @@ class MainWindow(QMainWindow):
         # QTimer.singleShot(5000, self.display_db)
 
         # Vars
-        self.app_version = "3.0.4"
-        self.PWD = os.getcwd()
+        self.app_version = "3.0.6"
+        self.pwd = os.getcwd()
         self.home_dir = home_dir
         config_local = appdata_local / "config"
-        self.USRDIR = find_user_folder("Desktop")
-        if self.USRDIR is None:
+        self.usrDIR = find_user_folder("Desktop")
+        if self.usrDIR is None:
             raise EnvironmentError("Could not find user Desktop folder")
         self.lclhome = appdata_local
         self.lclscripts = appdata_local / "scripts"
@@ -226,16 +226,18 @@ class MainWindow(QMainWindow):
 
         self.command_file = self.resources / "commands.txt"
 
-        self.defaultdiff = os.path.join(self.USRDIR, f'{self.MODULENAME}xSystemDiffFromLastSearch500.txt')
-        self.mftflnm = f'{self.MODULENAME}xMftchanges'
+        self.defaultdiff = os.path.join(self.usrDIR, f'{self.moduleNAME}xSystemDiffFromLastSearch500.txt')
+        self.mftflnm = f'{self.moduleNAME}xMftchanges'
 
         self.tomldefault = config_local / "config.bak"
         self.tomldefault_imt = None  # initial mtime
 
-        sys_tables, self.cache_table, _ = get_idx_tables(self.basedir, self.CACHE_S_str, suffix)
+        sys_tables, self.cache_table, _ = get_idx_tables(self.basedir, self.cache_s_str, suffix)
         self.sys_a, self.sys_b = sys_tables
 
         self.isexec = False
+
+        self.is_user_edit = False
         self.is_user_abort = False
         self.dirtybit = False  # something to save while the db is connected or program exit
 
@@ -418,6 +420,9 @@ class MainWindow(QMainWindow):
         menu.addAction("Filter", lambda: display(self.dspEDITOR, self.filter_file, True, self.dspPATH))
         menu.addAction("Clear Hudt", lambda: self.ui.hudt.clear())
         menu.addAction("List fonts", lambda: available_fonts(self.ui.hudt))
+        menu.addAction("Add to path", lambda: set_path(self.lclhome))
+        menu.addAction("Rmv from path", lambda: rmv_path(self.lclhome))
+
         self.ui.tomlb.setMenu(menu)
         self.ui.tomlb.setPopupMode(self.ui.tomlb.ToolButtonPopupMode.InstantPopup)
         # end tomlb
@@ -475,7 +480,7 @@ class MainWindow(QMainWindow):
 
     def update_basedir(self, basedir, suffix, drive, index):
 
-        CACHE_S = drive.cache_s
+        cache_s = drive.cache_s
         systimeche = drive.systimeche
         driveTYPE = drive.drive_type
         psEXTN = drive.psextn
@@ -485,12 +490,12 @@ class MainWindow(QMainWindow):
         self.driveTYPE = driveTYPE
         self.psEXTN = psEXTN
         self.is_exec_profile = ps_profile_type(psEXTN)
-        self.CACHE_S = CACHE_S
+        self.cache_s = cache_s
         self.systimeche = systimeche
         self.suffix = suffix
         self.load_drives()  # downloads combo
 
-        sys_tables, self.cache_table, _ = get_idx_tables(basedir, self.CACHE_S_str, suffix)
+        sys_tables, self.cache_table, _ = get_idx_tables(basedir, self.cache_s_str, suffix)
         self.sys_a, self.sys_b = sys_tables
         self.reload_database(0, is_remove=True, tables=('logs',))  # sort the dbcomb
 
@@ -568,20 +573,20 @@ class MainWindow(QMainWindow):
         psextn = drive_info.get("proteusEXTN")
         suffix = drive_info.get("idx_suffix")
 
-        basedirs.add_item((guid, BasedirDrive(suffix, guid, moi, mtype, dtype, self.CACHE_S, self.systimeche, psextn), drive_info))
+        basedirs.add_item((guid, BasedirDrive(suffix, guid, moi, mtype, dtype, self.cache_s, self.systimeche, psextn), drive_info))
 
         # should be C:\\ .. ect
         for drive, suffix in a_drives:
             if drive != self.basedir and drive in self.j_settings and "proteusEXTN" in self.j_settings[drive]:
 
-                CACHE_S = self.CACHE_S_str
+                cache_s = self.cache_s_str
                 systimeche = systimename
 
                 if drive != "C:\\":
 
                     systimeche = systimename + "_" + suffix
-                    CACHE_S = systimeche + ".gpg"
-                    CACHE_S = os.path.join(self.lclhome, CACHE_S)
+                    cache_s = systimeche + ".gpg"
+                    cache_s = os.path.join(self.lclhome, cache_s)
 
                     # guid
                     # get back drive from guid load or not. Windows is handled in load_saved_indexes ln1500. linux is handled here with part_uuid
@@ -596,7 +601,7 @@ class MainWindow(QMainWindow):
                     dtype = "HDD"
                 psextn = drive_info.get("proteusEXTN")
 
-                basedirs.add_item((guid, BasedirDrive(suffix, guid, moi, mtype, dtype, CACHE_S, systimeche, psextn), drive_info))
+                basedirs.add_item((guid, BasedirDrive(suffix, guid, moi, mtype, dtype, cache_s, systimeche, psextn), drive_info))
 
         self.basedirs = basedirs
         self.ui.sbasediridx.setMaximum(basedirs.items - 1)
@@ -657,9 +662,6 @@ class MainWindow(QMainWindow):
         self.load_find_file_combo()
 
         # end fill combos pg_1
-
-        if self.wsl:
-            self.wsl = find_wsl(self.toml_file)
 
     def remaining_startup(self):
         # if polkit_check():
@@ -839,8 +841,8 @@ class MainWindow(QMainWindow):
                 cachermPATTERNS = cache_clear_patterns(self.usr, cachermPATTERNS)
                 email = updated_config['backend']['email']
                 updated_downloads = user_path(updated_config['compress']['downloads'], self.usr)  # end script entry
-                ANALYTICSECT = updated_config['analytics']['ANALYTICSECT']
-                FEEDBACK = updated_config['analytics']['FEEDBACK']
+                analyticSECT = updated_config['analytics']['analyticSECT']
+                feedback = updated_config['analytics']['feedback']
                 zipPATH = updated_config['compress']['zipPATH']
                 zipPROGRAM = updated_config['compress']['zipPROGRAM'].lower()
                 checksum = updated_config['diagnostics']['checkSUM']
@@ -848,10 +850,9 @@ class MainWindow(QMainWindow):
                 hudSZE = updated_config['display']['hudSZE']
                 hudFNT = updated_config['display']['hudFNT']
                 compLVL = updated_config['logs']['compLVL']
-                MODULENAME = updated_config['paths']['MODULENAME']
-                wsl = updated_config['search']['wsl']
-                EXCLDIRS = user_path(updated_config['search']['EXCLDIRS'], self.usr)
-                xRC = updated_config['search']['xRC']
+                moduleNAME = updated_config['paths']['moduleNAME']
+                pwrshell = updated_config['search']['pwrshell']
+                exclDIRS = user_path(updated_config['search']['exclDIRS'], self.usr)
                 basedir = updated_config['search']['drive']
                 extensions = updated_config['search']['extension']
                 proteusEXTN = updated_config['shield']['proteusEXTN']
@@ -905,9 +906,9 @@ class MainWindow(QMainWindow):
                         if dspEDITOR is None:
                             raise ConfigurationError
 
-                is_wsl = False
-                if wsl != self.wsl:
-                    is_wsl = True
+                is_pwrshell = False
+                if pwrshell != self.pwrshell:
+                    is_pwrshell = True
 
                 guid = None
                 driveTYPE = None
@@ -938,11 +939,11 @@ class MainWindow(QMainWindow):
 
                     if drive_not_indexed:
 
-                        CACHE_S, systimeche, drive_idx, driveTYPE = setup_drive_cache(
-                            basedir, self.lclhome, self.dbopt, self.dbtarget, self.sj, self.toml_file, self.CACHE_S_str, driveTYPE,
+                        cache_s, systimeche, drive_idx, driveTYPE = setup_drive_cache(
+                            basedir, self.lclhome, self.dbopt, self.dbtarget, self.sj, self.toml_file, self.cache_s_str, driveTYPE,
                             self.usr, self.email, self.compLVL, j_settings=self.j_settings, partguid=guid, iqt=True
                         )
-                        if not CACHE_S or not drive_idx or not self.j_settings:
+                        if not cache_s or not drive_idx or not self.j_settings:
                             raise DriveLogicError(f"Failed to build cache file for {basedir} in setup_drive_cache")
 
                         di = self.j_settings.get(basedir, {})
@@ -968,7 +969,7 @@ class MainWindow(QMainWindow):
                             dtype = "HDD"
                         psEXTN = drive_info.get("proteusEXTN")
 
-                        drive = BasedirDrive(drive_idx, drive_guid, moi, mtype, dtype, CACHE_S, systimeche, psEXTN)
+                        drive = BasedirDrive(drive_idx, drive_guid, moi, mtype, dtype, cache_s, systimeche, psEXTN)
                         self.add_basedir(basedir, drive_idx, drive_guid, drive, drive_info)
 
                 if hudCOLOR != self.hudCOLOR or hudSZE != self.hudSZE or hudFNT != self.hudFNT:
@@ -1000,22 +1001,20 @@ class MainWindow(QMainWindow):
                 self.popPATH = popPATH
                 self.cachermPATTERNS = cachermPATTERNS
                 self.email = email
-                self.ANALYTICSECT = ANALYTICSECT
-                self.FEEDBACK = FEEDBACK
+                self.analyticSECT = analyticSECT
+                self.feedback = feedback
                 self.compLVL = compLVL
-                self.MODULENAME = MODULENAME
-                if is_wsl:
-                    if not wsl:
-                        self.wsl = False
-                    else:
-                        self.wsl = find_wsl(self.toml_file)
+                self.moduleNAME = moduleNAME
+
+                if is_pwrshell:
+                    self.pwrshell = pwrshell
+
                 self.proteusEXTN = ["[no extension]" if p == "" else p for p in proteusEXTN]
                 self.proteusPATH = proteusPATH
                 self.checksum = checksum
                 self.proteusSHIELD = proteusSHIELD
                 self.psEXEC = psEXEC
-                self.EXCLDIRS = EXCLDIRS
-                self.xRC = xRC
+                self.exclDIRS = exclDIRS
                 self.zipPROGRAM = zipPROGRAM
                 self.zipPATH = zipPATH
                 self.extensions = extensions
@@ -1045,18 +1044,22 @@ class MainWindow(QMainWindow):
         self.config = None
         self.tomldefault_imt = None
         self.isexec = False
+        self.is_user_edit = False
 
     def edit_config(self):
-        if not (self.dspEDITOR and self.dspPATH):
+        if not (self.dspEDITOR and self.dspPATH) or self.is_user_edit:
             return
+
         toml = self.toml_file
         if os.path.isfile(toml):
             if not self.job_running(True):
                 return
+            self.is_user_edit = True
             self.config = load_toml(toml)
             if not self.config:
                 self.ui.hudt.appendPlainText("failed to store original config unable to continue")
                 self.isexec = False
+                self.is_user_edit = False
                 return
 
             self.tomldefault_imt = toml.stat().st_mtime_ns
@@ -1086,7 +1089,6 @@ class MainWindow(QMainWindow):
             self.proc = ProcessHandler()  # self.lclhome, self.xdg_runtime, self.ui.dbmainlabel.text(), self.is_polkit
             self.open_proc()
             self.proc.complete.connect(lambda code, _: self.update_ui_sn.emit(code, "editor"))
-            # self.proc.complete.connect(lambda code, _: self.set_config(code))
             self.proc.complete.connect(lambda code, status: QTimer.singleShot(3000, lambda: self.set_config(code)))
             self.proc.start_tomledit(self.dspPATH, [str(self.toml_file)])
 
@@ -1102,7 +1104,7 @@ class MainWindow(QMainWindow):
 
         stat_value = {}
 
-        stat_value['Exhibit2'] = "Pwrshell" if not self.wsl else "WSL"
+        stat_value['Exhibit2'] = "Pwrshell" if self.pwrshell else "os.scandir"
         stat_value['Exhibit'] = self.distro_name
 
         drive_id = self.j_settings[self.basedir].get("drive_id_model")
@@ -1130,7 +1132,6 @@ class MainWindow(QMainWindow):
             "Drive name/Type": typeModel,
             "Drive type": drive_type,
             "Empty1":  "",
-            "xRC": self.xRC,
             "Proteus Shield active": str(ps),
             "Checksum and Caching": "y" if self.checksum else "n",
             "Empty2a":  "",
@@ -1147,16 +1148,12 @@ class MainWindow(QMainWindow):
         # self.ui.hudt.clear()
 
         for key, value in stat_value.items():
-            if key != "xRC" and not key.startswith("Debug") and not value:
+            if not key.startswith("Debug") and not value:
                 hudt('')
             elif key == "Exhibit":
                 hudt(value)
             elif key == "Exhibit2":
                 hudt(value)
-            elif key == "xRC":
-                if self.wsl:
-                    if self.basedir == "C:\\":
-                        hudt(f"{key} {value}")
             else:
                 hudt(f"{key} {value}")
 
@@ -1503,7 +1500,7 @@ class MainWindow(QMainWindow):
     # download button combo box
     # return drive cache glob and default name
     def get_cache_pattern(self):
-        systimename = name_of(self.CACHE_S_str)
+        systimename = name_of(self.cache_s_str)
         systime_pattern = systimename + "*"  # + "_*"
 
         pattern = os.path.join(self.lclhome, systime_pattern)
@@ -1660,17 +1657,20 @@ class MainWindow(QMainWindow):
     ''' Main search recentchangessearch.py'''
 
     # top search
-    def search(self, output, THETIME, argf):
+    def search(self, output, thetime, argf):
         if not self.job_running():
             return
 
         method = ""
-        SRCDIR = "noarguser"
+        srcDIR = "noarguser"
+
+        # integrate srcDIR for future expansion. <---
+        #
+        #
 
         if output == "AppData":
-            argone = THETIME
-            THETIME = SRCDIR
-            SRCDIR = "noarguser"
+            argone = thetime
+            thetime = srcDIR
             method = "rnt"
         else:
             argone = "search"
@@ -1680,7 +1680,7 @@ class MainWindow(QMainWindow):
         showDiff = self.ui.diffchkc.isChecked()
 
         if postop:
-            doctrine = os.path.join(self.USRDIR, "doctrine.tsv")
+            doctrine = os.path.join(self.usrDIR, "doctrine.tsv")
             if os.path.exists(doctrine):
                 self.ui.hudt.appendPlainText("A file doctrine already exists skipping")
 
@@ -1695,49 +1695,45 @@ class MainWindow(QMainWindow):
         args = [
             "recentchangessearch.py",
             str(argone),
-            str(THETIME),
+            str(thetime),
             str(self.usr),
-            str(self.PWD),
+            str(self.pwd),
             str(argf),
             str(method),
             "True",
             str(self.basedir),
             str(self.driveTYPE),
             str(self.dbopt),
-            str(self.CACHE_S),
+            str(self.cache_s),
             str(postop),
             str(scanidx),
             str(showDiff),
-            str(self.wsl),
             str(self.dspPATH)
         ]
         is_search = True
-        if self.wsl:
+        if not self.pwrshell:
             is_search = False
+
         self.proc.start_pyprocess(str(self.dispatch), args, dbtarget=self.dbtarget, is_search=is_search, is_postop=postop, is_scanIDX=scanidx)  # self.myapp
 
-    # fork
+    # fork 5 minutebtns ftimeb ftimebf timebtns stimeb stimebf
     # 5 Min, 5 Min Filtered, Search by time and . Filtered
     def tsearch(self, clicked_button, filtered=None):
-        output = ""
-        argf = ""
 
+        argf = ""
+        thetime = "noarguser"
+
+        output = self.ui.combftimeout.currentText()  # AppData or Desktop
         if filtered:
-            output = "Desktop"
             argf = "filtered"
 
         if clicked_button == self.ui.stimebf or clicked_button == self.ui.stimeb:
-            THETIME = self.ui.stime.value()
-            if THETIME == 0:
+            thetime = self.ui.stime.value()
+            if thetime == 0:
                 self.ui.hudt.appendPlainText("Time cant be 0.")
                 return
-        else:
-            THETIME = "noarguser"
 
-        if clicked_button == self.ui.stimeb or clicked_button == self.ui.ftimeb:
-            output = self.ui.combftimeout.currentText()  # AppData or Desktop
-
-        self.search(output, THETIME, argf)
+        self.search(output, thetime, argf)
 
     # fork
     def ntsearch(self):
@@ -1763,7 +1759,7 @@ class MainWindow(QMainWindow):
             return
 
         output = "search"
-        THETIME = fpath
+        thetime = fpath
 
         argf = self.ui.combt.currentText()
         if argf == "Filtered":
@@ -1771,7 +1767,7 @@ class MainWindow(QMainWindow):
         else:
             argf = "filtered"
 
-        self.search(output, THETIME, argf)
+        self.search(output, thetime, argf)
 
     # Find file
     def ffile(self, compress, time_range=0):
@@ -1796,13 +1792,13 @@ class MainWindow(QMainWindow):
         if compress:
             downloads = self.ui.combffileout.currentText()
             if downloads == "Desktop":
-                downloads = self.USRDIR
+                downloads = self.usrDIR
             elif downloads == "AppData":
                 downloads = self.lclhome
             else:
                 downloads = downloads.strip()
 
-            self.proc.set_compress(self.zipPROGRAM, self.zipPATH, str(self.USRDIR), downloads)  # compress button?
+            self.proc.set_compress(self.zipPROGRAM, self.zipPATH, str(self.usrDIR), downloads)  # compress button?
         else:
             range_value = self.ui.sffile.value()
             if range_value:
@@ -1817,8 +1813,8 @@ class MainWindow(QMainWindow):
                     #     self.ui.hudt.appendPlainText("specify 0 to compress all results. or enter a time range to compress")
 
         action = "pwsh"
-        if self.wsl:
-            action = "wsl"
+        if not self.pwrshell:
+            action = "python"
 
         self.proc.set_range(str(time_range))
         args = [
@@ -1985,7 +1981,7 @@ class MainWindow(QMainWindow):
 
         basedir = self.basedir
         email = self.email
-        diff_file = get_diff_file(self.lclhome, self.USRDIR, self.MODULENAME)
+        diff_file = get_diff_file(self.lclhome, self.usrDIR, self.moduleNAME)
 
         showDiff = self.ui.dbchka.isChecked()
 
@@ -2011,9 +2007,9 @@ class MainWindow(QMainWindow):
             basedir,
             self.usr,
             diff_file,
-            self.CACHE_S,
+            self.cache_s,
             email,
-            str(self.ANALYTICSECT),
+            str(self.analyticSECT),
             str(showDiff),
             str(self.compLVL),
             'True',
@@ -2023,7 +2019,7 @@ class MainWindow(QMainWindow):
         self.proc.start_pyprocess(str(self.dispatch), args, database=self.dbopt, dbtarget=self.dbtarget, status_message="Index scan")
 
     # Main Build IDX
-    def run_build_idx(self, basedir, CACHE_S, stsmsg, tables, idx_drive=False, drive_value=None):
+    def run_build_idx(self, basedir, cache_s, stsmsg, tables, idx_drive=False, drive_value=None):
 
         drive_type = self.j_settings.get(basedir, {}).get("drive_type")
         timeout = 300000
@@ -2055,9 +2051,9 @@ class MainWindow(QMainWindow):
             self.dbtarget,
             basedir,
             self.usr,
-            CACHE_S,
+            cache_s,
             self.email,
-            str(self.ANALYTICSECT),
+            str(self.analyticSECT),
             str(idx_drive),
             str(self.gnupg_home),
             str(self.compLVL),
@@ -2082,7 +2078,7 @@ class MainWindow(QMainWindow):
         self.ui.hudt.appendPlainText(f"Turbo is: {turbo}\n")
 
         self.ui.dbmainlabel.setText("Building profile")
-        self.run_build_idx(self.basedir, self.CACHE_S, "System profile", tables)
+        self.run_build_idx(self.basedir, self.cache_s, "System profile", tables)
 
     # fork       pg1
     # add index button page 1 '''
@@ -2100,8 +2096,8 @@ class MainWindow(QMainWindow):
             self.ui.hudt.appendPlainText(f"{drive} sys basedir Requires build idx on db page")
             return
 
-        CACHE_S, systimeche, key = get_cache_s(drive, self.CACHE_S_str)
-        sys_tables, cache_table, _ = get_idx_tables(drive, CACHE_S, key)
+        cache_s, systimeche, key = get_cache_s(drive, self.cache_s_str)
+        sys_tables, cache_table, _ = get_idx_tables(drive, cache_s, key)
 
         tables = (*sys_tables, cache_table, systimeche)  # for updating ui elements
 
@@ -2123,7 +2119,7 @@ class MainWindow(QMainWindow):
 
         self.isexec = True
         self.ui.hudt.appendPlainText(f"Indexing {drive}")
-        self.run_build_idx(drive, CACHE_S, f"Drive {drive} profile", tables, True, drive)
+        self.run_build_idx(drive, cache_s, f"Drive {drive} profile", tables, True, drive)
 
     # remove index button page 1 '''
     def rmv_idx_drive(self):
@@ -2134,17 +2130,17 @@ class MainWindow(QMainWindow):
 
         idx_drive = self.j_settings.get(drive, {})
 
-        CACHE_S, systimeche_table, key = get_cache_s(drive, self.CACHE_S_str)
+        cache_s, systimeche_table, key = get_cache_s(drive, self.cache_s_str)
 
         if idx_drive:
 
             sys_tables, cache_table, _ = get_idx_tables(drive, idx_suffix=key)
             # remove the drive cache .gpg file
             # call a thread as the database delete can freeze ui
-            self.clear_sys(drive, CACHE_S, sys_tables, cache_table, systimeche_table, ix)
+            self.clear_sys(drive, cache_s, sys_tables, cache_table, systimeche_table, ix)
         else:
             self.ui.combd.removeItem(ix)
-            systimeche = name_of(self.CACHE_S_str)
+            systimeche = name_of(self.cache_s_str)
             cache_file = systimeche + f"_{key}.gpg"
             cache_file = os.path.join(self.lclhome, cache_file)
             removefile(cache_file)
@@ -2158,7 +2154,7 @@ class MainWindow(QMainWindow):
 
         is_idx = False
 
-        CACHE_S = self.CACHE_S
+        cache_s = self.cache_s
         systimeche = self.systimeche
 
         drive = self.ui.combd.currentText()  # index selected
@@ -2172,7 +2168,7 @@ class MainWindow(QMainWindow):
                 self.ui.hudt.appendPlainText(f"Failed to find {drive} in {self.sj}")
                 return
 
-            CACHE_S, systimeche, _ = get_cache_s(drive, self.CACHE_S_str)
+            cache_s, systimeche, _ = get_cache_s(drive, self.cache_s_str)
             basedir = "C:\\"
             if drive != "C:\\":
                 # result = get_disk_and_volume_for_drive
@@ -2196,8 +2192,8 @@ class MainWindow(QMainWindow):
                 self.ui.hudt.appendPlainText(msg)
             return
 
-        if not os.path.isfile(CACHE_S):  # missing cache?
-            self.ui.hudt.appendPlainText(f"Error cache not found. {'re index drive' if is_idx else 'requires rebuild IDX'}, file not found: {CACHE_S}")
+        if not os.path.isfile(cache_s):  # missing cache?
+            self.ui.hudt.appendPlainText(f"Error cache not found. {'re index drive' if is_idx else 'requires rebuild IDX'}, file not found: {cache_s}")
             self.isexec = False
             if is_idx:  # dont remove / or basedir
                 ix = self.ui.combd.findText(drive)
@@ -2234,11 +2230,11 @@ class MainWindow(QMainWindow):
             self.usr, drive_type,
             self.tempdir,
             str(self.gnupg_home),
-            CACHE_S,
+            cache_s,
             self.dspEDITOR,
             self.dspPATH,
             self.email,
-            str(self.ANALYTICSECT),
+            str(self.analyticSECT),
             str(self.compLVL)
         ]
 
@@ -2254,7 +2250,7 @@ class MainWindow(QMainWindow):
     # Mft helpers
     def clearmfts(self):
 
-        pattern = os.path.join(self.USRDIR, self.mftflnm + "*")
+        pattern = os.path.join(self.usrDIR, self.mftflnm + "*")
         filepath = glob.glob(pattern)
         for path in filepath:
             try:
@@ -2271,33 +2267,29 @@ class MainWindow(QMainWindow):
             c_ver = mftec_version(str(self.mftec_command), self.tempdir)
             if c_ver == "mftec_cutoff":
                 method = "mftec_cutoff"
-            elif c_ver:
-                method = "mftec"
+
         elif os.path.isfile(self.parsec_command):
             method = "parsec"
 
-        if method == "mftdump":
+        if os.path.isfile(self.icat_command):  # '.\\bin\\icat.exe'
 
-            if os.path.isfile(self.icat_command):  # '.\\bin\\icat.exe'
-
-                if os.path.isfile(self.fsstat_command):  # '.\\bin\\fsstat.exe'
-                    tool = "icat_fsstat"
-                else:
-                    window_message(self, "1.fsstat.exe", f"Cant find executable in {self.exe_path}")
-            elif os.path.isfile(self.ntfs_command):  # '.\\bin\\ntfstool.x86.exe'
-                tool = "ntfstool"
+            if os.path.isfile(self.fsstat_command):  # '.\\bin\\fsstat.exe'
+                tool = "icat_fsstat"
             else:
-                window_message(self, "1.icat/fstat or 2.ntfstools", f"Cant find any executable in {self.exe_path}")
-            if tool is None:
-                return None, None
+                window_message(self, "1.fsstat.exe", f"Cant find executable in {self.exe_path}")
+        elif os.path.isfile(self.ntfs_command):  # '.\\bin\\ntfstool.x86.exe'
+            tool = "ntfstool"
+        else:
+            window_message(self, "1.icat/fstat or 2.ntfstools", f"Cant find any executable in {self.exe_path}")
+
         return method, tool
 
-    def prescreen(self, tool, mmin, method, output_f, csvnm, flnm, OLDSORT, flnmout, flnmdffout, drive, USRDIR):
+    def prescreen(self, tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR):
 
         if tool == "icat_fsstat":
 
             if validmft(str(self.fsstat_command)):  # First check for $MFT
-                self.start_mfttrd("Mfticat_fstat", mmin, method, output_f, csvnm, flnm, OLDSORT, flnmout, flnmdffout, drive, USRDIR)
+                self.start_mfttrd("Mfticat_fstat", mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR)
                 return True
         # ntfstool
         else:
@@ -2312,7 +2304,7 @@ class MainWindow(QMainWindow):
                     vol = mounted['id']
                     volume = vol
                     if disk and vol:  # First check for $MFT - # mft found
-                        self.start_mfttrd("Mftntfs", mmin, method, output_f, csvnm, flnm, OLDSORT, flnmout, flnmdffout, drive, USRDIR, disk, volume)
+                        self.start_mfttrd("Mftntfs", mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk, volume)
                         return True
                         # self.worker.set_task(opt, disk, volume) #pass ins
                     else:
@@ -2338,10 +2330,10 @@ class MainWindow(QMainWindow):
             return
 
         method, tool = self.validaction()
-        if (method, tool) == (None, None):
+        if tool is None:
             self.isexec = False
             return
-        elif method == "mftdump" and self.mft:
+        elif self.mft and (method == "mftdump" or method == "parsec"):
             self.isexec = False
             self.ui.hudt.appendPlainText("MFTECmd is required to convert a raw mft to csv")
             return
@@ -2381,39 +2373,56 @@ class MainWindow(QMainWindow):
         csvnm = "mft.csv"
         mftraw = "Mft.raw"
 
-        output_f = os.path.join(drive, mftraw)
-
         flnm = f'{self.mftflnm}{mmin}.txt'
-        flnmout = os.path.join(self.USRDIR, flnm)
+        flnmout = os.path.join(self.usrDIR, flnm)
         flnmdff = f'{self.mftflnm}DiffFromLastSearch{mmin}.txt'
-        flnmdffout = os.path.join(self.USRDIR, flnmdff)
+        flnmdffout = os.path.join(self.usrDIR, flnmdff)
 
-        OLDSORT = None  # find prev search
-        testp = os.path.join(self.USRDIR, flnm)
+        oldsort = None  # find prev search
+        testp = os.path.join(self.usrDIR, flnm)
         if os.path.isfile(testp):
-            OLDSORT = os.path.join(drive, flnm)
+            oldsort = os.path.join(drive, flnm)
             try:
-                shutil.copy(testp, OLDSORT)  # copy it to AppData
+                shutil.copy(testp, oldsort)  # copy it to AppData
                 self.clearmfts()
             except Exception:
-                OLDSORT = None
+                oldsort = None
                 self.ui.hudt.appendPlainText(f'failed to copy old results: {testp}')
 
         isMftSave = self.ui.mftchkb.isChecked()
 
-        if isMftSave:  # Save the system Mft
-            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, OLDSORT, flnmout, flnmdffout, drive, self.USRDIR):  # check for NTFS valid $MFT
+        # Imported Mft to csv
+        if self.mft:
+
+            self.ui.progressBAR.setValue(15)
+
+            file_name = name_of(mft)
+            output_f = f'{file_name}.csv'
+
+            self.start_mfttrd("Mftimport", mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR, None, None, mft)
+
+            self.worker.set_task(self.parsec_command, self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
+            self.worker_thread.started.connect(self.worker.outputmft)
+            self.worker.complete.connect(lambda code: self.update_ui_sn.emit(code, "Import"))
+            self.open_trd()
+
+        # Save the system Mft
+        elif isMftSave:
+            output_f = os.path.join(drive, mftraw)
+            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR):  # check for NTFS valid $MFT
                 self.isexec = False
                 return  # optional pass ins
-            self.worker.set_task(self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
+            self.worker.set_task(self.parsec_command, self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
 
             self.worker_thread.started.connect(self.worker.save_mft)
             self.open_trd(150000)
 
-        elif mft is None:  # Default make the search
+        # Default make the search
+        else:
+            output_f = os.path.join(drive, mftraw)
             self.ui.progressBAR.setValue(5)
 
-            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, OLDSORT, flnmout, flnmdffout, drive, self.USRDIR):  # .
+            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR):  # .
                 self.isexec = False
                 return
             self.worker.set_task(self.parsec_command, self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
@@ -2421,22 +2430,6 @@ class MainWindow(QMainWindow):
             self.worker_thread.started.connect(self.worker.run)
             self.open_trd(150000)
 
-        else:  # From imported Mft to csv
-
-            self.ui.progressBAR.setValue(15)
-
-            newf = name_of(mft)
-            optf = f'{newf}.csv'
-
-            self.start_mfttrd(
-                "Mftimport", mmin, method, optf, csvnm,
-                flnm, OLDSORT, flnmout, flnmdffout,
-                drive, self.USRDIR, None, None, mft
-            )
-            self.worker.set_task(self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
-            self.worker_thread.started.connect(self.worker.outputmft)
-            self.worker.complete.connect(lambda code: self.update_ui_sn.emit(code, "Import"))
-            self.open_trd()
         # end Main mft search
 
     # Mft raw file
@@ -2617,7 +2610,7 @@ class MainWindow(QMainWindow):
                 if width > 1000:
                     header.resizeSection(i, 1000)
         else:
-            systimeche = name_of(self.CACHE_S_str)
+            systimeche = name_of(self.cache_s_str)
             if 'cache_' in table or systimeche in table:
                 column_widths = [60, 135, 1100, 75, 75, 75, 75, 215]
 
@@ -2688,7 +2681,7 @@ class MainWindow(QMainWindow):
             if s.startswith("cache"):
                 cache_table = s
 
-                systimeche = name_of(self.CACHE_S_str)
+                systimeche = name_of(self.cache_s_str)
                 if key:
                     systimeche = systimeche + "_" + key
 
@@ -2746,6 +2739,8 @@ class MainWindow(QMainWindow):
     # Thread
     #
     def job_running(self, database=False, no_popup=False):
+        if self.is_user_edit:
+            return False
         if not self.isexec:
             self.isexec = True
             if database:
@@ -2841,9 +2836,9 @@ class MainWindow(QMainWindow):
 
     # Thread types
     # Mft
-    def start_mfttrd(self, log_label, mmin, method, output_f, csvnm, flnm, OLDSORT, flnmout, flnmdffout, drive, USRDIR, disk=None, volume=None, mft=None):
+    def start_mfttrd(self, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk=None, volume=None, mft=None):
         self.worker_thread = QThread()
-        self.worker = MftWorker(self.lclhome, log_label, mmin, method, output_f, csvnm, flnm, OLDSORT, flnmout, flnmdffout, drive, USRDIR, disk, volume, mft)
+        self.worker = MftWorker(self.lclhome, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk, volume, mft)
         self.worker.progress.connect(self.increment_progress)
         self.ui.progressBAR.setValue(0)
         self.worker.exception.connect(
@@ -2911,7 +2906,7 @@ class MainWindow(QMainWindow):
             return False
         prompt_v = "Previous sys profile has to be cleared. Continue?" if not idx else f"drive {drive} has a sys profile and has to be cleared. Continue?"
 
-        cache_s = cache_s or self.CACHE_S
+        cache_s = cache_s or self.cache_s
         sys_tables = sys_tables or (self.sys_a, self.sys_b)
         cache_table = cache_table or self.cache_table
         systimeche = systimeche or self.systimeche
@@ -3016,7 +3011,7 @@ class MainWindow(QMainWindow):
                 idx_suffix = self.j_settings.get(drive, {})
 
                 if idx_suffix:
-                    cache_s, _, _ = get_cache_s(drive, self.CACHE_S_str)
+                    cache_s, _, _ = get_cache_s(drive, self.cache_s_str)
                     if os.path.isfile(cache_s):
                         self.ui.combd.addItem(drive)
                         ix = self.ui.combd.findText(drive)
@@ -3067,7 +3062,7 @@ class MainWindow(QMainWindow):
                 if locale == 'add':
 
                     if self.psEXEC:
-                        extn = create_profile_baseline(execEXTN)
+                        extn = create_profile_baseline(EXEC_EXTN)
                     else:
 
                         extn = self.proteusEXTN + self.proteusPATH
@@ -3125,18 +3120,19 @@ def start_main_window():
 
     appdata_local = Path(sys.argv[0]).resolve().parent  # find_install() # software install aka workdir
 
-    toml_file, json_file, usr = get_config(appdata_local, platform="Windows")
     home_dir = Path.home()
     log_dir = appdata_local / "logs"
     iconPATH = appdata_local / "Resources" / "rntchanges.ico"
     flth = appdata_local / "flth.csv"
     dbtarget_frm = appdata_local / "recent.gpg"
-    CACHE_F_frm = appdata_local / "ctimecache.gpg"
-    CACHE_S_frm = appdata_local / "systimeche.gpg"
+    cache_f_frm = appdata_local / "ctimecache.gpg"
+    cache_s_frm = appdata_local / "systimeche.gpg"
     dbtarget = str(dbtarget_frm)
-    CACHE_F = str(CACHE_F_frm)
-    CACHE_S = str(CACHE_S_frm)
-    CACHE_S_str = str(CACHE_S_frm)  # used for reference
+    cache_f = str(cache_f_frm)
+    cache_s = str(cache_s_frm)
+    cache_s_str = str(cache_s_frm)  # used for reference
+
+    toml_file, json_file, usr = get_config(appdata_local, platform="Windows")
 
     config = load_toml(toml_file)
     if not config:
@@ -3160,7 +3156,6 @@ def start_main_window():
     compLVL = config['logs']['compLVL']
     ll_level = config['logs']['logLEVEL']
     log_file = config['logs']['userLOG']
-    xRC = config['search']['xRC']
     proteuspaths = config['shield']['proteusPATH']
     nogo = user_path(config['shield']['nogo'], usr)
     suppress_list = user_path(config['shield']['filterout'], usr)
@@ -3219,7 +3214,7 @@ def start_main_window():
                 else:
                     pawd = dlg.get_password()
 
-                    res = genkey(appdata_local, usr, email, email_name, dbtarget, CACHE_F, CACHE_S, flth, tempdir, pawd)
+                    res = genkey(appdata_local, usr, email, email_name, dbtarget, cache_f, cache_s, flth, tempdir, pawd)
                     if res:
 
                         print("Got password (hidden):", "*" * len(pawd) + "\n")
@@ -3241,18 +3236,15 @@ def start_main_window():
                     else:
                         QMessageBox.critical(None, "Error", "Decryption failed .gpg could be corrupt. exitting.")
                     return 1
-            else:
-                if xRC:
-                    print("If needing to manually reset xRC mft database remove ctime.db in app install")
 
             # if drive is not "C:\\" resolve partguid. store info in json under suffix ie s for S:\\ drive
             j_settings = {}  # load it once. dump often to avoid desync but saves on unecessary reads
 
-            CACHE_S, systimeche, suffix, driveTYPE = setup_drive_cache(
-                basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, CACHE_S_str,
+            cache_s, systimeche, suffix, driveTYPE = setup_drive_cache(
+                basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, cache_s_str,
                 driveTYPE_frm, usr, email, compLVL, j_settings=j_settings, iqt=True
             )
-            if not CACHE_S or not suffix or not j_settings:
+            if not cache_s or not suffix or not j_settings:
                 return 1
 
             # config changes
@@ -3277,7 +3269,6 @@ def start_main_window():
                 if distro_name:
                     j_settings["distro_name"] = distro_name
                     json_dump = True
-
             # end confnig changes
 
             # end startup/initialize
@@ -3311,7 +3302,7 @@ def start_main_window():
             exit_code = 0
             window = MainWindow(
                 appdata_local, home_dir, config, j_settings, toml_file, json_file, log_dir, log_path,
-                driveTYPE, distro_name, dbopt, dbtarget, CACHE_S, CACHE_S_str, systimeche, suffix,
+                driveTYPE, distro_name, dbopt, dbtarget, cache_s, cache_s_str, systimeche, suffix,
                 gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH, downloads, email, usr,
                 cachermPATTERNS, tempdir
             )
