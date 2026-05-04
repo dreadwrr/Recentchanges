@@ -1,5 +1,5 @@
 Windows 10 11 <br>
-Released 3.0.6! with key changes and optimizations <br>
+Released 3.0.6 <br>
 ![Alt text](https://i.imgur.com/yNnttmU.png) <br>
 ![Alt text](https://i.imgur.com/p1kuXYp.png) <br><br>
 
