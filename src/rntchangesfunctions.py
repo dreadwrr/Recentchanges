@@ -1,33 +1,27 @@
-# 04/13/2026           developer buddy core
+# 05/03/2026           developer buddy core
 import csv
 import ctypes
 import glob
 import importlib.util
 import magic
 import os
-import platform
 import re
 import shutil
-import sqlite3
 import subprocess
 import sys
 import time
-import traceback
 import winreg
 from datetime import datetime
 from pathlib import Path
 from .config import update_toml_values
 from .configfunctions import find_install
-from .ctime import init_recentchanges
 from .dirwalkerfunctions import files_search
-from .fsearch import process_line
-from .fsearchfunctions import set_excl_dirs
 from .fsearchps1 import process_ps1
 from .fsearchparallel import process_lines
 from .fsearchscan import process_scan
 from .pyfunctions import cprint
 from .pyfunctions import suppress_list
-from .pysql import clear_conn
+
 install_root = find_install()
 filter_patterns_path = install_root / "filter.py"
 spec = importlib.util.spec_from_file_location("user_filter", filter_patterns_path)
@@ -77,14 +71,14 @@ def check_script_path(script, appdata_local=None):
 
 
 # inclusions from this script. temp_dir is the temp_dir for the qt app
-def get_runtime_exclude_list(appdata_local, USRDIR, MODULENAME, flth, dbtarget, CACHE_F, CACHE_S, gnupg_home, log_path, dbopt=None, temp_dir=None):
+def get_runtime_exclude_list(appdata_local, usrDIR, moduleNAME, flth, dbtarget, cache_f, cache_s, gnupg_home, log_path, dbopt=None, temp_dir=None):
 
-    dir_pth = os.path.join(appdata_local, f"{MODULENAME}_MDY_*")
+    dir_pth = os.path.join(appdata_local, f"{moduleNAME}_MDY_*")
     folders = glob.glob(dir_pth)
-    old_searches = [os.path.join(fld, MODULENAME) for fld in folders]
+    old_searches = [os.path.join(fld, moduleNAME) for fld in folders]
 
-    ad_results = os.path.join(appdata_local, f'{MODULENAME}x')
-    download_results = os.path.join(USRDIR, f'{MODULENAME}x')
+    ad_results = os.path.join(appdata_local, f'{moduleNAME}x')
+    download_results = os.path.join(usrDIR, f'{moduleNAME}x')
 
     if not gnupg_home:
         gnupg_home = os.environ.get("GNUPGHOME")
@@ -96,8 +90,8 @@ def get_runtime_exclude_list(appdata_local, USRDIR, MODULENAME, flth, dbtarget, 
         download_results,
         flth,
         dbtarget,
-        CACHE_F,
-        CACHE_S,
+        cache_f,
+        cache_s,
         log_path
     ]
     if gnupg_home:
@@ -114,7 +108,7 @@ def get_runtime_exclude_list(appdata_local, USRDIR, MODULENAME, flth, dbtarget, 
 
 
 # term output
-def logic(syschg, nodiff, diffrlt, validrlt, THETIME, argone, argf, result_output, filename, flsrh, method):
+def logic(syschg, nodiff, diffrlt, validrlt, thetime, argone, argf, result_output, filename, flsrh, method):
 
     if syschg:
         # if validrlt == "prev":
@@ -127,7 +121,7 @@ def logic(syschg, nodiff, diffrlt, validrlt, THETIME, argone, argf, result_outpu
                 cprint.cyan('There were no files to grab.')
                 print()
 
-            if THETIME != "noarguser":
+            if thetime != "noarguser":
                 cprint.cyan(f'All system files in the last {argone} seconds are included')
 
             else:
@@ -290,363 +284,18 @@ def check_installed_app(exe_name, product_key=None):
             pass
     return None
 
-# WSL
 
+def find_scan(recent, complete, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, exclDIRS, iqt=False, strt=20, endp=60, logger=None):
 
-def get_linux_distro():
-    os_release_path = "/etc/os-release"
-    distro_info = {}
-    try:
-        with open(os_release_path, "r") as file:
-            for line in file:
-                if "=" in line:
-                    key, value = line.strip().split("=", 1)
-                    value = value.strip('"')
-                    distro_info[key] = value
-        distro_id = distro_info.get("ID", "").lower()
-        distro_name = distro_info.get("NAME", "").lower()
-        for target in ("porteus", "artix"):
-            if target in distro_id or target in distro_name:
-                return True
-        return False
-    except FileNotFoundError:
-        print("The file /etc/os-release was not found.")
-    except Exception as e:
-        print(f'An error occurred: {type(e).__name__} {e}')
-    return False
-
-
-def find_wsl(toml_file):
-    dm = "switching to powershell"
-    if is_wsl():
-        default = get_default_distro()
-        res = get_version1()
-        if default and not res:
-
-            question = "WSL installed. it is required to change to WSL1 continue?"
-            while True:
-                user_input = input(f"{question} (Y/N): ").strip().lower()
-                if user_input == 'y':
-                    if set_to_wsl1(default):
-                        return True
-                    else:
-                        print(f"Unable to set wsl1. {dm}")
-
-                elif user_input == 'n':
-                    update_toml_values({'search': {'wsl': False}}, toml_file)
-                    break
-                else:
-                    print("Invalid input, please enter 'Y' or 'N'.")
-
-        elif not default:  # and not res:
-            print(f"Unable to get default distro for wsl.. {dm}")
-        else:
-            return True
-    else:
-        print("WSL not installed setting changed to off")
-    update_toml_values({'search': {'wsl': False}}, toml_file)
-    return False
-
-
-def is_wsl():
-    uname = platform.uname()
-    if "microsoft" in uname.release.lower() or "microsoft" in uname.version.lower():
-        return True
-    # try:
-    #     with open("/proc/version", "r") as f:
-    #         version = f.read().lower()
-    #     if "microsoft" in version or "wsl" in version:
-    #         return True
-    # except FileNotFoundError:
-    #     pass
-    try:
-        result = subprocess.run(
-            ["wsl", "cat", "/proc/version"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        version = result.stdout.lower()
-        return "microsoft" in version or "wsl" in version
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
-    if "WSL_DISTRO_NAME" in os.environ:
-        return True
-    return False
-
-
-def set_to_wsl1(distro):
-    print("converting...")
-    proc2 = subprocess.run(["wsl", "--set-version", distro, "1"], capture_output=True, text=True)
-    if proc2.returncode == 0:
-        print(f"Successfully set {distro} to WSL 1")
-        return True
-    else:
-        print(f"Error setting version for distro {distro} {proc2.stderr}")
-        return False
-
-
-# Parse the default distro for ver
-def get_version1():
-    proc = subprocess.run(["wsl", "--list", "--verbose"], capture_output=True, text=True, encoding="utf-16le")
-    lines = proc.stdout.splitlines()
-    for line in lines:
-        line = line.strip()
-        if line.startswith("*"):
-
-            parts = re.split(r"\s+", line)
-            if len(parts) >= 4:
-                distro_name = parts[1]
-                version_str = parts[-1]
-                try:
-                    version = int(version_str)
-                except ValueError:
-                    version = None
-                if version == 1:
-                    return distro_name
-    return None
-
-
-# find default wsl
-def get_default_distro():
-
-    proc = subprocess.run(["wsl", "--list", "--verbose"], capture_output=True, text=True, encoding="utf-16le")
-    output = proc.stdout.splitlines()
-
-    for line in output:
-        line = line.strip()
-        if line.startswith("*"):
-            parts = re.split(r"\s+", line)
-            if len(parts) >= 2:
-                return parts[1]
-    return None
-
-
-# convert find command paths
-def wsl_to_windows_path(wsl_path: str) -> str:
-    if wsl_path.startswith("/mnt/"):
-        driv = wsl_path[5]
-        windows_path = wsl_path.replace(f"/mnt/{driv}/", f"{driv.upper()}:\\")
-        windows_path = windows_path.replace("/", "\\")
-        return windows_path
-    return wsl_path
-
-
-def conv_cdrv(file_entries):
-    result = []
-    for entry in file_entries:
-        fields = entry.split(maxsplit=10)
-        if len(fields) >= 11:
-            wsl_path = fields[10]
-            fields[10] = wsl_to_windows_path(wsl_path)
-            result.append(fields)
-    return result
-# end convert find command paths
-
-# end WSL
-
-
-def get_powershell_script(basedir, script_dir, EXCLDIRS, excl_file, tempwork, search_time, proval, endval, iqt):
-    excl_path = os.path.join(tempwork, excl_file)
-    set_excl_dirs(basedir, excl_path, EXCLDIRS)
-
-    s_path = os.path.join(script_dir, "ctime.ps1")
-
-    find_command_cmin = [
-        "powershell.exe",
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", str(s_path),
-        "-rootPath", basedir,
-        "-cutoffMinutes", str(search_time),
-        "-excluded", excl_path,
-        "-StartR", str(proval),
-        "-EndR", str(endval)
-    ]
-    if iqt:
-        find_command_cmin += ["-progress"]
-    # if FEEDBACK:
-    #     find_command_cmin += ["-feedback"]
-    return find_command_cmin
-
-
-# find command search helper use
-# powershell for find_files() for all created files
-def find_cmdcreated(command, s_path, search_start_dt, strt, endp):
-
-    try:
-
-        # proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        # output, ermsg = proc.communicate()
-
-        # if proc.returncode not in (0, 1):
-        #     print(proc.stdout)
-        #     print()
-        #     print(f"Err: {ermsg.decode(errors='backslashreplace')}")
-        #     print("Powershell failure for find command helper.")
-        #     return []
-
-        # recent_files = output.decode(errors='backslashreplace').splitlines()
-        # for record in recent_files:
-        #     if not record:
-        #         continue
-        #     fields = record.split(maxsplit=10)
-        #     if len(fields) >= 11:  # 11
-        #         m_time = int(fields[0])
-        #         c_time = int(fields[2])
-
-        #         fields[0] = str(m_time / 1_000_000)
-        #         fields[2] = str(c_time / 1_000_000)
-        #         file_entries.append(fields)
-        # return file_entries
-
-        file_entries = []
-        is_error = True
-
-        print(f"\nCutoff {search_start_dt.replace(microsecond=0).isoformat()} \n")
-        print('Running command:', ' '.join(command), flush=True)
-        print()
-        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:  # stderr=subprocess.STDOUT
-
-            assert proc.stdout is not None
-            for line in proc.stdout:
-                if line.startswith("Merge complete:"):
-                    is_error = False
-                    break
-                elif line.startswith("RESULT:"):
-                    value_str = line.split("RESULT:")[1].strip()
-                    print(value_str)
-                elif line.startswith("Progress: "):
-                    print(line, end="", flush=True)
-                else:
-                    fields = line.split(maxsplit=10)
-
-                    if len(fields) >= 11:
-                        m_time = int(fields[0])
-                        c_time = int(fields[2])
-
-                        fields[0] = str(m_time / 1_000_000)
-                        fields[2] = str(c_time / 1_000_000)
-                        file_entries.append(fields)
-
-            err_output = proc.stderr.read()
-            res = proc.wait()
-
-            if res != 0:
-
-                if err_output:
-                    print(err_output)
-                print("Command failed subprocess fault or script error scanline.ps1")
-                is_error = True
-                file_entries = []
-
-        strt += 10
-        endp += 10
-        return file_entries, is_error, strt, endp
-
-    except (FileNotFoundError, PermissionError) as e:
-        print(f"find_created unable to locate script {s_path} or access denied: {e}")
-    except Exception as e:
-        print(f"Unexpected error running powershell find helper find_created in rntchangesfunctions: {type(e).__name__} {e}")
-    return [], None
-
-
-# find command search helper use
-# powershell for find_files() for modified files the find command cant reach.
-def find_cmdhelp(s_path, mmin, USR):
-
-    command = [
-        "powershell.exe",
-        "-ExecutionPolicy", "Bypass",
-        "-File", str(s_path),
-        "-cutoffMinutes", str(mmin),
-        "-userName", str(USR)
-    ]
-
-    # # if file_type == "ctime":
-    # #     command += ["-cmin", "True"]
-    # # else:
-    # #     command += ["-mmin", "True"]
-
-    # # print('Running command:', ' '.join(command)) debug
-
-    mmin_files = []
-    cmin_files = []
-    try:
-
-        proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        output, ermsg = proc.communicate()
-
-        if proc.returncode not in (0, 1):
-            print(proc.stdout)
-            print()
-            print(f"Err: {ermsg.decode(errors='backslashreplace')}")
-            print("Powershell failure for find command helper.")
-            return [], []
-
-        recent_files = output.decode(errors='backslashreplace').splitlines()
-        for record in recent_files:
-            if not record:
-                continue
-            fields = record.split(maxsplit=10)
-            if len(fields) >= 11:
-                m_time = int(fields[0])
-                c_time = int(fields[2])
-
-                fields[0] = str(m_time / 1_000_000)
-                fields[2] = str(c_time / 1_000_000)
-                # # original
-                # # if fields[2] > fields[0]:
-                # #     cmin_files.append(fields)
-                # # else:
-                # #     mmin_files.append(fields)
-
-                mmin_files.append(fields)
-
-        # note cmin_files are disabled as handled by ctime.py
-        return mmin_files, cmin_files
-
-    except (FileNotFoundError, PermissionError) as e:
-        print(f"find_cmdhelp unable to locate script {s_path} or access denied: {e}")
-    except Exception as e:
-        print(f"Unexpected error running powershell find helper find_cmdhelp in rntchangesfunctions: {type(e).__name__} {e}")
-    return [], []
-
-
-def find_scan(RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, search_time, EXCLDIRS, toml_file, iqt=False, strt=20, endp=60, logger=None):
-
-    # # file_entries = []
     records = []
 
     basedir = user_setting['basedir']
-    FEEDBACK = user_setting['FEEDBACK']
-
-    is_error = False
-
-    if user_setting['xRC']:
-
-        records = init_recentchanges(search_time, search_start_dt, FEEDBACK, EXCLDIRS, logging_values, search=True)  # try xRC
-        if records not in (None, "db_error", "usn_error"):
-            strt += 15
-            if iqt:
-                print(f"Progress: {strt}%", flush=True)
-
-        # normal execution
-        else:
-            print("init_recentchanges returned ", records)
-            print("Something went wrong xRC is set to disabled. resuming")
-            print("logfile\n", logging_values[0])
-
-            is_error = True
-            records, _ = files_search(basedir, search_start_dt, FEEDBACK, EXCLDIRS, logger, iqt=iqt, strt=strt, endp=endp)
-
-            strt += 15
+    feedback = user_setting['feedback']
 
     # normal execution
-    else:
 
-        records, _ = files_search(basedir, search_start_dt, FEEDBACK, EXCLDIRS, logger, iqt=iqt, strt=strt, endp=endp)
-        strt += 15
+    records, _ = files_search(basedir, search_start_dt, feedback, exclDIRS, logger, iqt=iqt, strt=strt, endp=endp)
+    strt += 15
     end = time.time()
     if records is None:
         return None, [], end, cstart
@@ -654,257 +303,90 @@ def find_scan(RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, loggin
 
     if init and user_setting['checksum']:
         out_text = "Running checksum."
-        if user_setting['FEEDBACK']:
+        if user_setting['feedback']:
             out_text = "\n" + out_text
         cprint.cyan(out_text)
         cstart = time.time()
 
     file_type = None
-    RECENT, COMPLETE = process_lines(process_scan, records, file_type, search_start_dt, 'FSEARCH', user_setting, logging_values, cfr, iqt, strt, endp)
+    recent, complete = process_lines(process_scan, records, file_type, search_start_dt, 'FSEARCH', user_setting, logging_values, cfr, iqt, strt, endp)
 
-    if is_error:
-        update_toml_values({'search': {'xRC': False}}, toml_file)  # disable the setting xRC until the problem is found
-    return RECENT, COMPLETE, end, cstart
-
-
-# WSL not using **
-# find command search using WSL. One search ctime > mtime for downloaded, copied or preserved metadata files. cmin. Main search for mtime newer than mmin.
-# ported from linux
-# amin was used in place of cmin as cmin isnt updated the same as on linux. amin can be used for cmin loop to check if creation time is greater than mtime to find
-# downloaded or copied files with preserved metadata.
-
-
-def find_files(find_command, usr_areas, file_type, RECENT, COMPLETE, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, search_time, EXCLDIRS, excl_file, toml_file, iqt=False, strt=20, endp=60, logger=None):
-
-    # file_entries = []
-    records = []
-
-    if file_type == "ctime":
-
-        if user_setting['xRC']:  # xRC tout bypass for created files to only run 1 loop
-
-            records = init_recentchanges(search_time, search_start_dt, logging_values, search=True)  # try xRC
-            if records not in (None, "db_error", "usn_error"):
-                strt += 10
-                if iqt:
-                    print(f"Progress: {strt}%", flush=True)
-                endp += 10
-
-            # normal execution
-            else:
-                print("init_recentchanges returned ", records)
-                print("Something went wrong xRC is set to disabled. resuming")
-                print("logfile\n", logging_values[0])
-                records = []
-
-                appdata_local = logging_values[2]
-                tempwork = logging_values[4]
-                basedir = user_setting['basedir']
-
-                script_dir = os.path.join(appdata_local, "scripts")
-
-                find_command = get_powershell_script(basedir, script_dir, EXCLDIRS, excl_file, tempwork, search_time, strt, endp, iqt)
-
-                s_path = find_command[5]
-
-                records, is_error, strt, endp = find_cmdcreated(find_command, s_path, search_start_dt, strt, endp)
-
-                update_toml_values({'search': {'xRC': False}}, toml_file)  # disable the setting until the problem is found
-
-        # normal execution
-        else:
-            # -change time doesnt update properly on wsl. when a file moves ctime doesnt change
-
-            # use powershell for just the created files which is fast
-            # appdata_local = logging_values[2]
-            # tempwork = logging_values[3]
-            # s_path = os.path.join(appdata_local, "scripts", "ctime.ps1")
-            s_path = find_command[5]
-
-            records, is_error, strt, endp = find_cmdcreated(find_command, s_path, search_start_dt, strt, endp)
-
-    elif file_type == "main":
-
-        try:
-            print('Running command:', ' '.join(find_command), flush=True)
-            proc = subprocess.Popen(find_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)  # stderr=subprocess.DEVNULL
-
-            # output, err = proc.communicate()  # if buffered
-            # if proc.returncode not in (0, 1):
-            #     stderr_str = err.decode("utf-8")
-            #     print(stderr_str)
-            #     print("Find command failed, unable to continue. Quitting.")
-            #     sys.exit(1)
-
-            for line in proc.stdout:
-                line = line.rstrip()
-                fields = line.split(maxsplit=10)
-                if len(fields) >= 11:
-                    wsl_path = fields[10]
-                    fields[10] = wsl_to_windows_path(wsl_path)
-                    if file_type == "main" and user_setting['FEEDBACK']:
-                        print(fields[10], flush=True)
-                    records.append(fields)
-
-            _, err = proc.communicate()
-            rlt = proc.returncode
-
-            if rlt not in (0, 1):
-                print(err)
-                print("Find command failed, unable to continue. Quitting.")
-                sys.exit(1)
-
-        except (FileNotFoundError, PermissionError) as e:
-            print(f"Error running WSL find in find_files rntchangesfunctions.py: {e}")
-            sys.exit(1)
-        except Exception as e:
-            print(f"Unexpected error running WSL. command: {find_command} \nfind_files func rntchangesfunctions.py: {type(e).__name__} {e}")
-            sys.exit(1)
-
-    else:
-        raise ValueError(f"Invalid search type: {file_type}")
-
-    if file_type == "main":
-        end = time.time()
-
-    # file_entries = [entry.decode('utf-8', errors='backslashreplace') for entry in output.split(b'\0') if entry]  # if buffered
-    # file_entries = conv_cdrv(file_entries)  # /mnt/c to C:\
-
-    if usr_areas:
-        records += usr_areas  # add user dirs for full accuracy
-
-    # records = []  # if buffered
-    # for fields in file_entries:
-    #     if len(fields) >= 11:
-    #         if file_type == "main" and user_setting['FEEDBACK']:  # scrolling terminal look
-    #             print(fields[10], flush=True)
-    #         records.append(fields)
-
-    if init and user_setting['checksum']:
-        cstart = time.time()
-        cprint.cyan("Running checksum")
-    # print(len(records))
-    RECENT, COMPLETE = process_lines(process_line, records, file_type, search_start_dt, 'FSEARCH', user_setting, logging_values, cfr, iqt, strt, endp)
-    return RECENT, COMPLETE, end, cstart
+    return recent, complete, end, cstart
 
 
 # Main windows search. creation time or modified > cutoff time - default. uses powershell
 
-def find_ps1(command, RECENT, COMPLETE, mergeddb, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, iqt=False, strt=20, endp=60):
+def find_ps1(command, recent, complete, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, iqt=False, strt=20, endp=60):
 
-    def get_recent_changes(cursor, table):
-        allowed_tables = ('files',)
-        if table not in allowed_tables:
-            return None
-        query = f'''
-            SELECT timestamp, filename, creationtime, inode, accesstime, checksum, filesize, symlink, owner, domain, mode
-            FROM {table}
-            ORDER BY timestamp DESC
-        '''
-        cursor.execute(query)
-        reslt = cursor.fetchall()
-        return reslt
-
-    script_path = command[5]
-    FEEDBACK = user_setting['FEEDBACK']
+    feedback = user_setting['feedback']
+    script_path = command[4]
+    file_entries = []
+    validrlt = False
 
     print("Launching powershell.", flush=True)
 
-    args = []
-    _, validrlt = search_pwsh(command, args, script_path, FEEDBACK)
-    end = time.time()
-    if validrlt is None:
-        sys.exit(1)
-    if not validrlt and not os.path.isfile(mergeddb):
-        print("No new files reported from scanline.ps1. exiting")
-        sys.exit(1)
-
-    # retrieve results from merged database to prepare for multiprocessing
-    file_entries = []
-    conn = cur = None
     try:
-        conn = sqlite3.connect(mergeddb)
+        print('Running command:', ' '.join(command), flush=True)
+        print()
 
-        cur = conn.cursor()
+        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:  # stderr=subprocess.STDOUT
 
-        # if filename:  # any removals here
-        #    cur.execute("DELETE from files WHERE filename = ?", (filename))
-        #    conn.commit()
+            assert proc.stdout is not None
+            for line in iter(proc.stdout.readline, ''):
+                if not line:
+                    continue
+                if line.startswith("Merge complete:"):
+                    validrlt = True
+                    break
+                elif line.startswith("RESULT:"):
+                    value_str = line.split("RESULT:")[1].strip()
+                    fields = value_str.split(maxsplit=10)
 
-        file_entries = get_recent_changes(cur, "files")
+                    if len(fields) >= 11:
+                        fields[7] = None if fields[7] == "None" else fields[7]
+                        fields[8] = None if fields[8] == "None" else fields[8]
+                        file_entries.append(fields)
+                else:
+                    print(line, end="", flush=True)
 
-    except (sqlite3.Error, Exception) as e:
-        print(f"find_ps1 rntchangesfunctions Error getting results from \\scripts\\scanline.ps1 couldnt connect to {mergeddb} quitting err: {type(e).__name__} : {e}")
+            end = time.time()
+            err_output = proc.stderr.read()
+            res = proc.wait()
+
+            if res != 0:
+                if err_output:
+                    print(err_output)
+                print(f"Command failed subprocess fault or script error {script_path}")
+                sys.exit(1)
+
+    except FileNotFoundError as e:
+        print(f"powershell_run Error launching PowerShell file not found {command} err: {e}")
+    except Exception as e:
+        print(f"powershell_run Unexpected error: {command} : {type(e).__name__} {e}")
+
+    if not validrlt or not end:
         sys.exit(1)
-    finally:
-        clear_conn(conn, cur)
-
     if not file_entries:
-        print(f"No new files to report. powershell results empty in {mergeddb}.")
+        print("No new files to report. powershell results empty")
         sys.exit(0)
 
     if init and user_setting['checksum']:
         out_text = "Running checksum."
-        if FEEDBACK:
+        if feedback:
             out_text = "\n" + out_text
         cprint.cyan(out_text)
         cstart = time.time()
 
     file_type = None
-    RECENT, COMPLETE = process_lines(process_ps1, file_entries, file_type, search_start_dt, "FSEARCHPS1", user_setting, logging_values, cfr, iqt, strt, endp)
-    return RECENT, COMPLETE, end, cstart
-
-
-def search_pwsh(command, args, script_path, FEEDBACK=True):
-    """ powershell stream """
-    try:
-        target_files = []
-        validrlt = False
-
-        cmd = command
-        if args:
-            cmd = command + args
-
-        print('Running command:', ' '.join(cmd), flush=True)
-        print()
-        with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:  # stderr=subprocess.STDOUT
-
-            assert proc.stdout is not None
-            for line in proc.stdout:
-                if "Merge complete:" in line:
-                    validrlt = True
-                    break
-                if "RESULT:" in line:
-                    value_str = line.split("RESULT:")[1].strip()
-                    if FEEDBACK:
-                        print(value_str)
-                    target_files.append(value_str)
-                else:
-                    print(line, end="", flush=True)
-
-            err_output = proc.stderr.read()
-            res = proc.wait()
-
-            if res != 0:
-
-                if err_output:
-                    print(err_output)
-                print(f"Command failed subprocess fault or script error {script_path}")
-                return None, None
-
-            return target_files, validrlt
-    except FileNotFoundError as e:
-        print(f"powershell_run Error launching PowerShell file not found {command} err: {e}")
-    except Exception as e:
-        print(f"powershell_run Unexpected error: {command} : {type(e).__name__} {e}")
-    return None, None
+    recent, complete = process_lines(process_ps1, file_entries, file_type, search_start_dt, "FSEARCHPS1", user_setting, logging_values, cfr, iqt, strt, endp)
+    return recent, complete, end, cstart
 
 
 # recentchanges search
 # after checking for a previous search it is required to remove all old searches to keep the workspace clean and avoid write problems later.
 # Also copy the old search to the MDY folder in appinstall for later diff retention
 
-def clear_logs(USRDIR, DIRSRC, method, appdata_local, MODULENAME, archivesrh):
+def clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh):
 
     FLBRAND = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M_%S")  # %y-%m-%d better sorting?
     validrlt = ""
@@ -917,12 +399,12 @@ def clear_logs(USRDIR, DIRSRC, method, appdata_local, MODULENAME, archivesrh):
 
     new_folder = None
     for suffix in keep:
-        pattern = os.path.join(DIRSRC, f"{MODULENAME}{suffix}*")
+        pattern = os.path.join(dirSRC, f"{moduleNAME}{suffix}*")
         matches = glob.glob(pattern)
         for fp in matches:
             if not new_folder:
                 validrlt = "prev"  # mark as not first time search
-                new_folder = os.path.join(appdata_local, f"{MODULENAME}_{FLBRAND}")
+                new_folder = os.path.join(appdata_local, f"{moduleNAME}_{FLBRAND}")
                 Path(new_folder).mkdir(parents=True, exist_ok=True)
             try:
                 shutil.move(fp, new_folder)
@@ -931,7 +413,7 @@ def clear_logs(USRDIR, DIRSRC, method, appdata_local, MODULENAME, archivesrh):
 
     if validrlt == "prev":
         # Delete oldest dir
-        pattern = os.path.join(appdata_local, f"{MODULENAME}_MDY_*")
+        pattern = os.path.join(appdata_local, f"{moduleNAME}_MDY_*")
 
         dirs = glob.glob(pattern)
         dirs = [d for d in dirs if os.path.isdir(d)]
@@ -945,28 +427,31 @@ def clear_logs(USRDIR, DIRSRC, method, appdata_local, MODULENAME, archivesrh):
                 print(f"Error deleting {oldest}: {e}")
         # End Delete
 
+    suffixes = [
+        "xSystemDiffFromLastSearch",
+        "xFltDiffFromLastSearch",
+        "xFltchanges",
+        "xFltTmp",
+        "xSystemchanges",
+        "xSystemTmp",
+    ]
+
     if method != 'rnt':
-        suffixes = [
-            "xSystemDiffFromLastSearch",
-            "xFltDiffFromLastSearch",
-            "xFltchanges",
-            "xFltTmp",
-            "xSystemchanges",
-            "xSystemTmp",
+        suffixes += [
             "xNewerThan",
             "xDiffFromLast"
         ]
 
-        for suffix in suffixes:
+    for suffix in suffixes:
 
-            pattern = os.path.join(USRDIR, f"{MODULENAME}{suffix}*")
+        pattern = os.path.join(dirSRC, f"{moduleNAME}{suffix}*")
 
-            for filepath in glob.glob(pattern):
-                try:
-                    os.remove(filepath)
+        for filepath in glob.glob(pattern):
+            try:
+                os.remove(filepath)
 
-                except FileNotFoundError:
-                    pass
+            except FileNotFoundError:
+                pass
     return validrlt
 
 
@@ -1026,14 +511,14 @@ def time_convert(quot, divis, decm):
     return tmn
 
 
-def get_diff_file(lclhome, USRDIR, MODULENAME):
+def get_diff_file(lclhome, usrDIR, moduleNAME):
 
-    default_diff = os.path.join(lclhome, f"{MODULENAME}xDiffFromLastSearch300.txt")
+    default_diff = os.path.join(lclhome, f"{moduleNAME}xDiffFromLastSearch300.txt")
 
     # Try to find a difference file
     patterns = [
-        os.path.join(lclhome, f"{MODULENAME}*DiffFromLast*"),
-        os.path.join(USRDIR, f"{MODULENAME}*DiffFromLast*")
+        os.path.join(lclhome, f"{moduleNAME}*DiffFromLast*"),
+        os.path.join(usrDIR, f"{moduleNAME}*DiffFromLast*")
     ]
 
     diff_file = None
@@ -1044,13 +529,6 @@ def get_diff_file(lclhome, USRDIR, MODULENAME):
 
     if all_matches:
         diff_file = max(all_matches, key=os.path.getmtime)
-
-    # selects appinstall first and incorrect # original
-    # for pattern in patterns:
-    #     matches = glob.glob(pattern)
-    #     if matches:
-    #         diff_file = sorted(matches, key=os.path.getmtime, reverse=True)[0]
-    #         break
 
     if not diff_file:
         diff_file = default_diff
@@ -1069,23 +547,25 @@ def line_included(line, patterns):
 
 
 # prev search?
-def hsearch(OLDSORT, appdata, MODULENAME, argone):
+def hsearch(oldsort, appdata, moduleNAME, flnm):
 
-    dir_pth = os.path.join(appdata, f"{MODULENAME}_MDY_*")
+    dir_pth = os.path.join(appdata, f"{moduleNAME}_MDY_*")
     folders = sorted(glob.glob(dir_pth), reverse=True)
 
+    # glob changes based on flnm
+
     for folder in folders:
-        pattern = os.path.join(folder, f"{MODULENAME}xSystemchanges{argone}*")
+        pattern = os.path.join(folder, f"{moduleNAME}{flnm}*")  # pattern = os.path.join(folder, f"{moduleNAME}xSystemchanges{argone}*")
         matching_files = sorted(glob.glob(pattern), reverse=True)
 
         for file in matching_files:
             if os.path.isfile(file):
                 with open(file, 'r') as f:
-                    OLDSORT.clear()
-                    OLDSORT.extend(f.readlines())
+                    oldsort.clear()
+                    oldsort.extend(f.readlines())
                 break
 
-        if OLDSORT:
+        if oldsort:
             break
 
 
@@ -1124,87 +604,59 @@ def pwsh_7():
         result = subprocess.run([pwsh_path, "--version"], capture_output=True, text=True, check=True)
         version_str = result.stdout.strip()
         c_ver = int(version_str.split()[1].split(".")[0])
-        if c_ver >= 7:
-            is_correct = True
-        else:
-            is_correct = False
 
+        is_correct = c_ver >= 7
         return is_correct, c_ver
     except Exception as e:
         print(f"PowerShell incompatible{c_ver if c_ver is not None else ""} required: 7 {e}")
-        return False, None
+        return None, None
 
 
-# for recentchangessearch.py
-# Used for calibrate with mftec
-# See if its the right version .NET 9 check version from stdout
-def mftec_is_cutoff(lclappdata):
-
-    exec_path = os.path.join(lclappdata, "bin", "MFTECmd.exe")
-    cmd = [exec_path, '-f', 'C:\\$MFT', '--dt', 'yyyy-MM-dd HH:mm:ss.ffffff', '--cutoff', '2025-11-10T07:48:46Z']  # , '--csv', 'C:\\', '--csvf', 'myfile2.csv' # '.\\bin\\MFTECmd.exe'
-    # print('Running command:', ' '.join(cmd))
-    # mesg = 'Running command:' + ' '.join(f'"{c}"' for c in cmd)
+def search_pwsh(command, args, script_path, feedback=True):
+    """ powershell stream """
     try:
-        cver = False
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        for line in iter(proc.stdout.readline, ''):
-            if line.strip():
-                if "--cutoff" in line:
-                    cver = True
+        target_files = []
+        validrlt = False
+
+        cmd = command
+        if args:
+            cmd = command + args
+
+        output = ' '.join(cmd)
+        print('Running command:', output, flush=True)
+        cprint.cyan('')
+
+        with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:  # stderr=subprocess.STDOUT
+
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                if "Merge complete:" in line:
+                    validrlt = True
                     break
+                if "RESULT:" in line:
+                    value_str = line.split("RESULT:")[1].strip()
+                    if feedback:
+                        print(value_str)
+                    target_files.append(value_str)
+                else:
+                    print(line, end="", flush=True)
 
-        proc.stdout.close()
-        rlt = proc.wait()
-        proc_stderr = proc.stderr.read()
-        if rlt != 0:
-            if proc_stderr:
-                print("MFTECmd stderr:")
-                print(proc_stderr)
-            return False
+            err_output = proc.stderr.read()
+            res = proc.wait()
 
-        return cver
+            if res != 0:
 
-    except FileNotFoundError:
-        print(f"MFTECmd {exec_path} not found")
+                if err_output:
+                    print(err_output)
+                print(f"Command failed subprocess fault or script error {script_path}")
+                return None, None
+
+            return target_files, validrlt
+    except FileNotFoundError as e:
+        print(f"powershell_run Error launching PowerShell file not found {command} err: {e}")
     except Exception as e:
-        print(f"Failed to verify MFTECmd version mftec_cutoff function. {type(e).__name__} {e} \n{traceback.format_exc()}")
-
-
-# Used in Qt for mftec check
-# See if its the right version .NET 9 check version from file
-# same as above but print the arg list to a file only works in certain environments.
-def mftec_version(exe_path, tempdir):  # Qt
-
-    fn = "cutoff"
-    c_args = "--" + fn
-    temp_path = Path(tempdir)
-    version_file = temp_path / "version.txt"
-
-    try:
-
-        result = "mftec"
-
-        # Run MFTECmd and redirect the output to version.txt
-        # .\bin\MFTECmd.exe
-        subprocess.run(rf'"{exe_path}" > {version_file}', shell=True)
-
-        if not version_file.is_file():
-            return None
-
-        with version_file.open("r", encoding="utf-8") as f:
-            for line in f:
-                if c_args in line:
-                    result = "mftec_cutoff"
-        removefile(version_file)
-
-    except FileNotFoundError:
-        result = None
-        print(f"{exe_path} not found")
-    except Exception as e:
-        result = None
-        print(f"mftec_ver exception {type(e).__name__} {e} \n {traceback.format_exc()}")
-
-    return result
+        print(f"powershell_run Unexpected error: {command} : {type(e).__name__} {e}")
+    return None, None
 
 
 # size and owner. smallest size first and alphabetically by owner
@@ -1227,11 +679,11 @@ def tsv_sort_by(row, is_link=False):
 # time from the download or copy which could be from 2021 for example. Also by checking the database a copy
 # can also be detected by having the same checksum and a diffrent filename or inode. Sorted by above.
 #
-def build_tsv(SORTCOMPLETE, TMPOPT, logf, rout, escaped_user, outpath, method, fmt):
+def build_tsv(sortcomplete, tmpopt, logf, rout, escaped_user, outpath, method, fmt):
 
     if method != "rnt":
-        if logf is TMPOPT:
-            SORTCOMPLETE = filter_lines_from_list(SORTCOMPLETE, escaped_user)
+        if logf is tmpopt:
+            sortcomplete = filter_lines_from_list(sortcomplete, escaped_user)
 
     tsv_files = []
 
@@ -1250,10 +702,10 @@ def build_tsv(SORTCOMPLETE, TMPOPT, logf, rout, escaped_user, outpath, method, f
                     full_path = ' '.join(parts[5:])
                     copy_paths.add(full_path)
 
-        is_link = any(len(row) > 7 and row[7] == 'y' for row in SORTCOMPLETE)
+        is_link = any(len(row) > 7 and row[7] == 'y' for row in sortcomplete)
         header = "Datetime\tFile\tSize(kb)\tType\tSymlink" + ("\tTarget" if is_link else "") + "\tCreation\tcam\tAccessed\tOwner\tStatable\tCopy"
 
-        for entry in SORTCOMPLETE:
+        for entry in sortcomplete:
             if len(entry) < 13:
                 continue
 
@@ -1324,62 +776,3 @@ def build_tsv(SORTCOMPLETE, TMPOPT, logf, rout, escaped_user, outpath, method, f
         print(f"Error building TSV data in build_tsv func rntchangesfunctions: {type(e).__name__} {e}")
         return False
     return True
-
-
-# Database section new for dirwalker.py and Encryption functions file and memory below
-# python .db merging incase problems with powershell do it in python
-def mergedb(dbopt):
-
-    merge_path = os.path.join(dbopt, "recent_merged.db")  # AppData\Local
-    ppath = os.path.join(dbopt, "recent_part")
-    part_db = glob.glob(f"{ppath}*")
-
-    with sqlite3.connect(merge_path) as merged_conn:
-        cur = merged_conn.cursor()
-
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS files (
-            timestamp TEXT,
-            filename TEXT,
-            creationtime TEXT,
-            inode TEXT,
-            accesstime TEXT,
-            checksum TEXT,
-            filesize INTEGER,
-            symlink TEXT,
-            owner TEXT,
-            domain TEXT,
-            mode TEXT,
-            casmod TEXT,
-            lastmodified TEXT,
-            hardlinks TEXT
-        );
-        """)
-
-        for part in part_db:
-            if not os.path.isfile(part):
-                continue
-
-            try:
-                with sqlite3.connect(part) as part_conn:
-                    part_cur = part_conn.cursor()
-                    part_cur.execute("SELECT * FROM files")
-                    rows = part_cur.fetchall()
-
-                    for row in rows:
-                        cur.execute("""
-                        INSERT INTO files (
-                            timestamp, filename, creationtime, inode,
-                            accesstime, checksum, filesize, symlink,
-                            owner, domain, mode, casmod, lastmodified,
-                            hardlinks
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, row)
-
-            except sqlite3.Error as e:
-                print(f"Error reading from {part}: {e}")
-                return False
-        merged_conn.commit()
-    return merge_path
-
-# End Database section

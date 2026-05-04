@@ -1,5 +1,5 @@
 #! python3
-# Command line save-changesnew aka developer buddy                                                                      03/07/2026
+# Command line save-changesnew aka developer buddy                                                                      04/30/2026
 #
 # This script is the entry point for recentchanges. The inv flag is passed in from a .bat or sym link (rnt.bat)
 #
@@ -47,44 +47,43 @@ def main(argv):
 
     is_admin()
 
-    USR = get_user()
-    if not USR:
+    usr = get_user()
+    if not usr:
         print("Unable to get username exiting.")
         return 1
 
     # $Host.UI.SupportsVirtualTerminal       set ansi colors
-    PWD = os.getcwd()
+    pwd = os.getcwd()
     args = argv[1:]
 
     arge, argf = filter_invflag(args)  # filter out the invflag from the last parameter and set argf to filtered. passed from rnt.bat.
 
     argone = arge[0] or "noarguser"
-    THETIME = arge[1] or "noarguser"
+    thetime = arge[1] or "noarguser"
 
     if argone == "query" or argone == "reset":
         reset = argone == "reset"
-        return query_main(user=USR, reset=reset)
+        return query_main(user=usr, reset=reset)
 
     elif argone == "search":  # recentchanges search
-        return recentchanges_main(argone, THETIME, USR, PWD, argf, "")
+        return recentchanges_main(argone, thetime, usr, pwd, argf, "")
 
     else:  # recentchanges
-        argf = "bnk"
 
-        SRCDIR = "SRC" if "SRC" in arge[:2] else "noarguser"
+        srcDIR = "SRC" if "SRC" in arge[:2] else "noarguser"
 
-        THETIME = arge[0] or "noarguser"  # Shift for this script
-        if THETIME == "SRC":
-            THETIME = arge[1] or "noarguser"
+        thetime = arge[0] or "noarguser"  # Shift for this script
+        if thetime == "SRC":
+            thetime = arge[1] or "noarguser"
 
-        if THETIME == "search":
+        if thetime == "search":
             print("Exiting not a search.")
             return 1
 
-        if THETIME == "SRC":
-            THETIME = "noarguser"
+        if thetime == "SRC":
+            thetime = "noarguser"
 
-        return recentchanges_main(THETIME, SRCDIR, USR, PWD, argf, "rnt")
+        return recentchanges_main(thetime, srcDIR, usr, pwd, argf, "rnt")
 
 
 if __name__ == "__main__":

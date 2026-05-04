@@ -14,7 +14,7 @@ from .logs import emit_log
 # Powershell Parallel SORTCOMPLETE search and ctime hashing
 
 
-def process_ps1(line, checksum, filetype, search_start_dt, CACHE_F, logger=None):
+def process_ps1(line, checksum, filetype, search_start_dt, cache_f, logger=None):
 
     fmt = "%Y-%m-%d %H:%M:%S"
     label = "Sortcomplete"
@@ -28,17 +28,7 @@ def process_ps1(line, checksum, filetype, search_start_dt, CACHE_F, logger=None)
         emit_log("DEBUG", f"process_ps1 record length less than required 11. skipping: {line}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
-    mod_time = line[0]
-    file_path = line[1]
-    c_time = line[2]
-    # inode = line[3]
-    access_time = line[4]
-    # checksum = line[5]
-    size = line[6]
-    sym = line[7]
-    owner = line[8]
-    domain = line[9]
-    mode = line[10]
+    mod_time, access_time, c_time, _, sym, _, size, owner, domain, mode, file_path = line  # inode, hardlink
 
     if not os.path.exists(file_path):
         return None, log_entries
@@ -51,6 +41,12 @@ def process_ps1(line, checksum, filetype, search_start_dt, CACHE_F, logger=None)
             mt = mtime.replace(microsecond=0)
         return ("Nosuchfile", mt, mt, file_path), log_entries
     if mtime is None:
+        return None, log_entries
+
+    try:
+        size = int(size)
+    except (TypeError, ValueError) as e:
+        emit_log("ERROR", f"process_ps1 from pwrshell  {e} {type(e).__name__} size: {size} line:{line}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     c_time = parse_iso(c_time, logs.WORKER_LOG_Q, logger=logger)
@@ -69,7 +65,7 @@ def process_ps1(line, checksum, filetype, search_start_dt, CACHE_F, logger=None)
     if sym != "y" and size and checksum:
 
         if size > CSZE:
-            cached = get_cached(CACHE_F, size, mtime_us, file_path)
+            cached = get_cached(cache_f, size, mtime_us, file_path)
             if cached is None:
                 checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, max_retry=1, cacheable=True, log_q=logs.WORKER_LOG_Q, logger=logger)
                 if checks is not None:

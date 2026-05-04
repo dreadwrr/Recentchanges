@@ -17,7 +17,7 @@ from .pyfunctions import epoch_to_str
 # 04/14/2026
 
 fmt = "%Y-%m-%d %H:%M:%S"
-execEXTN = (".exe", ".msi", ".bat", ".com")
+EXEC_EXTN = (".exe", ".msi", ".bat", ".com")
 
 MODE_FILENAME = 1
 MODE_EXT = 2
@@ -25,11 +25,11 @@ MODE_FILENAME_EXT = 3
 
 
 # Cache read
-def decr_cache(CACHE_S, user=None):
-    if not CACHE_S or not os.path.isfile(CACHE_S):
+def decr_cache(cache_s, user=None):
+    if not cache_s or not os.path.isfile(cache_s):
         return None
 
-    csv_path = decrm(CACHE_S)
+    csv_path = decrm(cache_s)
     if not csv_path:
         return None
 
@@ -115,7 +115,7 @@ def none_if_empty(value):
     return value or None
 
 
-def get_base_folders(basedir, EXCLDIRS_FULLPATH):
+def get_base_folders(basedir, exclDIRS_fullpath):
     c = 0
     base_folders = []
     if os.path.isdir(basedir):
@@ -124,7 +124,7 @@ def get_base_folders(basedir, EXCLDIRS_FULLPATH):
 
     for folder_name in os.listdir(basedir):
         folder_path = os.path.join(basedir, folder_name)
-        if folder_path in EXCLDIRS_FULLPATH:
+        if folder_path in exclDIRS_fullpath:
             continue
         if os.path.isdir(folder_path):
             c += 1
@@ -132,14 +132,14 @@ def get_base_folders(basedir, EXCLDIRS_FULLPATH):
     return base_folders, c
 
 
-def create_profile_baseline(execEXTN):
+def create_profile_baseline(EXEC_EXTN):
     """ build list format so can differentiate between psEXTN """
     # template
     #     "exec exe msi bat com",
 
     extn = []
 
-    exec_str = ' '.join(execEXTN)
+    exec_str = ' '.join(EXEC_EXTN)
     extn.append("exec " + exec_str)
     return extn
 
@@ -162,7 +162,7 @@ class ErrorHandler:
 
 
 # os.scandir find
-def files_search(base_dir, search_start_dt, FEEDBACK, EXCLDIRS, logger, filename=None, extension=None, mode=None, iqt=False, strt=0, endp=100):
+def files_search(base_dir, search_start_dt, feedback, exclDIRS, logger, filename=None, extension=None, mode=None, iqt=False, strt=0, endp=100):
 
     if search_start_dt and not isinstance(search_start_dt, datetime):
         print("search_start_dt is not a valid date time object exitting")
@@ -208,9 +208,9 @@ def files_search(base_dir, search_start_dt, FEEDBACK, EXCLDIRS, logger, filename
         elif mode == MODE_FILENAME_EXT:
             matcher = match_name_extn
 
-    EXCLDIRS_FULLPATH = set(os.path.join(base_dir, d.lstrip("\\")) for d in EXCLDIRS)
+    exclDIRS_fullpath = set(os.path.join(base_dir, d.lstrip("\\")) for d in exclDIRS)
 
-    base_folders, root_count = get_base_folders(base_dir, EXCLDIRS_FULLPATH)
+    base_folders, root_count = get_base_folders(base_dir, exclDIRS_fullpath)
     if root_count == 0:
         print(f"Unable to read base folders of drive {base_dir} the drive could be empty or check permissions")
         return None, 0
@@ -245,7 +245,7 @@ def files_search(base_dir, search_start_dt, FEEDBACK, EXCLDIRS, logger, filename
 
                             if entry.is_dir():
 
-                                if full_path in EXCLDIRS_FULLPATH:
+                                if full_path in exclDIRS_fullpath:
                                     continue
                                 stat_info = get_stat(entry, logger=logger)
                                 if not stat_info:
@@ -280,7 +280,7 @@ def files_search(base_dir, search_start_dt, FEEDBACK, EXCLDIRS, logger, filename
                                     if len(buffer) >= BATCH_SIZE:
                                         print("\n".join(buffer), flush=True)
                                         buffer.clear()
-                                    if FEEDBACK:
+                                    if feedback:
                                         buffer.append(full_path)
 
                                     all_entries.append(full_path)
@@ -321,7 +321,7 @@ def files_search(base_dir, search_start_dt, FEEDBACK, EXCLDIRS, logger, filename
 
                             if entry.is_dir():
 
-                                if full_path in EXCLDIRS_FULLPATH:
+                                if full_path in exclDIRS_fullpath:
                                     continue
                                 stat_info = get_stat(entry, logger=logger)
                                 if not stat_info:
@@ -356,7 +356,7 @@ def files_search(base_dir, search_start_dt, FEEDBACK, EXCLDIRS, logger, filename
                                     if len(buffer) >= BATCH_SIZE:
                                         print("\n".join(buffer), flush=True)
                                         buffer.clear()
-                                    if FEEDBACK:
+                                    if feedback:
                                         buffer.append(full_path)
 
                                     all_entries.append((str(mtime), str(atime), c_time, ino, symlink, hardlink, size, owner, domain, mode, full_path))
@@ -422,7 +422,7 @@ def files_search(base_dir, search_start_dt, FEEDBACK, EXCLDIRS, logger, filename
 
 # create a directory cache of the system
 # return files by specification for multliprocessing hashing
-def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, paths_tup, is_noextension, is_exec, is_sym, logger):
+def collect_files(basedir, exclDIRS_fullpath, filter_tup, exec_tup, extn_tup, paths_tup, is_noextension, is_exec, is_sym, logger):
     ''' proteusEXTN shield os.scandir '''
     all_entries = []
     log_entries = []
@@ -465,7 +465,7 @@ def collect_files(basedir, EXCLDIRS_FULLPATH, filter_tup, exec_tup, extn_tup, pa
 
                             if entry.is_dir():
 
-                                if path in EXCLDIRS_FULLPATH:
+                                if path in exclDIRS_fullpath:
                                     continue
                                 stat_info = get_stat(entry, logger=logger)
                                 if not stat_info:

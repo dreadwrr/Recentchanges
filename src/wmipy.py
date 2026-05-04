@@ -1,4 +1,4 @@
-# 11/21/2025
+# 05/03/2026
 # See foot notes for extracting MFT and UsnJrnl.
 #
 # Notes
@@ -121,13 +121,12 @@ def gmft(opt, icat_path=None):
 
 ''' NTFStools '''
 
+
 #   '.\ntfstool.x86.exe info'
 #   '.\ntfstool.x86.exe info disk=2'
 #   '.\ntfstool.x86.exe info disk=2 volume=3'
 #   '.\ntfstool.x86.exe usn.dump disk=2 volume=3 output=d:\Adobe\usn.dat'
 #   '.\ntfstool.x86.exe mft.dump disk=2 volume=3 output=d:\Adobe\MFT.bin'
-
-
 def get_disk_and_volume_for_drive(drive_letter='C:'):
     try:
         c = wmi.WMI()
@@ -218,8 +217,7 @@ def ntfsdump(tgt, volume, opt, ntfs_path=None):
             text=True
         )
 
-        stdout_lines = []
-        stderr_lines = []
+        stdout_lines, stderr_lines = [], []
 
         # Read stdout line by line
         for line in process.stdout:
@@ -251,43 +249,10 @@ def ntfsdump(tgt, volume, opt, ntfs_path=None):
             'stdout': '',
             'stderr': f"Unexpected error: {e}\n{traceback.format_exc()}"
         }
-        # original can hang for unknown reason
-        # .run
-        # process = subprocess.run(
-        #     cmd,
-        #     stdout=subprocess.PIPE,
-        #     stderr=subprocess.PIPE,
-        #     text=True,
-        #     check=True
-        # )
-    #     return {
-    #         'returncode': process.returncode,
-    #         'stdout': process.stdout,
-    #         'stderr': process.stderr
-    #     }
-    # except subprocess.CalledProcessError as e:
-    #     return {
-    #         'returncode': e.returncode,
-    #         'stdout': e.stdout,
-    #         'stderr': e.stderr
-    #     }
-    # except FileNotFoundError as e:
-    #     return {
-    #         'returncode': 1,
-    #         'stdout': '',
-    #         'stderr': f"Unable to find ntfstool.x86.exe {exe}: {e}"
-    #     }
-    # except Exception as e:
-    #     return {
-    #         'returncode': 1,
-    #         'stdout': '',
-    #         'stderr': f"Unexpected error: {e}\n{traceback.format_exc()}"
-    #     }
+
 
 # Default used for parsing or imported Mft
 # MFTECmd - Used for mft output from C:\\ to csv
-
-
 def mftecparse(mftf, outp, outf, mftec_path=None):  # writing to csvopt
     try:
         exe = mftec_path if mftec_path else r'.\bin\MFTECmd.exe'

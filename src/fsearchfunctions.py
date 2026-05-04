@@ -178,10 +178,10 @@ def file_owner(file_path, log_q=None, logger=None):
 
 def get_mode(attrs, is_symlink=None):
     sym = None
-    # FILE_ATTRIBUTE_READONLY = 0x1
     # FILE_ATTRIBUTE_HIDDEN = 0x2
     # FILE_ATTRIBUTE_SYSTEM = 0x4
     # FILE_ATTRIBUTE_ARCHIVE = 0x20
+    # FILE_ATTRIBUTE_READONLY = 0x1
     is_hidden = bool(attrs & win32con.FILE_ATTRIBUTE_HIDDEN)
     is_system = bool(attrs & win32con.FILE_ATTRIBUTE_SYSTEM)
     is_archive = bool(attrs & win32con.FILE_ATTRIBUTE_ARCHIVE)
@@ -193,21 +193,25 @@ def get_mode(attrs, is_symlink=None):
         (attrs & win32con.FILE_ATTRIBUTE_REPARSE_POINT)
     ):
         sym = "y"
-        mode[5] = 'l'
+        mode[0] = 'l'
+    if is_archive:
+        mode[1] = 'a'
     if is_readonly:  # or not os.access(filepath, os.W_OK):
         mode[2] = 'r'
     if is_hidden:
         mode[3] = 'h'
     if is_system:
         mode[4] = 's'
-    if is_archive:
-        mode[1] = 'a'
+
     return ''.join(mode), sym
 
 
 def get_mft_mode(attribs, is_symlink=None):
     sym = None
     mode = ["-"] * 6
+    if is_symlink or "ReparsePoint" in attribs:
+        sym = "y"
+        mode[0] = "l"
     if "Archive" in attribs:
         mode[1] = "a"
     if "ReadOnly" in attribs:
@@ -216,15 +220,7 @@ def get_mft_mode(attribs, is_symlink=None):
         mode[3] = "h"
     if "System" in attribs:
         mode[4] = "s"
-    if is_symlink or "ReparsePoint" in attribs:
-        sym = "y"
-        mode[5] = "l"
-    # if "Compressed" in attribs:
-    #     mode[5] = "c"
-    # if "Temporary" in attribs:
-    #     mode[6] = "t"
-    # if "SparseFile" in attribs:
-    #     mode[7] = "x"
+
     return "".join(mode), sym
 
 
@@ -236,10 +232,10 @@ def default_mode(is_symlink):
     return ''.join(mode)
 
 
-def set_excl_dirs(basedir, excl_path, EXCLDIRS):
+def set_excl_dirs(basedir, excl_path, exclDIRS):
     """ write a list of exclude paths for powershell search scripts """
     with open(excl_path, "w") as f:
-        for entry in EXCLDIRS:
+        for entry in exclDIRS:
             #  str_out = basedir + entry.replace("$", "\\$")
             str_out = os.path.join(basedir, entry.lstrip("\\/"))
             f.write(f"{str_out}\n")

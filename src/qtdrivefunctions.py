@@ -30,9 +30,9 @@ def parse_key(basedir, cache_file=None, idx_suffix=None):
     return parse_drive(basedir)
 
 
-def parse_systimeche(basedir, CACHE_S):
+def parse_systimeche(basedir, cache_s):
     """ get systimeche table from actual cache file. just in one less step"""
-    systimeche = name_of(CACHE_S)
+    systimeche = name_of(cache_s)
     key = "c"
     if basedir != "C:\\":
         if "_" not in systimeche:
@@ -45,19 +45,19 @@ def parse_systimeche(basedir, CACHE_S):
 # any other has systimeche_n.gpg, systimeche_n table
 def get_cache_s(basedir, cache_file, idx_suffix=None):
     """ initial setup """
-    # C:\\ has systimeche.gpg for CACHE_S and systimeche for cache table
-    # for S:\\ systimeche_s.gpg for CACHE_S and systimeche_s table for cache table
+    # C:\\ has systimeche.gpg for cache_s and systimeche for cache table
+    # for S:\\ systimeche_s.gpg for cache_s and systimeche_s table for cache table
     prefix = name_of(cache_file)
-    CACHE_S = cache_file
+    cache_s = cache_file
     systimeche = prefix
     key = "c"
     if basedir != "C:\\":
         key = parse_key(basedir, cache_file, idx_suffix)
-        CACHE_S = prefix + f"_{key}.gpg"
+        cache_s = prefix + f"_{key}.gpg"
         app_path = os.path.dirname(cache_file)
-        CACHE_S = os.path.join(app_path, CACHE_S)
+        cache_s = os.path.join(app_path, cache_s)
         systimeche = prefix + f"_{key}"
-    return CACHE_S, systimeche, key
+    return cache_s, systimeche, key
 
 # cache_s/cache_s2/cache_n table has the directory
 # structure at the time of the system profile
@@ -169,8 +169,8 @@ def get_drive_from_partguid(partguid: str) -> str | None:
 #     return None
 
 
-def get_drive_type(basedir, driveTYPE, CACHE_S, json_file):
-    # _, suffix = parse_systimeche(basedir, CACHE_S)
+def get_drive_type(basedir, driveTYPE, cache_s, json_file):
+    # _, suffix = parse_systimeche(basedir, cache_s)
     di = get_json_settings(None, basedir, json_file) or {}
     dtype = di.get("drive_type")
     if dtype in ("HDD", "SSD"):
@@ -191,13 +191,13 @@ def is_model_ssd(model: str) -> bool:
     return any(keyword in m for keyword in SSD_KEYWORDS)
 
 
-def current_drive_type_model_check(ROOT_DIR="C:\\"):
+def current_drive_type_model_check(root_dir="C:\\"):
     try:
         drive_id_model = "Unknown"
         model_type = "Unknown"
         drive_type = None
 
-        drive_letter = parse_drive(ROOT_DIR).upper()
+        drive_letter = parse_drive(root_dir).upper()
         drive = drive_letter + ":"
 
         c = wmi.WMI()
@@ -316,7 +316,7 @@ def setup_drive_settings(basedir, key, driveTYPE, toml_file, user_json=None, j_s
     return drive_type
 
 
-def get_cache_files(basedir, dbopt, dbtarget, CACHE_S, json_file, user, email, compLVL, j_settings=None, partguid=None, iqt=False):
+def get_cache_files(basedir, dbopt, dbtarget, cache_s, json_file, user, email, compLVL, j_settings=None, partguid=None, iqt=False):
 
     suffix = "c"
     cache_file = systimeche = None
@@ -375,7 +375,7 @@ def get_cache_files(basedir, dbopt, dbtarget, CACHE_S, json_file, user, email, c
 
             if suffix:
 
-                cache_file, systimeche, _ = get_cache_s(basedir, CACHE_S, suffix)
+                cache_file, systimeche, _ = get_cache_s(basedir, cache_s, suffix)
 
                 # if the mountpoint changed for the guid update json, move cache file and db tables
                 #
@@ -386,7 +386,7 @@ def get_cache_files(basedir, dbopt, dbtarget, CACHE_S, json_file, user, email, c
 
                     # new
                     # drive_suffix = ('x' * x) + drive_suffix
-                    new_cache_s, new_systimeche, _ = get_cache_s(basedir, CACHE_S, drive_suffix)
+                    new_cache_s, new_systimeche, _ = get_cache_s(basedir, cache_s, drive_suffix)
 
                     # rename any cache file. after database query
 
@@ -486,19 +486,19 @@ def get_cache_files(basedir, dbopt, dbtarget, CACHE_S, json_file, user, email, c
             return None, None, None
 
     if not cache_file:
-        cache_file, systimeche, _ = get_cache_s(basedir, CACHE_S, suffix)
+        cache_file, systimeche, _ = get_cache_s(basedir, cache_s, suffix)
 
     return cache_file, systimeche, suffix
 
 
-def setup_drive_cache(basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, CACHE_S, driveTYPE, USR, email, compLVL, j_settings=None, partguid=None, iqt=False):
+def setup_drive_cache(basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, cache_s, driveTYPE, usr, email, compLVL, j_settings=None, partguid=None, iqt=False):
 
     if driveTYPE:
         if driveTYPE.lower() not in ('hdd', 'ssd'):
             print(f"Incorrect setting driveTYPE: {driveTYPE} in config: {toml_file}")
             return None, None, None, None
 
-    CACHE_S, systimeche, suffix = get_cache_files(basedir, dbopt, dbtarget, CACHE_S, json_file, USR, email, compLVL, j_settings, partguid, iqt)  # confirm the guid and build the CACHE_S and suffix
+    cache_s, systimeche, suffix = get_cache_files(basedir, dbopt, dbtarget, cache_s, json_file, usr, email, compLVL, j_settings, partguid, iqt)  # confirm the guid and build the cache_s and suffix
     if not suffix:
         return None, None, None, None
 
@@ -511,7 +511,7 @@ def setup_drive_cache(basedir, appdata_local, dbopt, dbtarget, json_file, toml_f
     if driveTYPE in ("HDD", "SSD"):
         if saved_dt and saved_dt != driveTYPE:
             print("saved drive type doesnt match config.toml. using", driveTYPE, "update config.toml if this doesnt match the drive")
-        return CACHE_S, systimeche, suffix, driveTYPE
+        return cache_s, systimeche, suffix, driveTYPE
 
     driveTYPE = setup_drive_settings(basedir, suffix, driveTYPE, toml_file, json_file, j_settings, False, appdata_local)
     if driveTYPE is None:
@@ -521,4 +521,4 @@ def setup_drive_cache(basedir, appdata_local, dbopt, dbtarget, json_file, toml_f
         print(f"Incorrect setting driveTYPE: {driveTYPE} in config: {toml_file}")
         return None, None, None, None
 
-    return CACHE_S, systimeche, suffix, driveTYPE
+    return cache_s, systimeche, suffix, driveTYPE

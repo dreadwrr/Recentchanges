@@ -87,7 +87,7 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
             print("Unable to verify gpg in path. Likely path was partially initialized. quitting")
             return 1
 
-        toml_file, json_file, USR = get_config(appdata_local, user, platform="Windows")
+        toml_file, json_file, usr = get_config(appdata_local, user, platform="Windows")
         config = load_toml(toml_file)
         if not config:
             return 1
@@ -95,8 +95,8 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
 
     flth = appdata_local / "flth.csv"
     dbtarget = appdata_local / "recent.gpg"
-    CACHE_F = appdata_local / "ctimecache.gpg"
-    CACHE_S = appdata_local / "systimeche.gpg"
+    cache_f = appdata_local / "ctimecache.gpg"
+    cache_s = appdata_local / "systimeche.gpg"
 
     output = name_of(dbtarget, '.db')
     flth = str(flth)
@@ -104,15 +104,15 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
 
     result = False
 
-    TEMPD = tempfile.gettempdir()
+    tempd = tempfile.gettempdir()
 
     if reset:
 
-        return delete_gpg_keys(user, email, dbtarget, CACHE_F, CACHE_S, flth)
+        return delete_gpg_keys(user, email, dbtarget, cache_f, cache_s, flth)
 
     try:
 
-        with tempfile.TemporaryDirectory(dir=TEMPD) as tempdir:
+        with tempfile.TemporaryDirectory(dir=tempd) as tempdir:
 
             if database:
                 dbopt = database
@@ -270,7 +270,7 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
             # User has no key
             elif not database and result is None:
 
-                ctime_path = CACHE_F.name
+                ctime_path = cache_f.name
                 log_fn(f"No key for {dbtarget} or {ctime_path}. if unable to fix delete to reset")
 
             else:

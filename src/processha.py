@@ -19,7 +19,7 @@ def parse_rout(line):
 
 
 # preprocess diff file
-def isdiff(RECENT, ABSENT, rout, diffnm, difff_file, flsrh, parsed_PRD, fmt):
+def isdiff(recent, absent, rout, diffnm, difff_file, flsrh, parsed_PRD, fmt):
 
     ranged = []
 
@@ -40,7 +40,7 @@ def isdiff(RECENT, ABSENT, rout, diffnm, difff_file, flsrh, parsed_PRD, fmt):
         ranged = difff_file[:]
 
     if ranged:
-        d_paths = set(entry[1] for entry in RECENT)
+        d_paths = set(entry[1] for entry in recent)
 
         with open(diffnm, 'a') as file2:
             for line in ranged:
@@ -55,18 +55,18 @@ def isdiff(RECENT, ABSENT, rout, diffnm, difff_file, flsrh, parsed_PRD, fmt):
                 filepath = parts[2]
 
                 if filepath in d_paths:
-                    ABSENT.append(f"Modified {line}")
+                    absent.append(f"Modified {line}")
 
                 else:
-                    ABSENT.append(f"Deleted {line}")
+                    absent.append(f"Deleted {line}")
                     rout.append(f"Deleted {timestamp} {line}")
 
-            if ABSENT:
+            if absent:
 
                 file2.write('\nApplicable to your search\n')
-                # file2.write('\n'.join(ABSENT) + '\n')
+                # file2.write('\n'.join(absent) + '\n')
 
-                for line in ABSENT:
+                for line in absent:
                     if line.startswith("Deleted"):
                         line = line.replace("Deleted", "Deleted ", 1)
                     file2.write(line + '\n')
@@ -76,7 +76,7 @@ def isdiff(RECENT, ABSENT, rout, diffnm, difff_file, flsrh, parsed_PRD, fmt):
 
 
 # post ha to diff file
-def processha(rout, ABSENT, diffnm, cerr, flsrh, argf, parsed_PRD, escaped_user, supbrwLIST, suppress_browser, suppress):
+def processha(rout, absent, diffnm, cerr, flsrh, argf, parsed_PRD, escaped_user, supbrwLIST, suppress_browser, suppress):
 
     def get_last_part(line):
         parts = line.strip().split(None, 3)
@@ -100,26 +100,26 @@ def processha(rout, ABSENT, diffnm, cerr, flsrh, argf, parsed_PRD, escaped_user,
             fpath = parts[5]
             cleaned_rout.append((action, ts1, fpath))
 
-        absent_paths = {get_last_part(line) for line in ABSENT if line.strip()}
+        absent_paths = {get_last_part(line) for line in absent if line.strip()}
 
-        DIFFMATCHED = [
+        diffmatched = [
             line for line in cleaned_rout
             if line[2] not in absent_paths
         ]
 
         if flsrh or argf == "filtered":
             if not (flsrh and argf == "filtered"):
-                DIFFMATCHED = filter_lines_from_list(DIFFMATCHED, escaped_user, 2)
+                diffmatched = filter_lines_from_list(diffmatched, escaped_user, 2)
 
         if flsrh:
-            DIFFMATCHED = [
-                line for line in DIFFMATCHED
+            diffmatched = [
+                line for line in diffmatched
                 if (ts := parse_rout(line)) and ts >= parsed_PRD
             ]
 
-        DIFFMATCHED.sort(key=parse_rout)
+        diffmatched.sort(key=parse_rout)
 
-        for line in DIFFMATCHED:
+        for line in diffmatched:
 
             status = line[0]
             timestamp = line[1]

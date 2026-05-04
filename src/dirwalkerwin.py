@@ -13,12 +13,12 @@ from .fsearchfunctions import file_owner
 
 @dataclass
 class ConfigData:
-    USRDIR: Path
+    usrDIR: Path
     toml_file: Path
     json_file: Path
     log_file: Path
     config: Dict
-    EXCLDIRS: list
+    exclDIRS: list
     nogo: list
     filterout_list: list
     driveTYPE: str
@@ -26,26 +26,26 @@ class ConfigData:
 
 
 # read and return the configs for dirwalker to avoid passing too many arguments
-def get_config_data(appdata_local, USR):
+def get_config_data(appdata_local, usr):
 
-    toml_file, json_file, _ = get_config(appdata_local, USR, platform="Windows")
+    toml_file, json_file, _ = get_config(appdata_local, usr, platform="Windows")
 
-    USRDIR = find_user_folder("Desktop")
-    if USRDIR is None:
+    usrDIR = find_user_folder("Desktop")
+    if usrDIR is None:
         print("Could not find user Desktop folder")
         return None
     config = load_toml(toml_file)
     if not config:
         None
-    EXCLDIRS = user_path(config['search']['EXCLDIRS'], USR)
-    nogo = user_path(config['shield']['nogo'], USR)
-    filterout_list = user_path(config['shield']['filterout'], USR)
+    exclDIRS = user_path(config['search']['exclDIRS'], usr)
+    nogo = user_path(config['shield']['nogo'], usr)
+    filterout_list = user_path(config['shield']['filterout'], usr)
     driveTYPE = config['search']['driveTYPE']
     ll_level = config['logs']['logLEVEL']
     log_file = config['logs']['userLOG']
     log_file = appdata_local / "logs" / log_file
 
-    return ConfigData(USRDIR, toml_file, json_file, log_file, config, EXCLDIRS, nogo, filterout_list, driveTYPE, ll_level)
+    return ConfigData(usrDIR, toml_file, json_file, log_file, config, exclDIRS, nogo, filterout_list, driveTYPE, ll_level)
 
 
 def return_info(file_path, st, symlink, link_target, log_q):

@@ -10,21 +10,21 @@ from typing import Any
 from src.pyfunctions import cnc
 
 
-def encr_cache(cfr, CACHE_F, email, compLVL):
+def encr_cache(cfr, cache_f, email, compLVL):
     data_to_write = dict_to_list(cfr)
     ctarget = dict_string(data_to_write)
 
-    nc = cnc(CACHE_F, compLVL)
+    nc = cnc(cache_f, compLVL)
 
-    rlt = encrm(ctarget, CACHE_F, email, no_compression=nc, armor=False)
+    rlt = encrm(ctarget, cache_f, email, no_compression=nc, armor=False)
     if not rlt:
         print("Reencryption failed cache not saved.")
 
 
-def encr_sys_cache(dir_data, CACHE_S, email):
+def encr_sys_cache(dir_data, cache_s, email):
     data_to_write = dict_to_list_sys(dir_data)
     ctarget = dict_string(data_to_write)
-    if encrm(ctarget, CACHE_S, email, no_compression=False, armor=False):
+    if encrm(ctarget, cache_s, email, no_compression=False, armor=False):
         return True
     return False
 
@@ -140,15 +140,15 @@ def decr(src, opt):
     return False
 
 
-def decr_ctime(CACHE_F: str) -> dict:
-    if not CACHE_F or not os.path.isfile(CACHE_F):
+def decr_ctime(cache_f: str) -> dict:
+    if not cache_f or not os.path.isfile(cache_f):
         return {}
 
-    csv_path = decrm(CACHE_F)
+    csv_path = decrm(cache_f)
     if not csv_path:
         if csv_path is None:
             print("if having problems run recentchanges reset to clear .gpg files and keys")
-        print(f"Unable to retrieve cache file {CACHE_F}. the cache file might be corrupt removing it may resolve problem quitting.")
+        print(f"Unable to retrieve cache file {cache_f}. the cache file might be corrupt removing it may resolve problem quitting.")
         sys.exit(1)
 
     cfr_src = {}

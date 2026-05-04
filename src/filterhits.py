@@ -10,7 +10,7 @@ user_filter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(user_filter)
 
 
-def update_filter_csv(RECENT, csv_file, escaped_user):
+def update_filter_csv(recent, csv_file, escaped_user):
 
     hits_dict = defaultdict(int)
 
@@ -32,7 +32,7 @@ def update_filter_csv(RECENT, csv_file, escaped_user):
 
         regex = re.compile(pattern)
 
-        count = sum(1 for line in RECENT if len(line) >= 2 and regex.search(line[1]))
+        count = sum(1 for line in recent if len(line) >= 2 and regex.search(line[1]))
         hits_dict[pattern_literal] += count
 
     # add patterns not matched to csv

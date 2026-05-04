@@ -42,7 +42,7 @@ class ProcessHandler(QObject):
         self.rangeVALUE = None  # set_compress  ffsearch wsl/pwsh
         self.zipPROGRAM = None
         self.zipPATH = None
-        self.USRDIR = None
+        self.usrDIR = None
         self.downloads = None
 
         self.tgt_file = None  # set_task for, popup text editor
@@ -50,16 +50,16 @@ class ProcessHandler(QObject):
         self.dspPATH = None
         self.temp_dir = None
 
-        self.ANALYTICSECT = None  # start_powershell
+        self.analyticSECT = None  # start_powershell
         self.st_time = 0  # .
 
         self._stdout_buffer = ""
 
-    def set_compress(self, zipPROGRAM, zipPATH, USRDIR, downloads):  # For compress button. pass ins
+    def set_compress(self, zipPROGRAM, zipPATH, usrDIR, downloads):  # For compress button. pass ins
         self.is_compress = True
         self.zipPROGRAM = zipPROGRAM
         self.zipPATH = zipPATH
-        self.USRDIR = USRDIR
+        self.usrDIR = usrDIR
         self.downloads = downloads
 
     def set_task(self, tgt_file, dspEDITOR, dspPATH, tmp_dir):  # Opening results in text editor. pass ins
@@ -148,7 +148,7 @@ class ProcessHandler(QObject):
         self.process.start(cmd, args)
         self.pid = int(self.process.processId())
 
-    def start_pyprocess(self, script, args=None, database=None, dbtarget=None, status_message=None, is_search=False, is_postop=False, is_scanIDX=False, ANALYTICSECT=None, parent=None):
+    def start_pyprocess(self, script, args=None, database=None, dbtarget=None, status_message=None, is_search=False, is_postop=False, is_scanIDX=False, analyticSECT=None, parent=None):
 
         # Windows only
         env = QProcessEnvironment.systemEnvironment()
@@ -165,15 +165,15 @@ class ProcessHandler(QObject):
         self.is_postop = is_postop
         self.is_scanIDX = is_scanIDX
 
-        if ANALYTICSECT:
+        if analyticSECT:
             self.st_time = time.time()
-            self.ANALYTICSECT = True
+            self.analyticSECT = True
 
         if "findfile.py" in args:
             if self.rangeVALUE is not None:
                 args += [self.rangeVALUE]
             if self.is_compress:
-                args += [self.zipPROGRAM, self.zipPATH, self.USRDIR, self.downloads]
+                args += [self.zipPROGRAM, self.zipPATH, self.usrDIR, self.downloads]
 
         args = [str(a) for a in args if a is not None]  # list(args) if args else []
         self.args = args
@@ -185,7 +185,7 @@ class ProcessHandler(QObject):
         else:
             self.process.start(sys.executable, ["-u", script] + args)
 
-    def start_powershell(self, cmd, args, ANALYTICSECT=None):
+    def start_powershell(self, cmd, args, analyticSECT=None):
 
         command = [
             "powershell.exe",
@@ -198,7 +198,7 @@ class ProcessHandler(QObject):
     def process_finished(self, exit_code, exit_status):
 
         if exit_code == 0:
-            if self.ANALYTICSECT:  # powershell scripts
+            if self.analyticSECT:  # powershell scripts
                 el = time.time() - self.st_time
                 self.log.emit(f'Search took {el:.3f} seconds')
 

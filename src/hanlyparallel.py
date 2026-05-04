@@ -106,7 +106,7 @@ def logger_process(results, sys_records, sys_tables, rout, scr, cerr, dbopt, ps,
                     log.error(em, exc_info=True)
 
 
-def hanly_parallel(drive_type, rout, scr, cerr, parsed, cachermPATTERNS, ANALYTICSECT, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, iqt=False, strt=65, endp=90):
+def hanly_parallel(drive_type, rout, scr, cerr, parsed, cachermPATTERNS, analyticSECT, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, iqt=False, strt=65, endp=90):
 
     all_results = []
     batch_incr = []
@@ -118,7 +118,7 @@ def hanly_parallel(drive_type, rout, scr, cerr, parsed, cachermPATTERNS, ANALYTI
 
     csum = False
 
-    if ANALYTICSECT:
+    if analyticSECT:
         cprint.green('Hybrid analysis on')
 
     logger = logging.getLogger("HANLY")

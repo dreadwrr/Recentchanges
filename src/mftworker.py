@@ -11,26 +11,25 @@ import traceback
 from datetime import datetime, timedelta, timezone
 from io import StringIO
 from mft import PyMftParser, PyMftAttributeX10, PyMftAttributeX30  # type: ignore[attr-defined]
-from .ctimefunctions import build_paths
-from .ctimefunctions import output_mft
+from .mftfunctions import build_mftec_path
+from .mftfunctions import build_parsec_path
+from .mftfunctions import mft_entrycount
+from .mftfunctions import output_mft
+from .mftfunctions import read_mft_progress
 from .pyfunctions import cprint
 from .qtclasses import Worker
-from .qtfunctions import build_mftec_path
-from .qtfunctions import build_parsec_path
-from .qtfunctions import mft_entrycount
-from .qtfunctions import read_mft_progress
 from .rntchangesfunctions import removefile
 from .rntchangesfunctions import str_to_bool
 from .wmipy import mftecparse
 from .wmipy import ntfsdump
 
-# 04/14/2026
+# 05/02/2026
 
 
 # Qobject
 class MftWorker(Worker):
 
-    def __init__(self, lclapp_data, log_label, mmin, method, output_f, csvnm, flnm, OLDSORT, flnmout, flnmdffout, drive, USRDIR, disk=None, volume=None, mft=None):
+    def __init__(self, lclapp_data, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk=None, volume=None, mft=None):
         super().__init__(None)
 
         self.logger = logging.getLogger(log_label)
@@ -49,11 +48,11 @@ class MftWorker(Worker):
         self.flnm = flnm  # output filename
         self.flnmout = flnmout  # output path
         self.flnmdffout = flnmdffout  # output diff path
-        self.OLDSORT = OLDSORT  # old output to compare. Moved to AppData
+        self.oldsort = oldsort  # old output to compare. Moved to AppData
 
         self.drive = str(drive)  # workdir
-        self.USRDIR = USRDIR  # destination dirDesktop
-        self.filepath = os.path.join(USRDIR, flnm)  # destination dirFullpath
+        self.usrDIR = usrDIR  # destination dirDesktop
+        self.filepath = os.path.join(usrDIR, flnm)  # destination dirFullpath
 
         self.stop_progress = False
 
@@ -100,6 +99,7 @@ class MftWorker(Worker):
     def is_non_empty_df(self, df):
         return df is not None and isinstance(df, pd.DataFrame) and not df.empty
 
+    # recent_files = self.get_results(df, compt, time_field, ctime_field, not_dumphooks=True, prog_v=endp)
     def get_results(self, df, compt, time_field, ctime_field, is_parsec=False, not_dumphooks=False, prog_v=89):
 
         NTFS_TO_UNIX_EPOCH_TICKS = 116444736000000000
@@ -116,7 +116,7 @@ class MftWorker(Worker):
                 # mftec
                 if not is_parsec:
                     for col in dt_cols:
-                        df[col] = pd.to_datetime(df[col], errors='coerce').dt.tz_localize('UTC')  # vectorized
+                        df[col] = pd.to_datetime(df[col], errors='coerce').dt.tz_localize('UTC')  # vectorized # , utc=True)
                 # parsec
                 else:
                     for col in dt_cols:
@@ -130,6 +130,7 @@ class MftWorker(Worker):
                         )
                 # .dt.tz_localize('UTC')
                 self.progress.emit(prog_v)
+
             # timezone aware
             else:
 
@@ -138,7 +139,8 @@ class MftWorker(Worker):
                     df[col] = pd.to_datetime(df[col], errors='coerce')
 
             df = df.dropna(subset=[time_field])
-
+            # self.log.emit(compt.strftime(self.fmt))  # debug time cutoff
+            # df.to_csv("D:\\Adobe\\output.csv", index=False)  # debug dataframe
             recent_files = df[  # vectorized
                 (df['InUse']) &
                 (~df['IsDirectory']) &
@@ -180,7 +182,7 @@ class MftWorker(Worker):
             "FileSize", "ReferenceCount", "ReparseTarget", "IsDirectory", "HasAds", "IsAds", "SI<FN", "uSecZeros", "Copied", "SiFlags", "NameType",
             "Created0x10", "Created0x30", "LastModified0x10", "LastModified0x30", "LastRecordChange0x10", "LastRecordChange0x30", "LastAccess0x10",
             "LastAccess0x30", "UpdateSequenceNumber", "LogfileSequenceNumber", "SecurityId", "ObjectIdFileDroid", "LoggedUtilStream", "ZoneIdContents",
-            "SourceFile"
+            "SourceFile", "ResidentDataBase64", "ResidentDataHex", "ResidentDataASCII"
         ]
 
         bool_columns = ["InUse", "IsDirectory", "IsAds"]
@@ -220,6 +222,7 @@ class MftWorker(Worker):
 
                     recent_files = build_mftec_path(recent_files)
                     return df, recent_files
+
             else:
                 if self.method == "mftec_cutoff":
                     self.log.emit("No output from IOString csv")
@@ -237,14 +240,15 @@ class MftWorker(Worker):
         exe_path = self.parsec_command
         target = "C:"
         self.progress.emit(strt)
-        dir_, fc = output_mft(exe_path, target, dict_output=True)  # get dict of files rather than tuple
-        if not dir_:
+
+        entries = output_mft(exe_path, target)
+        if not entries:
             print("parsec starting fault failed initial parse of mft", exe_path)
             return None, None
 
-        return dir_, fc
+        return entries
 
-    def read_parsec(self, dir_, fc, compt, strt=75, endp=91, time_field="LastModified0x10", ctime_field="Created0x10"):
+    def read_parsec(self, fc, compt, strt=75, endp=91, time_field="LastModified0x10", ctime_field="Created0x10"):
 
         columns = [
             "EntryNumber", "SequenceNumber", "InUse", "ParentEntryNumber", "ParentSequenceNumber", "ParentPath", "FileName",
@@ -252,41 +256,37 @@ class MftWorker(Worker):
             "LastRecordChange0x10", "LastAccessed0x10"
         ]
 
-        dirs = build_paths(dir_)
-
         ir = int(round((endp - strt) * 0.583))
         prog_v = strt + ir
         self.progress.emit(prog_v)
         endval = endp + 16  # 91
         data = []
 
-        for frn, entry in fc.items():
+        is_dir = IsAds = False
 
-            parent_frn = entry["parent_frn"]
-            ParentEntryNumber = parent_frn & 0xFFFFFFFFFFFF
-            ParentSequenceNumber = (parent_frn >> 48) & 0xFFFF
-            ParentPath = dirs.get(parent_frn, {}).get("path")
+        for entry in fc:
+            if entry:
+                recno, sequence_num, in_use, ParentEntryNumber, ParentSequenceNumber, path, name, size, hardlinks, has_ads, mode, creation_time, mod_time, mft_mod, access_time = entry
 
-            IsAds = False
-            data.append([
-                entry["record_number"],
-                entry["sequence_number"],
-                entry["in_use"],
-                ParentEntryNumber,
-                ParentSequenceNumber,
-                ParentPath,
-                entry["name"],
-                entry["size"],
-                entry["hard_link_count"],
-                entry["is_dir"],
-                entry["has_ads"],
-                IsAds,
-                entry["file_attribs"],
-                entry["creation_time"],
-                entry["modification_time"],
-                entry["mft_modification_time"],
-                entry["access_time"]
-            ])
+                data.append([
+                    recno,
+                    sequence_num,
+                    in_use,
+                    ParentEntryNumber,
+                    ParentSequenceNumber,
+                    path,
+                    name,
+                    size,
+                    hardlinks,
+                    is_dir,
+                    has_ads,
+                    IsAds,
+                    mode,
+                    creation_time,
+                    mod_time,
+                    mft_mod,
+                    access_time
+                ])
 
         df = pd.DataFrame(data, columns=columns)
 
@@ -323,7 +323,7 @@ class MftWorker(Worker):
             return 0
 
         df = pd.DataFrame()             # original csv data
-        df_2 = pd.DataFrame()           # OLDSORT
+        df_2 = pd.DataFrame()           # oldsort
         recent_files = pd.DataFrame()   # SORTCOMPLETE
 
         merged_df = pd.DataFrame()      # created files from usn jrnl
@@ -345,8 +345,8 @@ class MftWorker(Worker):
         compt = self.df
 
         try:  # Old results?
-            if self.OLDSORT:  # theprevious resultsare were savedin /save-changesnew/ from desktop
-                with open(self.OLDSORT, 'r', encoding='utf-8') as file:
+            if self.oldsort:  # theprevious resultsare were savedin /save-changesnew/ from desktop
+                with open(self.oldsort, 'r', encoding='utf-8') as file:
                     data = []
                     for line in file:
                         line = line.strip()
@@ -364,7 +364,7 @@ class MftWorker(Worker):
                     # df_2['LastModified_aware'] = df_2['LastModified_local_naive'].apply(
                     #     lambda dt: local_tz.localize(dt) if pd.notnull(dt) else pd.NaT
                     # ).dt.tz_convert('UTC')
-                removefile(self.OLDSORT)
+                removefile(self.oldsort)
             self.progress.emit(55)
         except Exception as e:
             self.log.emit(f'failure to read old sort file: {type(e).__name__}: {e}')
@@ -375,17 +375,19 @@ class MftWorker(Worker):
                 df, recent_files = self.get_mftecdf(compt, None, csvopt, strt=55, endp=91, time_field=time_field, ctime_field=ctime_field)  # already parsed to .csv
 
             elif method == "mftec_cutoff":
+
                 csv_data = self.read_mftmem(compt, strt=55, endp=75)  # parse directly into memory
                 if not csv_data:
                     return 1
+
                 df, recent_files = self.get_mftecdf(compt, csv_data, None, strt=75, endp=91, time_field=time_field, ctime_field=ctime_field)  # now parsed into memory
 
             elif method == "parsec":
                 parsec = True
-                dir_, fc = self.parsec_read_mft(strt=55)  # .
-                if not dir_:
+                fc = self.parsec_read_mft(strt=55)  # .
+                if not fc:
                     return 1
-                df, recent_files = self.read_parsec(dir_, fc, compt, strt=75, endp=91)  # .
+                df, recent_files = self.read_parsec(fc, compt, strt=75, endp=91)  # .
 
             else:
                 self.log.emit("\nParsing Mft with python hooks")
@@ -409,10 +411,10 @@ class MftWorker(Worker):
                     try:
                         self.log.emit('Analyzing and diffing previous results')
 
-                        STRTTIME = recent_files[time_field].min()
-                        ETMN_df2 = df_2[time_field].max()
+                        strt_time = recent_files[time_field].min()
+                        etmn_df2 = df_2[time_field].max()
 
-                        if ETMN_df2 >= STRTTIME:
+                        if etmn_df2 >= strt_time:
 
                             df_diff = pd.merge(recent_files, df_2, on=[time_field, "FullPath"], how='outer', indicator=True)
                             only_in_df_1 = df_diff[df_diff['_merge'] == 'left_only']
@@ -468,35 +470,55 @@ class MftWorker(Worker):
 
                         csv_data = "\n".join(lines)
 
-                        df_3 = pd.read_csv(StringIO(csv_data))
+                        df_3 = pd.read_csv(
+                            StringIO(csv_data),
+                            dtype={
+                                "File ID": str
+                            }
+                        )
 
                         df_3['Time stamp'] = pd.to_datetime(df_3['Time stamp'], errors='coerce').dt.tz_localize('UTC')
                         df_3 = df_3.dropna(subset=['File ID'])
 
                         df_cfiles = df_3[
-                            (df_3['File attributes'] == 'Archive') &
                             (df_3['Time stamp'] >= compt)
                         ].copy()
 
-                        def frn_to_entry(frn_str):
-                            entry_id = frn_str[-16:]
-                            entry_hex = entry_id[4:]
-                            return int(entry_hex, 16)
-                        df_cfiles['File ID'] = df_cfiles['File ID'].astype(str).str.strip()
-                        df_cfiles['MFT Entry'] = df_cfiles['File ID'].apply(frn_to_entry)
+                        # usn is padded with zeroes so originally sliced hex string and only took entry
+                        # orig
+                        # df_cfiles['File ID'] = df_cfiles['File ID'].astype(str).str.strip()
+                        # def frn_to_entry(frn_str):
+                        #     entry_id = frn_str[-16:]
+                        #     entry_hex = entry_id[4:]
+                        #     return int(entry_hex, 16)
+                        # alternative
+                        # def frn_to_entry(frn_str):
+                        #     frn = int(frn_str, 16)
+                        #     record_num = frn & 0xFFFFFFFFFFFF
+                        #     sequence_num = frn >> 48
+                        #     return record_num, sequence_num
+                        # df_cfiles['MFT Entry'] = df_cfiles['File ID'].apply(frn_to_entry)
+                        #
+                        # df_cfiles['MFT Entry'] = pd.to_numeric(
+                        #     df_cfiles['MFT Entry'],
+                        #     errors='coerce',
+                        # )
+                        # end orig
 
-                        df_cfiles['MFT Entry'] = pd.to_numeric(
-                            df_cfiles['MFT Entry'],
-                            errors='coerce',
-                        )
+                        # new take entry and sequence from usn
+                        frn_int = df_cfiles["File ID"].map(lambda x: int(x, 16)).to_numpy(dtype="int64")
+                        df_cfiles["MFT Entry"] = frn_int & 0xFFFFFFFFFFFF
+                        df_cfiles["MFT Sequence"] = frn_int >> 48
+                        # end new
 
                         df = df.dropna(subset=['EntryNumber'])
                         df_cfiles = df_cfiles.dropna(subset=['MFT Entry'])
 
                         df['EntryNumber'] = df['EntryNumber'].astype('int64')
-                        df['FileName'] = df['FileName'].astype(str)
+                        # df['FileName'] = df['FileName'].astype(str)
+
                         df_cfiles['MFT Entry'] = df_cfiles['MFT Entry'].astype('int64')
-                        df_cfiles['File name'] = df_cfiles['File name'].astype(str)
+                        # df_cfiles['File name'] = df_cfiles['File name'].astype(str)
 
                         df = df.loc[
                             (df['InUse']) &
@@ -504,11 +526,12 @@ class MftWorker(Worker):
                             (~df['IsAds'])
                         ]
 
-                        # Join the usn jrnl to the mft to get the full path. the usn jrnl only has filename
+                        # Join the usn jrnl to the mft to get the full path as the usn jrnl only has filename
+                        # instead of joining on FileName and File name now properly join on sequence number
                         merged_df = df_cfiles.merge(
                             df,
-                            left_on=['MFT Entry', 'File name'],
-                            right_on=['EntryNumber', 'FileName'],
+                            left_on=['MFT Entry', 'MFT Sequence'],
+                            right_on=['EntryNumber', 'SequenceNumber'],
                             how='inner',  # how='inner' only files that currently exist in the mft   how='left', all USN with nan for ParentPath, FullPath if not in mft
                             suffixes=('_cfiles', '')
                         )
@@ -529,7 +552,7 @@ class MftWorker(Worker):
                         self.progress.emit(100)
                     else:
                         self.log.emit('Failed to read USN Jrnl for created')
-                    # df_cfiles['Field ID'] = df_cfiles['Field ID'].apply(lambda x: int(x, 16))
+
                 except Exception as e:
                     emesg = f'failure in usn block: {type(e).__name__}: {e}'
                     rlt = 1
@@ -715,19 +738,27 @@ class MftWorker(Worker):
             for entry_or_error in parser.entries():
                 if isinstance(entry_or_error, RuntimeError):
                     continue
-                entry_path = entry_or_error.full_path or ""
-                if entry_path.startswith(".") or entry_path.startswith("$") or entry_path.startswith("[Unknown]") or not entry_path:
+                # skip extension records
+                if entry_or_error.base_entry_id != 0:
                     continue
+                entry_path = entry_or_error.full_path or ""
+                # optional filtering
+                # if entry_path.startswith(".") or entry_path.startswith("$") or entry_path.startswith("[Unknown]") or not entry_path:
+                #     continue
 
-                mtime = ctime = flags = None
+                mtime = ctime = None
+                is_ads = False  # has_ads = False
 
-                is_dir = False
                 in_use = True
+                is_dir = False
+
                 if "ALLOCATED" not in entry_or_error.flags:
                     in_use = False
-                is_ads = False
+                if "INDEX_PRESENT" in entry_or_error.flags:
+                    is_dir = True
 
                 is_continue = True
+                have_name = False  # get first name as canonical
 
                 r += 1
                 if current_step < len(steps) and r >= steps[current_step]:
@@ -736,6 +767,7 @@ class MftWorker(Worker):
                     current_step += 1
 
                 entry_id = entry_or_error.entry_id
+                sequence = entry_or_error.sequence
                 full_path = "C:\\" + entry_path
                 file_name = None
 
@@ -752,18 +784,32 @@ class MftWorker(Worker):
 
                             mtime = entry_content.modified
                             ctime = entry_content.created
-                            if not mtime or (mtime < end_df and ctime < end_df):
+                            if not mtime:
+                                is_continue = False
+                            elif mtime < end_df and (not ctime or ctime < end_df):
                                 is_continue = False
 
                         elif isinstance(entry_content, PyMftAttributeX30):   # FILE ATTRIB
-                            file_name = entry_content.name
-                            flags = entry_content.flags
-                            if "FILE_ATTRIBUTE_IS_DIRECTORY" in flags:
-                                is_dir = True
+                            fnm = entry_content.name
+                            ns = entry_content.namespace
+                            if ns != "DOS" and not have_name:
+                                if ns == "POSIX":
+                                    file_name = fnm
+                                elif ns == "Win32AndDos" or ns == "Win32":
+                                    have_name = True
+                                    file_name = fnm
+
+                            # after getting first name could store other names as hard links by adding to a list then appending after entry as they have same si timestamps
+
+                        # elif isinstance(entry_content, PyMftAttributeX80):
+                        #     name = attribute_or_error.name
+                        #     if name:
+                        #         has_ads = True
 
                 if is_continue:
+
                     if mtime and file_name:
-                        file_entries.append([entry_id, mtime, ctime, is_dir, in_use, is_ads, file_name, full_path])
+                        file_entries.append([entry_id, sequence, mtime, ctime, is_dir, in_use, is_ads, file_name, full_path])
 
             self.progress.emit(endp)
 
@@ -771,7 +817,7 @@ class MftWorker(Worker):
 
                 try:
 
-                    headers = ["EntryNumber", time_field, "Created0x10", "IsDirectory", "InUse", "IsAds", "FileName", "FullPath"]
+                    headers = ["EntryNumber", "SequenceNumber", time_field, "Created0x10", "IsDirectory", "InUse", "IsAds", "FileName", "FullPath"]
                     df = pd.DataFrame(file_entries, columns=headers)
 
                     recent_files = self.get_results(df, end_df, time_field, ctime_field)  # by search criteria and convert to system time
@@ -810,6 +856,7 @@ class MftWorker(Worker):
 
     # MFTECmd import
     def outputmft(self):
+
         # writing to csvopt
         try:
 
@@ -821,6 +868,7 @@ class MftWorker(Worker):
                 removefile(output_pth)
             sb = os.path.getsize(self.mft)
 
+            # print(self.drive, self.output_f, self.output_pth, self.mft)
             if sb > 900 * MB:
                 intv = 5
             elif sb > 600 * MB:
@@ -838,6 +886,7 @@ class MftWorker(Worker):
 
             cmd = [str(self.mftec_command), '--dt', frmt, '-f', mft_flnm, '--csv', self.drive, '--csvf', self.output_f]
             # mg = 'Running command: ' + ' '.join(f'"{c}"' for c in cmd)
+            # print(mg)
             # self.log.emit(mg)
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
@@ -845,7 +894,6 @@ class MftWorker(Worker):
             is_start = False
 
             csv_pth = None
-
             for line in proc.stdout:
 
                 if not is_start:
@@ -948,16 +996,16 @@ class MftWorker(Worker):
         df = cutoff.isoformat().replace("+00:00", "Z")
         self.log.emit(f"Cutoff {df}")
 
-        # mftec_commd = '.\\bin\\MFTECmd.exe'
+        # mftec_command = '.\\bin\\MFTECmd.exe'
 
-        # example cutoff time all dates after that time. write stdout to file Y:\myfile.csv. Note --csvf is ignored in this case mft parsed and sent to stdout from MFTECmd.exe
+        # example cutoff time all dates after that time. --cutoff triggers stdout and in this example > to file Y:\myfile.csv. --csvf is ignored in this case.
 
         # .\MFTECmd.exe -f "C:\`$MFT" --cutoff 2025-10-19T13:45:30 --csv Y:\ --csvf myfile2.csv > Y:\myfile.csv  # default format is 7digits yyyy-MM-dd HH:mm:ss.fffffff  # for python datatime
 
-        cutoff = "2003-03-19T11:13:18Z"  # to trigger entire mft for cross reference path resolution needed by usn jrnl by frn ***
+        cutoff = "2003-03-19T11:13:18Z"  # outputs the entire mft to stdout
         cmd = [str(self.mftec_command), '-f', mft, '--dt', 'yyyy-MM-dd HH:mm:ss.ffffff', '--cutoff', cutoff, '--csv', 'C:\\', '--csvf', 'myfile2.csv']
 
-        # self.log.emit('Running command:' + ' '.join(f'"{c}"' for c in cmd))
+        self.log.emit('Running command:' + ' '.join(f'"{c}"' for c in cmd))
 
         byte_s = mft_entrycount()
         csv_data = StringIO()
@@ -982,7 +1030,8 @@ class MftWorker(Worker):
                     self.log.emit("No csv_data in read_mftmem mft_worker main.py")
             else:
                 if std_err:
-                    self.log.emit(f'Failed. Unable to output csv with mftecmd.exe: {std_err}')
+                    self.log.emit(std_err)
+                self.log.emit(f'Failed. Unable to output csv with mftecmd.exe. return code: {rlt}')
         except (FileNotFoundError, PermissionError) as e:
             self.log.emit(f'Unable to find MFTECmd.exe {self.mftec_command} or permission error in \\bin. err: {type(e).__name__}')
         except Exception as e:

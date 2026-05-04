@@ -61,12 +61,12 @@ def user_info(user=None):
             usr_info = pwd.getpwnam(user)
         else:
             usr_info = pwd.getpwuid(os.geteuid())
-        USR = usr_info.pw_name
+        usr = usr_info.pw_name
         uid = usr_info.pw_uid
         gid = usr_info.pw_gid  # gid = grp.getgrnam(user).gr_gid
         home_dir = Path(usr_info.pw_dir)
 
-        return USR, uid, gid, home_dir
+        return usr, uid, gid, home_dir
     except (KeyError, OSError) as e:
         raise ValueError(f"unable to get info for {user if user else 'current user'}") from e
 

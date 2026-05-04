@@ -20,7 +20,7 @@ def parse_recent_args(parser):
                         help="zip program to use for archive (default: None)")
     parser.add_argument("zipPATH", nargs="?", default=None,
                         help="zip program path (default: None)")
-    parser.add_argument("USRDIR", nargs="?", default=None,
+    parser.add_argument("usrDIR", nargs="?", default=None,
                         help="user desktop path used for exclusions for the compressed archive (default: None)")
     parser.add_argument("downloads", nargs="?", default=None,
                         help="where to save the archive if default not wanted (default: None)")

@@ -19,7 +19,7 @@ from .logs import write_logs_to_logger
 from .pyfunctions import epoch_to_str
 
 
-def scan_created(chunk, basedir, EXCLDIRS_FULLPATH, filter_tup, CACHE_S, root_count, i, num_chunks, show_progress=False, logger=None, strt=0, endp=0):
+def scan_created(chunk, basedir, exclDIRS_fullpath, filter_tup, cache_s, root_count, i, num_chunks, show_progress=False, logger=None, strt=0, endp=0):
 
     sys_data = []
     results = []
@@ -39,7 +39,7 @@ def scan_created(chunk, basedir, EXCLDIRS_FULLPATH, filter_tup, CACHE_S, root_co
                 return
 
             cckSEEN.add(root)  # recursion safety
-            prev_entry = CACHE_S.get(root)  # skip known reparse
+            prev_entry = cache_s.get(root)  # skip known reparse
             if prev_entry and prev_entry.get("type"):
                 return
 
@@ -103,7 +103,7 @@ def scan_created(chunk, basedir, EXCLDIRS_FULLPATH, filter_tup, CACHE_S, root_co
                     try:
                         if record.is_dir():
                             is_dir = True
-                            if path in EXCLDIRS_FULLPATH:
+                            if path in exclDIRS_fullpath:
                                 continue
 
                             if root != basedir:

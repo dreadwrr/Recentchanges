@@ -164,7 +164,7 @@ def find_gnupg_home(json_file, j_settings=None, iqt=False):
 
 
 # setup keypair for user
-def genkey(appdata_local, USR, email, name, dbtarget, CACHE_F, CACHE_S, flth, TEMPD, passphrase=None):
+def genkey(appdata_local, usr, email, name, dbtarget, cache_f, cache_s, flth, tempd, passphrase=None):
 
     if not passphrase:
         passphrase = getpass.getpass("Enter passphrase for new GPG key: ")
@@ -186,7 +186,7 @@ def genkey(appdata_local, USR, email, name, dbtarget, CACHE_F, CACHE_S, flth, TE
         "%echo done",
     ]
     params = "\n".join(param_lines) + "\n"
-    with tempfile.TemporaryDirectory(dir=TEMPD) as kp:
+    with tempfile.TemporaryDirectory(dir=tempd) as kp:
 
         ftarget = os.path.join(kp, 'keyparams.conf')
 
@@ -223,7 +223,7 @@ def genkey(appdata_local, USR, email, name, dbtarget, CACHE_F, CACHE_S, flth, TE
             return False
         finally:
             removefile(ftarget)
-    clear_gpg(dbtarget, CACHE_F, CACHE_S, flth)
+    clear_gpg(dbtarget, cache_f, cache_s, flth)
     print(f"GPG key generated for {email}.")
     return True
 
@@ -242,13 +242,13 @@ def get_key_fingerprint(email):
     return None
 
 
-def clear_gpg(dbtarget, CACHE_F, CACHE_S, flth):
+def clear_gpg(dbtarget, cache_f, cache_s, flth):
     """ delete ctimecache & db .gpg & profile .gpgs """
-    systimeche = name_of(CACHE_S)
+    systimeche = name_of(cache_s)
     dbopt = name_of(dbtarget, '.db')
-    file_path = os.path.dirname(CACHE_S)
+    file_path = os.path.dirname(cache_s)
     pattern = os.path.join(file_path, f"{systimeche}*")
-    for r in (CACHE_F, dbopt, dbtarget, flth, *glob.glob(pattern)):
+    for r in (cache_f, dbopt, dbtarget, flth, *glob.glob(pattern)):
         # p = Path(r)
         try:
             removefile(r)
@@ -258,7 +258,7 @@ def clear_gpg(dbtarget, CACHE_F, CACHE_S, flth):
             pass
 
 
-def delete_gpg_keys(usr, email, dbtarget, CACHE_F, CACHE_S, flth):
+def delete_gpg_keys(usr, email, dbtarget, cache_f, cache_s, flth):
 
     # def instruct_out():
     #     print("To trust a gpg key")
@@ -290,7 +290,7 @@ def delete_gpg_keys(usr, email, dbtarget, CACHE_F, CACHE_S, flth):
                     result = True
                     exec_delete_keys(email, fingerprint)
 
-                clear_gpg(dbtarget, CACHE_F, CACHE_S, flth)
+                clear_gpg(dbtarget, cache_f, cache_s, flth)
                 if result:
                     # print(f"\nDelete {dbtarget} if it exists as it uses the old key pair.")
                     return 0

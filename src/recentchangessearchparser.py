@@ -17,10 +17,9 @@ def build_subparser(script):
 
     if r_args.args == script:
         recent_args = [
-            r_args.argone, r_args.argtwo, r_args.USR, r_args.PWD, r_args.argf, r_args.method,
+            r_args.argone, r_args.argtwo, r_args.usr, r_args.pwd, r_args.argf, r_args.method,
             r_args.iqt, r_args.drive, r_args.dtype, r_args.db_output, r_args.cache_file,
-            r_args.POST_OP, r_args.scan_idx, r_args.showDiff, r_args.argwsl,
-            r_args.dspPATH
+            r_args.post_OP, r_args.scan_idx, r_args.showDiff, r_args.dspPATH
         ]
         return recent_args
     else:
@@ -31,8 +30,8 @@ def build_subparser(script):
 def parse_recent_args(parser):
     parser.add_argument("argone", help="First required argument keyword search or the search time in seconds")
     parser.add_argument("argtwo", help="Second required argument the search time for recentchanges search or noarguser")
-    parser.add_argument("USR", help="Username")
-    parser.add_argument("PWD", help="Password")
+    parser.add_argument("usr", help="Username")
+    parser.add_argument("pwd", help="Password")
     parser.add_argument("argf", nargs="?", default="bnk", help="Optional argf or inverted (default: bnk)")
     parser.add_argument("method", nargs="?", default="", help="Optional method rnt means recentchanges \"\" means recentchanges search (default: empty)")
     parser.add_argument("iqt", nargs="?", type=to_bool, default=False,
@@ -45,14 +44,12 @@ def parse_recent_args(parser):
                         help="Path to decrypted database from qt application for pst_srg and ha (default:None)")
     parser.add_argument("cache_file", nargs="?", default=None,
                         help="Path to systimeche.gpg or systimeche_xsdx.gpg profile cache file for build and scan IDX (default:None)")
-    parser.add_argument("POST_OP", nargs="?", type=to_bool, default=False,
-                        help="POST_OP boolean postop create file doctrine (default: False)")
+    parser.add_argument("post_OP", nargs="?", type=to_bool, default=False,
+                        help="post_OP boolean postop create file doctrine (default: False)")
     parser.add_argument("scan_idx", nargs="?", type=to_bool, default=False,
                         help="scan_idx boolean postop scan index (default: False)")
     parser.add_argument("showDiff", nargs="?", type=to_bool, default=False,
                         help="showDiff boolean show symmetric differences for idx scan (default: False)")
-    parser.add_argument("argwsl", nargs="?", type=to_bool, default=False,
-                        help="argwsl boolean running windows subsystem of linux (default: False)")
     parser.add_argument("dspPATH", nargs="?", default=None,
                         help="Optional dspPATH verified path to editor (default: None)")
 
