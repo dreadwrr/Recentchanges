@@ -1,7 +1,6 @@
 Windows 10 11 <br>
 Released 3.0.6 <br>
-![Alt text](https://i.imgur.com/yNnttmU.png) <br>
-![Alt text](https://i.imgur.com/p1kuXYp.png) <br><br>
+![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 
 Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br><br>
 3.0.6 added add to and remove from path in settings and with powershell 7 use pwsh and there is a speed boost when using powershell 7<br>
@@ -66,7 +65,7 @@ also to use the commandline with main the bat file has to be edited recentchange
 further pyinstall documentation https://github.com/dreadwrr/Recent-Pyinstaller<br>
 which is just updating the .bat files to point to the executable <br><br>
 
-
+![Alt text](https://i.imgur.com/p1kuXYp.png) <br><br>
 ![Alt text](https://i.imgur.com/6q4THX4.png) <br>
 The app can be used without included gpg or 7-zip and would use gpg4win. if 7-zip or winrar arent installed will use python zipfile. <br>
 powershell is default and uses PSSQLite for data typing and accuracy <br>
