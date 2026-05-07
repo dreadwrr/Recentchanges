@@ -19,18 +19,18 @@ Create a custom crest with a .png image file max size 255 x 333 <br>
 Will use gpg4win system install or app gpg if not installed <br>
 Full commandline support with recentchanges.bat and rnt.bat <br>
 
+find file or files by extension and also compress to a .zip/.rar archive by time<br>
+A new feature Find new files fast with a  drive index that is stored in a .gpg cache file loaded into memory.
+
+Scan the system index independtly with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
+or faked modified time.  <br><br>
+
 Commands: <br>
 ./recentchanges <br>
 ./recentchanges search <br>
 ./recentchanges reset <br>
 ./recentchanges query <br>
 </p><br>
-Ntfstools included for Mft options, also supports the sleuth kit icat if placed in \bin <br>
-See required tsk files above <br>
-order is  mftecmd, parser, icat\fstat and ntfstools so remove others when using specific one <br><br>
-
-Links for MFTCmd with cutoff allowing to read the Mft into memory while doing an Mft search. <br>
-https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0#bookmark=id.ct8qv65gr0wc <br><br>
 
 if python is installed. <br><br>
 If you dont have python installed there is a Windows setup version available <br>
@@ -39,16 +39,7 @@ make a venv if preferred <br>
 pip install -r requirements.txt <br>
 python main.py <br><br>
 
-may require packages requests, packaging
-
-<br><br>
-find file or files by extension and also compress to a .zip/.rar archive by time<br>
-A new feature Find new files fast with a  drive index that is stored in a .gpg cache file loaded into memory.
-
-Scan the system index independtly with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
-or faked modified time.  <br><br>
-The application works with MFTCmd official\standard or the MFTECmd cutoff version if placed in \bin <br>
-`icat` and `fsstat` can be used alternatively to ntfstools see tskrequiredfiles.txt and placed in \bin <br><br>
+may require packages requests, packaging<br><br>
 
 # Pyinstaller instructions <br>
 remove old dist folder <br>
@@ -63,9 +54,19 @@ copy _internal and main from in dist folder to app folder <br>
 <br>
 also to use the commandline with main the bat file has to be edited recentchanges.bat or rnt.bat remove python and change src\set_recent_helper.py to main in two places <br><br>
 
-
 further pyinstall documentation https://github.com/dreadwrr/Recent-Pyinstaller<br>
 which is just updating the .bat files to point to the executable <br><br>
+
+Ntfstools included for Mft options, also supports the sleuth kit icat if placed in \bin <br>
+See required tsk files above <br>
+order is  mftecmd, parser, icat\fstat and ntfstools so remove others when using specific one <br><br>
+
+Links for MFTCmd with cutoff allowing to read the Mft into memory while doing an Mft search. <br>
+https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0#bookmark=id.ct8qv65gr0wc <br><br>
+
+The application works with MFTCmd official\standard or the MFTECmd cutoff version if placed in \bin <br>
+`icat` and `fsstat` can be used alternatively to ntfstools see tskrequiredfiles.txt and placed in \bin <br><br>
+
 ![Alt text](https://i.imgur.com/p1kuXYp.png) <br><br>
 ![Alt text](https://i.imgur.com/6q4THX4.png) <br>
 The app can be used without included gpg or 7-zip and would use gpg4win. if 7-zip or winrar arent installed will use python zipfile. <br>
