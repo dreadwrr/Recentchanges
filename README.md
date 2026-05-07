@@ -36,7 +36,7 @@ If you dont have python installed there is a Windows setup version available <br
 make a venv if preferred <br>
 pip install -r requirements.txt <br>
 python main.py <br><br>
-may require packages requests, packaging<br><br>
+may require packages requests, packaging<br>
 
 # Pyinstaller instructions <br>
 remove old dist folder <br>
