@@ -65,7 +65,7 @@ https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/
 ![Alt text](https://i.imgur.com/p1kuXYp.png) <br><br>
 ![Alt text](https://i.imgur.com/6q4THX4.png) <br>
 The app can be used without included gpg or 7-zip and would use gpg4win. if 7-zip or winrar arent installed will use python zipfile. <br>
-powershell is default <br>
+
 windows ui file https://drive.google.com/file/d/1DAHvPq4yqNQNxdVmFLM0SyX5lRF2Qs72/view?usp=sharing <br><br>
 mft sources <br>
 omerbenamram mft dump and python hooks <br>
