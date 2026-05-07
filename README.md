@@ -51,6 +51,7 @@ copy _internal and main from in dist folder to app folder <br>
 <br>
 also to use the commandline with main the bat file has to be edited recentchanges.bat or rnt.bat remove python and change src\set_recent_helper.py to main in two places <br><br>
 
+Things to do after installation. Recommend installing notepad++ and changing dspEDITOR to notepad++ <br><br>
 
 Ntfstools included for Mft options, also supports the sleuth kit icat if placed in \bin <br>
 See required tsk files above <br>
