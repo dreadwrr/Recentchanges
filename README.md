@@ -7,7 +7,7 @@ Can be used with system python or one step pyinstall build. A windows setup vers
 
 To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
-search with Powershell or windows subsystem of linux. <br>
+
 With Hybrid analysis and MFT search <br><br>
 GPG, Ntfstools, 7-zip included <br><br>
 <p>
@@ -20,7 +20,6 @@ Full commandline support with recentchanges.bat and rnt.bat <br>
 
 find file or files by extension and also compress to a .zip/.rar archive by time<br>
 A new feature Find new files fast with a  drive index that is stored in a .gpg cache file loaded into memory.
-
 Scan the system index independtly with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
 or faked modified time.  <br><br>
 
