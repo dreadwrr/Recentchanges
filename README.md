@@ -20,7 +20,7 @@ Full commandline support with recentchanges.bat and rnt.bat <br>
 
 find file or files by extension and also compress to a .zip/.rar archive by time<br>
 A new feature Find new files fast with a  drive index that is stored in a .gpg cache file loaded into memory.<br><br>
-Scan the system index independtly with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
+Scan the system index independently with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
 or faked modified time.  <br><br>
 
 Commands: <br>
