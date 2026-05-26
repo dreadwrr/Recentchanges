@@ -55,7 +55,7 @@ Things to do after installation. Recommend installing notepad++ and changing dsp
 
 Ntfstools included for Mft options, also supports the sleuth kit icat if placed in \bin <br>
 See required tsk files above <br>
-order is  mftecmd, parser, icat\fstat and ntfstools so remove others when using specific one <br>
+order is  mftecmd, parsec, icat\fstat and ntfstools so remove others when using specific one <br>
 
 further pyinstall documentation https://github.com/dreadwrr/Recent-Pyinstaller<br>
 which is just updating the .bat files to point to the executable <br><br>
