@@ -23,11 +23,12 @@ A new feature Find new files fast with a  drive index that is stored in a .gpg c
 Scan the system index independently with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
 or faked modified time.  <br><br>
 
+Add to path from settings buttom <br>
 Commands: <br>
-./recentchanges <br>
-./recentchanges search <br>
-./recentchanges reset <br>
-./recentchanges query <br>
+recentchanges <br>
+recentchanges search <br>
+recentchanges reset <br>
+recentchanges query <br>
 </p><br>
 
 if python is installed. <br><br>
