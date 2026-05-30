@@ -4,7 +4,6 @@ With Hybrid analysis and MFT search <br><br>
 
 Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br><br>
 
-
 To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
 
