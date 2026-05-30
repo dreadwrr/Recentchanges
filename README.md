@@ -11,7 +11,7 @@ Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
 GPG, Ntfstools, 7-zip included <br>
 Ntfstools included for Mft saving, also can use the sleuth kit icat if placed in \bin <br>
 See required tsk files above <br>
-order is: mftecmd, parsec, icat\fstat and ntfstools so remove others when using specific one <br><br>
+order is: icat\fstat and ntfstools and the other can be removed <br><br>
 
 <p>
 Save encrypted notes <br>
