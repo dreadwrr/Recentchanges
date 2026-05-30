@@ -64,7 +64,7 @@ Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br>
 
 Ntfstools included for Mft saving, also can use the sleuth kit icat if placed in \bin <br>
 See required tsk files above <br>
-order is: icat\fstat and ntfstools and the other can be removed <br><br>
+order is: icat\fstat and ntfstools. and other can be removed <br><br>
 
 ![Alt text](https://i.imgur.com/6q4THX4.png) <br>
 
