@@ -12,7 +12,6 @@ from datetime import datetime, timedelta, timezone
 from io import StringIO
 from mft import PyMftParser, PyMftAttributeX10, PyMftAttributeX30  # type: ignore[attr-defined]
 from .mftfunctions import build_mftec_path
-from .mftfunctions import build_parsec_path
 from .mftfunctions import mft_entrycount
 from .mftfunctions import output_mft
 from .mftfunctions import read_mft_progress
@@ -250,10 +249,11 @@ class MftWorker(Worker):
 
     def read_parsec(self, fc, compt, strt=75, endp=91, time_field="LastModified0x10", ctime_field="Created0x10"):
 
+        # replaced ParentPath with FullPath
         columns = [
-            "EntryNumber", "SequenceNumber", "InUse", "ParentEntryNumber", "ParentSequenceNumber", "ParentPath", "FileName",
+            "EntryNumber", "SequenceNumber", "InUse", "ParentEntryNumber", "ParentSequenceNumber", "FullPath", "FileName",
             "FileSize", "ReferenceCount", "IsDirectory", "HasAds", "IsAds", "SiFlags", ctime_field, time_field,
-            "LastRecordChange0x10", "LastAccessed0x10"
+            "LastRecordChange0x10", "LastAccessed0x10", "UpdateSequenceNumber"
         ]
 
         ir = int(round((endp - strt) * 0.583))
@@ -266,7 +266,8 @@ class MftWorker(Worker):
 
         for entry in fc:
             if entry:
-                recno, sequence_num, in_use, ParentEntryNumber, ParentSequenceNumber, path, name, size, hardlinks, has_ads, mode, creation_time, mod_time, mft_mod, access_time = entry
+
+                recno, sequence_num, in_use, ParentEntryNumber, ParentSequenceNumber, path, name, size, hardlinks, has_ads, mode, creation_time, mod_time, mft_mod, access_time, usn = entry
 
                 data.append([
                     recno,
@@ -285,7 +286,8 @@ class MftWorker(Worker):
                     creation_time,
                     mod_time,
                     mft_mod,
-                    access_time
+                    access_time,
+                    usn
                 ])
 
         df = pd.DataFrame(data, columns=columns)
@@ -293,7 +295,7 @@ class MftWorker(Worker):
         recent_files = self.get_results(df, compt, time_field, ctime_field, is_parsec=True, not_dumphooks=True, prog_v=endval)  # convert to system time and filter by search criteria
         if self.is_non_empty_df(recent_files):
             self.progress.emit(endp)
-            recent_files = build_parsec_path(recent_files)
+            # recent_files = build_parsec_path(recent_files)  # if needing to manipulate path
 
             return df, recent_files
 
@@ -536,11 +538,9 @@ class MftWorker(Worker):
                             suffixes=('_cfiles', '')
                         )
 
-                        if not is_dumphook:
-                            if parsec:
-                                merged_df = build_parsec_path(merged_df)  # parse c parser.exe
-                            else:
-                                merged_df = build_mftec_path(merged_df)  # its mftec not mft hook
+                        if not (is_dumphook or parsec):
+
+                            merged_df = build_mftec_path(merged_df)  # its mftec and not mft hook build the full path or FullPath column
 
                         merged_df.sort_values(by='Time stamp', ascending=True, inplace=True)  # merged_df[time_field] = merged_df[time_field].dt.floor('s')  strftime drops microseconds
 

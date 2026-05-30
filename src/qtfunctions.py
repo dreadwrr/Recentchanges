@@ -13,6 +13,8 @@ from PySide6.QtCore import QDateTime
 from PySide6.QtGui import QIcon, QFontDatabase, QImage
 from PySide6.QtSql import QSqlDatabase, QSqlQuery
 from PySide6.QtWidgets import QVBoxLayout, QDialog, QPushButton, QLabel, QInputDialog, QMessageBox, QHBoxLayout
+from .config import dump_j_settings
+from .config import get_json_settings
 from .dbmexec import DBConnectionError
 from .dbmexec import DBMexec
 from .gpgcrypto import decr
@@ -20,14 +22,38 @@ from .gpgcrypto import decrypt_from_text
 from .gpgcrypto import encr
 from .gpgcrypto import encrypt_to_text
 from .pyfunctions import is_integer
+# 05/29/2026
 
 
-# 05/03/2026
-# gestures
-#
-# QMessageBox.critical(None, "Error", "query failed")
-# #
-#
+def find_gnupg_home(json_file, j_settings=None, iqt=False):
+    """ try to find gnupg home for exclusion purposes in build index """
+    if not j_settings and j_settings is not None:
+        print("find_gnupg_home warning json file was empty")
+    gnupg_home = None
+    try:
+        if not j_settings:
+            j_settings = get_json_settings(None, None, json_file)
+
+        gnupg_home = j_settings.get("gnupghome")
+        if gnupg_home:
+            gpg_home = os.environ.get("GNUPGHOME")
+            if gpg_home and gpg_home != gnupg_home:
+                j_settings["gnupghome"] = gpg_home
+                gnupg_home = gpg_home
+                if not iqt:
+                    dump_j_settings(j_settings, json_file)
+        else:
+            result = subprocess.run(["gpgconf", "--list-dirs", "homedir"], capture_output=True, text=True)
+            if result.returncode == 0:
+                gpg_home = result.stdout.strip()
+                if gpg_home:
+                    gnupg_home = gpg_home
+                    j_settings["gnupghome"] = gpg_home
+                    dump_j_settings(j_settings, json_file)
+        return gnupg_home
+    except OSError as e:
+        print(f"Couldnt get gnupg_home for exclusion file: {json_file} {type(e).__name__} err: {e}")
+        return None
 
 
 def window_prompt(parent, title, message, affirm, reject):  # y/n

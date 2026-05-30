@@ -10,13 +10,13 @@ from pathlib import Path
 from .config import load_toml
 from .configfunctions import find_install
 from .configfunctions import get_config
+from .gpgcrypto import check_for_gpg
 from .gpgcrypto import decr
-from .gpgkeymanagement import check_for_gpg
 from .gpgkeymanagement import delete_gpg_keys
-from .gpgkeymanagement import set_gpg
 from .pyfunctions import is_integer
 from .pysql import clear_conn
 from .rntchangesfunctions import name_of
+from .rntchangesfunctions import set_gpg
 # from .rntchangesfunctions import cprint
 # 03/11/2026
 
@@ -108,7 +108,7 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
 
     if reset:
 
-        return delete_gpg_keys(user, email, dbtarget, cache_f, cache_s, flth)
+        return delete_gpg_keys(user, email, dbtarget, cache_f, cache_s, flth, toml_file, json_file)
 
     try:
 

@@ -5,8 +5,6 @@ import subprocess
 import tempfile
 import traceback
 from typing import Any
-from .config import get_json_settings
-from .config import dump_j_settings
 from .rntchangesfunctions import name_of
 from .rntchangesfunctions import removefile
 
@@ -109,60 +107,6 @@ def import_key(argv):
         return 1
 
 
-def check_for_gpg():
-    try:
-        result = subprocess.run(
-            ["gpg", "--list-keys"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-        return result.returncode == 0
-    except FileNotFoundError:
-        return False
-
-
-def set_gpg(appdata_local, sub_dir='gpg'):
-    gpg_local = appdata_local / sub_dir
-    gpg_default = gpg_local / "gpg.exe"
-    gnupg_home = gpg_local / "gnupghome"
-
-    os.environ["PATH"] = str(gpg_local) + ";" + os.environ["PATH"]
-    os.environ["GNUPGHOME"] = str(gnupg_home)
-    # print(subprocess.run(["gpgconf", "--list-dirs", "homedir"], text=True, capture_output=True).stdout)
-    return gpg_default, gnupg_home
-
-
-def find_gnupg_home(json_file, j_settings=None, iqt=False):
-    """ try to find gnupg home for exclusion purposes in build index """
-    if not j_settings and j_settings is not None:
-        print("find_gnupg_home warning json file was empty")
-    gnupg_home = None
-    try:
-        if not j_settings:
-            j_settings = get_json_settings(None, None, json_file)
-
-        gnupg_home = j_settings.get("gnupghome")
-        if gnupg_home:
-            gpg_home = os.environ.get("GNUPGHOME")
-            if gpg_home and gpg_home != gnupg_home:
-                j_settings["gnupghome"] = gpg_home
-                gnupg_home = gpg_home
-                if not iqt:
-                    dump_j_settings(j_settings, json_file)
-        else:
-            result = subprocess.run(["gpgconf", "--list-dirs", "homedir"], capture_output=True, text=True)
-            if result.returncode == 0:
-                gpg_home = result.stdout.strip()
-                if gpg_home:
-                    gnupg_home = gpg_home
-                    j_settings["gnupghome"] = gpg_home
-                    dump_j_settings(j_settings, json_file)
-        return gnupg_home
-    except OSError as e:
-        print(f"Couldnt get gnupg_home for exclusion file: {json_file} {type(e).__name__} err: {e}")
-        return None
-
-
 # setup keypair for user
 def genkey(appdata_local, usr, email, name, dbtarget, cache_f, cache_s, flth, tempd, passphrase=None):
 
@@ -242,12 +186,29 @@ def get_key_fingerprint(email):
     return None
 
 
-def clear_gpg(dbtarget, cache_f, cache_s, flth):
-    """ delete ctimecache & db .gpg & profile .gpgs """
+def clear_gpg(dbtarget, cache_f, cache_s, flth, toml_file=None, json_file=None):
+    """ delete ctimecache & db .gpg & profile .gpgs
+         if toml_file it is called from delete_gpg_keys and prompt to reset config files """
     systimeche = name_of(cache_s)
     dbopt = name_of(dbtarget, '.db')
     file_path = os.path.dirname(cache_s)
     pattern = os.path.join(file_path, f"{systimeche}*")
+
+    # configs
+    if (toml_file):
+        while True:
+            uinp = input("Reset config files (Y/N): ").strip().lower()
+            if uinp == 'y':
+                for config in (toml_file, json_file):
+                    if os.path.isfile(config):
+                        os.remove(config)
+                break
+            elif uinp == 'n':
+                break
+            else:
+                print("Invalid input, please enter 'Y' or 'N'.")
+
+    # gpgs
     for r in (cache_f, dbopt, dbtarget, flth, *glob.glob(pattern)):
         # p = Path(r)
         try:
@@ -258,9 +219,10 @@ def clear_gpg(dbtarget, cache_f, cache_s, flth):
             pass
 
 
-def delete_gpg_keys(usr, email, dbtarget, cache_f, cache_s, flth):
+def delete_gpg_keys(usr, email, dbtarget, cache_f, cache_s, flth, toml_file, json_file):
 
-    # def instruct_out():
+    def instruct_out():
+        print()
     #     print("To trust a gpg key")
     #     print(f"gpg --edit-key {email}")
     #     print("trust")
@@ -290,7 +252,7 @@ def delete_gpg_keys(usr, email, dbtarget, cache_f, cache_s, flth):
                     result = True
                     exec_delete_keys(email, fingerprint)
 
-                clear_gpg(dbtarget, cache_f, cache_s, flth)
+                clear_gpg(dbtarget, cache_f, cache_s, flth, toml_file, json_file)
                 if result:
                     # print(f"\nDelete {dbtarget} if it exists as it uses the old key pair.")
                     return 0
@@ -302,7 +264,7 @@ def delete_gpg_keys(usr, email, dbtarget, cache_f, cache_s, flth):
                 uinp = 'n'
 
         if uinp == 'n':
-            # instruct_out()
+            instruct_out()
             return 1
         else:
             print("Invalid input, please enter 'Y' or 'N'.")

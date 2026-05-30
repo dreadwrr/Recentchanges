@@ -7,7 +7,6 @@ import traceback
 from .dirwalker import index_system
 from .gpgcrypto import encr
 from .gpgcrypto import decr
-from .gpgkeymanagement import find_gnupg_home
 from .hanlyparallel import hanly_parallel
 from .pyfunctions import cnc
 from .pyfunctions import cprint
@@ -19,6 +18,7 @@ from .pysql import insert
 from .pysql import insert_if_not_exists
 from .pysql import table_has_data
 from .qtdrivefunctions import get_idx_tables
+from .qtfunctions import find_gnupg_home
 from .query import blank_count
 from .rntchangesfunctions import removefile
 

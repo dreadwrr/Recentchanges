@@ -1,5 +1,4 @@
 import re
-import sys
 import time
 from PySide6.QtCore import QObject, Signal, QProcess, QTimer, QProcessEnvironment
 
@@ -180,10 +179,12 @@ class ProcessHandler(QObject):
 
         script = str(script)
 
-        if getattr(sys, "frozen", False):
-            self.process.start(script, args)
-        else:
-            self.process.start(sys.executable, ["-u", script] + args)
+        self.process.start(script, args)
+
+        # if getattr(sys, "frozen", False) or "__compiled__" in globals():
+        #     self.process.start(script, args)
+        # else:
+        #     self.process.start(sys.executable, ["-u", script] + args)
 
     def start_powershell(self, cmd, args, analyticSECT=None):
 

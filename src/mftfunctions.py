@@ -6,7 +6,7 @@ import subprocess
 import traceback
 from pathlib import Path
 from .rntchangesfunctions import removefile
-# 05/03/2026
+# 05/29/2026
 
 
 TICKS_BTWN_1601_1970 = 11644473600000000
@@ -14,7 +14,7 @@ TICKS_BTWN_1601_1970_NS = 11644473600000000000
 MAX_NAME = 1024
 
 
-# parser.exe
+# parsec.exe
 def output_mft(exe_path: str, target: str):
     """ to build the directories on the system to be able to read usn journal. also secondary ctime of all files
         to use for ctime search """
@@ -95,26 +95,30 @@ def build_tuple(proc):
             try:
                 recno = int(record[0])
                 sequence_num = int(record[1])
-                # frn = int(record[2])
-                parent_frn = int(record[3])
+                parent_recno = int(record[2])
+                parent_sequence = int(record[3])
                 in_use = int(record[4])
                 file_attribs = int(record[11])
             except ValueError:
                 continue
 
             in_use = bool(in_use)
-            parent_recno, parent_sequence = frn_to_entry(parent_frn)
-            name = record[14]
-            path = record[15]
+
             size = record[5]
             hardlinks = record[6]
+
             has_ads = record[13] == "1"
+
             creation_time = record[8]
             mod_time = record[7]
             mft_mod = record[9]
             access_time = record[10]
 
-            entries.append((recno, sequence_num, in_use, parent_recno, parent_sequence, path, name, size, hardlinks, has_ads, file_attribs, creation_time, mod_time, mft_mod, access_time))
+            last_usn = record[14]
+            name = record[15]
+            path = record[16]
+
+            entries.append((recno, sequence_num, in_use, parent_recno, parent_sequence, path, name, size, hardlinks, has_ads, file_attribs, creation_time, mod_time, mft_mod, access_time, last_usn))
 
     return entries
 
@@ -325,5 +329,5 @@ def build_parsec_path(df):
     df['ParentPath'] = df['ParentPath'].fillna('').astype(str).str.replace(r'^(\\)?', r'C:\\', regex=True)  # .str.replace(r'^\.(\\)?', r'C:\\', regex=True)
     df['FileName'] = df['FileName'].fillna('').astype(str)
     df['FullPath'] = df['ParentPath'].str.rstrip('\\') + '\\' + df['FileName'].str.lstrip('\\')
-
+    df['FullPath'] = df['ParentPath']
     return df

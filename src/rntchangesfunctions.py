@@ -1,4 +1,4 @@
-# 05/03/2026           developer buddy core
+# 05/29/2026           developer buddy core
 import csv
 import ctypes
 import glob
@@ -21,7 +21,6 @@ from .fsearchparallel import process_lines
 from .fsearchscan import process_scan
 from .pyfunctions import cprint
 from .pyfunctions import suppress_list
-
 install_root = find_install()
 filter_patterns_path = install_root / "filter.py"
 spec = importlib.util.spec_from_file_location("user_filter", filter_patterns_path)
@@ -283,6 +282,17 @@ def check_installed_app(exe_name, product_key=None):
         except (FileNotFoundError):
             pass
     return None
+
+
+def set_gpg(appdata_local, sub_dir='gpg'):
+    gpg_local = appdata_local / sub_dir
+    gpg_default = gpg_local / "gpg.exe"
+    gnupg_home = gpg_local / "gnupghome"
+
+    os.environ["PATH"] = str(gpg_local) + ";" + os.environ["PATH"]
+    os.environ["GNUPGHOME"] = str(gnupg_home)
+    # print(subprocess.run(["gpgconf", "--list-dirs", "homedir"], text=True, capture_output=True).stdout)
+    return gpg_default, gnupg_home
 
 
 def find_scan(recent, complete, init, cfr, search_start_dt, user_setting, logging_values, end, cstart, exclDIRS, iqt=False, strt=20, endp=60, logger=None):

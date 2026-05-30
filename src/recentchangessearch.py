@@ -45,12 +45,11 @@ from .config import dump_toml
 from .dirwalker import scan_system
 from .filterhits import update_filter_csv
 from .fsearchfunctions import set_excl_dirs
+from .gpgcrypto import check_for_gpg
 from .gpgcrypto import decr_ctime
 from .gpgcrypto import encr_cache
-from .gpgkeymanagement import check_for_gpg
 from .gpgkeymanagement import genkey
 from .gpgkeymanagement import iskey
-from .gpgkeymanagement import set_gpg
 from .logs import setup_logger
 from .pstsrg import main as pst_srg
 from .pyfunctions import cprint
@@ -71,6 +70,7 @@ from .rntchangesfunctions import multi_value
 from .rntchangesfunctions import name_of
 from .rntchangesfunctions import removefile
 from .rntchangesfunctions import resolve_editor
+from .rntchangesfunctions import set_gpg
 from .rntchangesfunctions import time_convert
 from .qtdrivefunctions import setup_drive_cache
 

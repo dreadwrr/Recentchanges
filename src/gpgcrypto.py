@@ -181,6 +181,18 @@ def decr_ctime(cache_f: str) -> dict:
     return cfr_src
 
 
+def check_for_gpg():
+    try:
+        result = subprocess.run(
+            ["gpg", "--list-keys"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
+
+
 # commandline start the users gpg agent before decrypting the cache file ***
 def start_user_agent(gpg_file):
     cmd = ["gpg", "--decrypt", "--dry-run", gpg_file]
