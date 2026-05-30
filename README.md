@@ -9,9 +9,6 @@ To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
 
 GPG, Ntfstools, 7-zip included <br>
-Ntfstools included for Mft saving, also can use the sleuth kit icat if placed in \bin <br>
-See required tsk files above <br>
-order is: icat\fstat and ntfstools and the other can be removed <br><br>
 
 <p>
 Save encrypted notes <br>
@@ -64,6 +61,11 @@ which is just updating the .bat files to point to the executable <br><br>
 # Nuitka instruction <br>
 pip install nuitka <br>
 nuitka main.py --mode=standalone --enable-plugin='pyside6' --remove-output --include-qt-plugins=sqldrivers --windows-icon-from-ico=Resources\recentchanges.ico <br><br>
+
+##
+Ntfstools included for Mft saving, also can use the sleuth kit icat if placed in \bin <br>
+See required tsk files above <br>
+order is: icat\fstat and ntfstools and the other can be removed <br><br>
 
 ![Alt text](https://i.imgur.com/6q4THX4.png) <br>
 The app can be used without included gpg or 7-zip and would use gpg4win. if 7-zip or winrar arent installed will use python zipfile. <br>
