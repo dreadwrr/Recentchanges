@@ -9,6 +9,14 @@ To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
 
 GPG, Ntfstools, 7-zip included <br><br>
+Ntfstools included for Mft saving, also can use the sleuth kit icat if placed in \bin <br>
+See required tsk files above <br>
+order is: mftecmd, parsec, icat\fstat and ntfstools so remove others when using specific one <br>
+
+Links for MFTCmd with cutoff allowing to read the Mft into memory while doing an Mft search. <br>
+https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0#bookmark=id.ct8qv65gr0wc <br><br>
+
+
 <p>
 Save encrypted notes <br>
 Select from a number of fonts or install your own. also 5 themes unix, wb (white on black), solar, monochrome or modern  <br>
