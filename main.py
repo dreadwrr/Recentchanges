@@ -390,7 +390,7 @@ class MainWindow(QMainWindow):
         self.ui.actionDiag1.triggered.connect(self.show_status)
         self.ui.actionLogging.triggered.connect(lambda: display(self.dspEDITOR, self.log_path, True, self.dspPATH))
 
-        self.ui.actionAbout.triggered.connect(lambda: help_about(self.lclhome, self.ui.hudt))
+        self.ui.actionAbout.triggered.connect(lambda: help_about(self.lclhome, self.ui.hudt, self.app_version))
         self.ui.actionResource.triggered.connect(self.open_resource)
         self.ui.actionHelp.triggered.connect(lambda: get_help(self.lclhome, self.ui.hudt))
         # end Menu bar
