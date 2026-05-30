@@ -55,6 +55,9 @@ further pyinstall documentation https://github.com/dreadwrr/Recent-Pyinstaller<b
 which is just updating the .bat files to point to the executable <br><br>
 
 # Nuitka instruction <br>
+
+This can be built with nuitka to produce a single binary that extracts at runtime
+
 pip install nuitka <br>
 
 ```
@@ -67,6 +70,10 @@ python -m nuitka --onefile --output-filename=main.exe `
 --windows-uac-admin `
 --jobs=4 main.py
 ```
+
+remove main.dist and main.build
+
+The follow would put the output into main.dist but is not as organized as pyinstaller so not using for main build
 
 nuitka main.py --mode=standalone --enable-plugin='pyside6' --remove-output --include-qt-plugins=sqldrivers --windows-icon-from-ico=Resources\recentchanges.ico <br><br>
 
