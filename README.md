@@ -56,6 +56,18 @@ which is just updating the .bat files to point to the executable <br><br>
 
 # Nuitka instruction <br>
 pip install nuitka <br>
+
+```
+python -m nuitka --onefile --output-filename=main.exe `
+--onefile-tempdir-spec="{TEMP}\onefile_{PID}_YD1fmvHJ_Qc" `
+--remove-output --enable-plugin=pyside6 `
+--noinclude-qt-plugins=printsupport `
+--include-qt-plugins=sensible,platforms,sqldrivers `
+--windows-icon-from-ico=Resources\recentchanges.ico `
+--windows-uac-admin `
+--jobs=4 main.py
+```
+
 nuitka main.py --mode=standalone --enable-plugin='pyside6' --remove-output --include-qt-plugins=sqldrivers --windows-icon-from-ico=Resources\recentchanges.ico <br><br>
 
 ##
