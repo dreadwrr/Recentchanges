@@ -65,6 +65,7 @@ Links for MFTCmd with cutoff allowing to read the Mft into memory while doing an
 https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0#bookmark=id.ct8qv65gr0wc <br><br>
 
 # Nuitka instruction <br>
+pip install nuitka
 nuitka main.py --mode=standalone --enable-plugin='pyside6' --remove-output --include-qt-plugins=sqldrivers --windows-icon-from-ico=Resources\recentchanges.ico <br><br>
 
 ![Alt text](https://i.imgur.com/6q4THX4.png) <br>
