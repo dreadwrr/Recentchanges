@@ -2,12 +2,12 @@ Windows 10 11 <br>
 With Hybrid analysis and MFT search <br><br>
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 
-Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br><br>
+Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br>
 
 To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br>
 
-GPG, Ntfstools, 7-zip included <br>
+GPG, Ntfstools, 7-zip included <br><br>
 
 <p>
 Save encrypted notes <br>
