@@ -4,7 +4,7 @@ With Hybrid analysis and MFT search <br><br>
 
 Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br>
 
-GPG included <br><br>
+GPG included or uses gpg4win. Can be used with system 7-zip winrar or will use python zipfile. <br> <br><br>
 
 <p>
 Save encrypted notes <br>
@@ -67,7 +67,6 @@ See required tsk files above <br>
 order is: icat\fstat and ntfstools and the other can be removed <br><br>
 
 ![Alt text](https://i.imgur.com/6q4THX4.png) <br>
-The app can be used without included gpg and would use gpg4win. Can be used with 7-zip winrar or will use python zipfile. <br>
 
 windows ui file https://drive.google.com/file/d/1DAHvPq4yqNQNxdVmFLM0SyX5lRF2Qs72/view?usp=sharing <br><br>
 mft sources <br>
