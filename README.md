@@ -73,7 +73,8 @@ python -m nuitka --onefile --output-filename=main.exe `
 
 remove main.dist and main.build
 
-The follow would put the output into main.dist but is not as organized as pyinstaller so not using for main build
+The following would put the output into main.dist but is not as organized as pyinstaller. There are too many files beside the executable
+so not using for main build
 
 nuitka main.py --mode=standalone --enable-plugin='pyside6' --remove-output --include-qt-plugins=sqldrivers --windows-icon-from-ico=Resources\recentchanges.ico <br><br>
 
