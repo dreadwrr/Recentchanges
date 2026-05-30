@@ -1,7 +1,10 @@
 Windows 10 11 <br>
-File search with Hybrid analysis and MFT search <br><br>
-![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
+Updated: 05/30/2026
+Fixed Mft path building for parsec
+Added reset configs to command recentchanges reset
 
+![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
+File search application with Hybrid analysis and MFT search <br><br>
 Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br>
 
 GPG included or can use gpg4win. Can use system 7-zip winrar. default python zipfile. <br> <br><br>
