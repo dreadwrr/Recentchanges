@@ -1,4 +1,4 @@
-# 05/03/2026               Qt gui windows 11                  Developer buddy 5.0
+# 05/29/2026               Qt gui windows 11                  Developer buddy 5.0
 import glob
 import logging
 import multiprocessing
@@ -27,13 +27,11 @@ from src.configfunctions import get_config
 from src.dbworkerstream import DbWorkerIncremental
 from src.dirwalkerfunctions import create_profile_baseline
 from src.dirwalkerfunctions import EXEC_EXTN
+from src.gpgcrypto import check_for_gpg
 from src.gpgcrypto import decr
 from src.gpgcrypto import encr
-from src.gpgkeymanagement import check_for_gpg
-from src.gpgkeymanagement import find_gnupg_home
 from src.gpgkeymanagement import genkey
 from src.gpgkeymanagement import iskey
-from src.gpgkeymanagement import set_gpg
 from src.imageraster import raised_image
 from src.logs import change_logger
 from src.logs import setup_logger
@@ -69,6 +67,7 @@ from src.qtfunctions import check_for_updates
 from src.qtfunctions import command_prompt
 from src.qtfunctions import commit_note
 from src.qtfunctions import fill_extensions
+from src.qtfunctions import find_gnupg_home
 from src.qtfunctions import get_conn
 from src.qtfunctions import get_help
 from src.qtfunctions import has_log_data
@@ -99,6 +98,7 @@ from src.rntchangesfunctions import multi_value
 from src.rntchangesfunctions import name_of
 from src.rntchangesfunctions import removefile
 from src.rntchangesfunctions import resolve_editor
+from src.rntchangesfunctions import set_gpg
 from src.rntchangesfunctions import time_convert
 from src.rntchangesfunctions import windows_version
 from src.ui_mainwindow import Ui_MainWindow
@@ -201,16 +201,15 @@ class MainWindow(QMainWindow):
         self.filter_file = appdata_local / "filter.py"
         flth_frm = appdata_local / "flth.csv"
         self.flth = str(flth_frm)
-        self.dispatch = appdata_local / "src" / "set_recent_helper.py"
-        if getattr(sys, "frozen", False):
-            self.dispatch = Path(sys.executable).resolve()
+        self.dispatch = sys.executable
+        self.app = str(appdata_local / "src" / "set_recent_helper.py")
         self.filter_file = appdata_local / "filter.py"
 
         self.default_gpg = appdata_local / "gpg" / "gpg.exe"
         self.defaultzipPATH = appdata_local / "7-zip" / "7z.exe"
 
         self.exe_path = self.lclhome / "bin"
-        self.parsec_command = self.exe_path / "parser.exe"
+        self.parsec_command = self.exe_path / "parsec.exe"
         self.mftec_command = self.exe_path / "MFTECmd.exe"
         self.icat_command = self.exe_path / "icat.exe"
         self.ntfs_command = self.exe_path / "ntfstool.x86.exe"
@@ -235,6 +234,10 @@ class MainWindow(QMainWindow):
         sys_tables, self.cache_table, _ = get_idx_tables(self.basedir, self.cache_s_str, suffix)
         self.sys_a, self.sys_b = sys_tables
 
+        self.is_pyinstall = False
+        if getattr(sys, "frozen", False) or "__compiled__" in globals():
+            self.is_pyinstall = True
+            self.dispatch = Path(sys.argv[0]).resolve()  # set internal python
         self.isexec = False
 
         self.is_user_edit = False
@@ -1714,6 +1717,9 @@ class MainWindow(QMainWindow):
         if not self.pwrshell:
             is_search = False
 
+        if not self.is_pyinstall:
+            args = ["-u", self.app] + args
+
         self.proc.start_pyprocess(str(self.dispatch), args, dbtarget=self.dbtarget, is_search=is_search, is_postop=postop, is_scanIDX=scanidx)  # self.myapp
 
     # fork 5 minutebtns ftimeb ftimebf timebtns stimeb stimebf
@@ -1829,6 +1835,9 @@ class MainWindow(QMainWindow):
             self.dspPATH,
             self.tempdir
         ]
+
+        if not self.is_pyinstall:
+            args = ["-u", self.app] + args
         self.proc.start_pyprocess(str(self.dispatch), args, dbtarget=self.dbtarget)
 
     # compress
@@ -1960,9 +1969,9 @@ class MainWindow(QMainWindow):
             self.email,
             str(self.compLVL)
         ]
-        # print(args)
-        # self.isexec = False
-        # return
+
+        if not self.is_pyinstall:
+            args = ["-u", self.app] + args
         self.proc.start_pyprocess(str(self.dispatch), args, database=self.dbopt, dbtarget=self.dbtarget, status_message="Set hardlinks")
 
     # Build IDX &
@@ -2016,6 +2025,8 @@ class MainWindow(QMainWindow):
             'True'
         ]
         self.ui.dbmainlabel.setText("Scanning idx")
+        if not self.is_pyinstall:
+            args = ["-u", self.app] + args
         self.proc.start_pyprocess(str(self.dispatch), args, database=self.dbopt, dbtarget=self.dbtarget, status_message="Index scan")
 
     # Main Build IDX
@@ -2059,6 +2070,8 @@ class MainWindow(QMainWindow):
             str(self.compLVL),
             'True'
         ]
+        if not self.is_pyinstall:
+            args = ["-u", self.app] + args
         self.proc.start_pyprocess(str(self.dispatch), args, database=self.dbopt, status_message=stsmsg)
 
     # fork build button pg2
@@ -2237,7 +2250,8 @@ class MainWindow(QMainWindow):
             str(self.analyticSECT),
             str(self.compLVL)
         ]
-
+        if not self.is_pyinstall:
+            args = ["-u", self.app] + args
         self.proc.start_pyprocess(str(self.dispatch), args, database=self.dbopt)
         #
         # End Main db task
