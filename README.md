@@ -1,5 +1,5 @@
 Windows 10 11 <br>
-With Hybrid analysis and MFT search <br><br>
+File search app with Hybrid analysis and MFT search <br><br>
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 
 Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br>
