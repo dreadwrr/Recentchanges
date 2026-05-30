@@ -8,10 +8,10 @@ Can be used with system python or one step pyinstall build. A windows setup vers
 To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br><br>
 
-GPG, Ntfstools, 7-zip included <br><br>
+GPG, Ntfstools, 7-zip included <br>
 Ntfstools included for Mft saving, also can use the sleuth kit icat if placed in \bin <br>
 See required tsk files above <br>
-order is: mftecmd, parsec, icat\fstat and ntfstools so remove others when using specific one <br>
+order is: mftecmd, parsec, icat\fstat and ntfstools so remove others when using specific one <br><br>
 
 <p>
 Save encrypted notes <br>
