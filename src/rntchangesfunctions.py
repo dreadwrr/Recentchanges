@@ -404,7 +404,9 @@ def clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh):
     # Archive last search to appinstall
     keep = [
         "xSystemchanges",
-        "xSystemDiffFromLastSearch"
+        "xSystemDiffFromLastSearch",
+        "xFltDiffFromLastSearch",
+        "xFltchanges",
     ]
 
     new_folder = None

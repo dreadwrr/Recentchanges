@@ -1,19 +1,19 @@
 #! python3
-# Command line save-changesnew aka developer buddy                                                                      04/30/2026
+# Command line save-changesnew aka developer buddy                                                                      05/30/2026
 #
 # This script is the entry point for recentchanges. The inv flag is passed in from a .bat or sym link (rnt.bat)
 #
 # There are 2 positional arguments. a third is the inv flag and is filtered out before executing script.
-# the filtered arg just changes a regular search to the inverse for recentchanges search, recentchanges search n, recentchanges search myfile
+# the filtered arg just changes a regular search to the inverse
 #
-# for recentchanges the arguments shift. as its recentchanges or recentchanges n and the filter arg doesnt apply.
+# for recentchanges the arguments shift
 # recentchanges takes 1 argument the time n or no arguments for 5 minutes.
 #
 # recentchanges search - Desktop unfiltered files and tmp files. Also search for newer than file filtered. if called from rnt.bat its the opposite.
 # query - show stats from the database from past searches
 #
 # reset - reset gpg key pair and clear gpgs
-# recentchanges - AppData unfiltered and archives searches. No tmp files.
+# recentchanges - AppData unfiltered and archives searches
 #
 # all searches are stored in the database before filtering. This is for hybrid analysis to capture the necessary data
 

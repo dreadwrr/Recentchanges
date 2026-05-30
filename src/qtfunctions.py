@@ -516,7 +516,7 @@ def show_licensing(lclhome, hudt):
         hudt.appendPlainText("\n")
 
 
-def help_about(lclhome, hudt):
+def help_about(lclhome, hudt, version_no):
     dlg = QDialog()
     dlg.setWindowTitle("About Recent Changes")
 
@@ -524,7 +524,7 @@ def help_about(lclhome, hudt):
     # layout.setSpacing(15)
     # layout.setContentsMargins(20, 20, 20, 20)
 
-    label = QLabel("v5.0\n\nCreated by Colby Saigeon\nh&k enterprisez\n\nFind recent files using powershell.")
+    label = QLabel(f"{version_no}\n\nCreated by Colby Saigeon\nh&k enterprisez\n\nFind recent files using powershell.")
     # label.setWordWrap(True)
     layout.addWidget(label)
 

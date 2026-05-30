@@ -1,5 +1,5 @@
 #! python3
-#   Windows 10 / 11                                                                05/03/2026
+#   Windows 10 / 11                                                                05/30/2026
 #   recentchanges. Developer buddy      recentchanges/ recentchanges search
 #   Provide ease of pattern finding ie what files to block we can do this a number of ways
 #   1) if a file was there (many as in more than a few) and another search lists them as deleted its either a sys file or not but unwanted nontheless
@@ -8,19 +8,11 @@
 #
 #   This script is called by two methods. recentchanges and recentchanges search. The former is discussed below
 #
-#   recentchanges make xzm
-#           Searches are saved in /tmp Linux and <app_install> windows
-#           1. Search results are unfiltered and copied files for the .xzm are from a filter. for windows the filter is used for filtered searches only
-#
-#           The purpose of this script is to save files ideally less than 5 minutes old. So when compiling or you dont know where some files are
-#   or what changed on your system. So if you compiled something you call this script to build a module of it for distribution. If not using for developing
-#   call it a file change snapshot
-#   We use the find command to list all files 5 minutes or newer. Filter it and then get to copying the files in a temporary staging directory.
-#   Then take those files and make an .xzm. It will be placed in /tmp along with a transfer log to staging directory and file manifest of the xzm
+#   recentchanges
+#           Searches are saved in app install.
 #
 #   recentchanges search
-
-#           This has the same name as recentchanges but also includes the tmp files and or a filesearch.
+#
 #           1. old searches can be grabbed from Desktop, <app_install>, <app_install>\\{moduleNAME}_MDY\\. for convenience
 #           if there is no differences it displays the old search for specified search criteria
 #           2. The search is unfiltered and a filesearch is filtered.
