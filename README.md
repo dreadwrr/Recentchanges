@@ -1,7 +1,7 @@
 Windows 10 11 <br>
-Updated: 05/30/2026
-Fixed Mft path building for parsec
-Added reset configs to command recentchanges reset
+Updated: 05/30/2026 <br>
+Fixed Mft path building for parsec <br>
+Added reset configs to command recentchanges reset <br>
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 File search application with Hybrid analysis and MFT search <br><br>
