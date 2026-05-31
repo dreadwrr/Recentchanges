@@ -52,7 +52,9 @@ copy _internal and main from in dist folder to app folder <br>
 also to use the commandline with main edit bat files recentchanges.bat or rnt.bat. <br>
 remove python and change src\set_recent_helper.py to main in two places <br><br>
 
-Things to do after installation. Recommend installing notepad++ and changing dspEDITOR to notepad++ <br><br>
+Things to do after installation. Recommend installing notepad++ and changing dspEDITOR to notepad++ <br>
+Add recentchanges to path from setup button to use in terminal <br><br>
+
 
 further pyinstall documentation https://github.com/dreadwrr/Recent-Pyinstaller<br>
 which is just updating the .bat files to point to the executable <br><br>
