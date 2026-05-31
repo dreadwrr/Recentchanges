@@ -1,5 +1,6 @@
-Windows 10 11 <br>
-Updated: 05/30/2026 <br>
+Last updated: 05/30/2026 <br>
+Windows 10 11 <br><br>
+
 Fixed Mft path building for parsec <br>
 Added reset configs prompt to command recentchanges reset <br>
 
