@@ -24,10 +24,10 @@ or faked modified time.  <br><br>
 
 Add to path from settings buttom <br>
 Commands: <br>
-recentchanges <br>
-recentchanges search <br>
-recentchanges reset <br>
-recentchanges query <br>
+./recentchanges <br>
+./recentchanges search <br>
+./recentchanges reset <br>
+./recentchanges query <br>
 </p><br>
 
 if python is installed. <br><br>
