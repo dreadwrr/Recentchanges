@@ -6,6 +6,11 @@ import os
 import shutil
 import subprocess
 import sys
+# 05/30/2026 this can bypass prevent cp1252 unicode error
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 import tempfile
 import traceback
 import win32api
@@ -3119,9 +3124,6 @@ class MainWindow(QMainWindow):
 
 
 def start_main_window():
-    os.environ["PYTHONUTF8"] = "1"
-    os.environ["PYTHONIOENCODING"] = "utf-8"  # for ansi characyers
-    os.environ["PYTHONUNBUFFERED"] = "1"
 
     # compatible with powershell 5 and 7
     # inst, ver = pwsh_7()
@@ -3129,6 +3131,10 @@ def start_main_window():
     #     if ver is not None:
     #         print(f"PowerShell 7 is required. Installed version: {ver}")
     #     sys.exit(1)
+
+    os.environ["PYTHONUTF8"] = "1"
+    os.environ["PYTHONIOENCODING"] = "utf-8"  # for ansi characyers
+    os.environ["PYTHONUNBUFFERED"] = "1"
 
     is_admin()
 
@@ -3335,6 +3341,7 @@ def start_main_window():
 
 
 if __name__ == "__main__":
+
     caller = os.environ.get("CMD_LINE")
     multiprocessing.freeze_support()
     if caller or len(sys.argv) >= 2:
