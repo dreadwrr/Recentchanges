@@ -29,7 +29,6 @@ Commands: <br>
 ./recentchanges reset <br>
 ./recentchanges query <br>
 </p><br>
-
 if encountering key issues or something else try recentchanges reset. Which can be added to path from setup button <br><br>
 
 if python is installed. <br><br>
