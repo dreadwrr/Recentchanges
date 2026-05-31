@@ -37,11 +37,9 @@ before installation and setup up want to cover steps to do in case of other case
 I will do my best to automate the most with recentchanges reset <br><br>
 
 This applies to GPG4Win <br>
-If it says cannot open instance of qt and then no pinentry it is a condition in windows where the agent wasnt fully activated and can be resovled with: <br><br>
+If it says cannot open instance of qt and then no pinentry it is a condition in windows where the agent wasnt fully activated and can be resovled with: <br>
 
 from in Kleopatra - Tools - Restart Background Processes
-
-
 
 if python is installed. <br><br>
 If you dont have python installed there is a Windows setup version available <br>
