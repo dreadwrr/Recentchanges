@@ -32,7 +32,7 @@ recentchanges query <br>
 
 if python is installed. <br><br>
 If you dont have python installed there is a Windows setup version available <br>
-## Installation
+# Installation
 make a venv if preferred <br>
 pip install -r requirements.txt <br>
 python main.py <br><br>
