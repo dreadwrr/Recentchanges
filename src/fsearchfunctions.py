@@ -187,7 +187,7 @@ def get_mode(attrs, is_symlink=None):
     is_archive = bool(attrs & win32con.FILE_ATTRIBUTE_ARCHIVE)
     is_readonly = bool(attrs & win32con.FILE_ATTRIBUTE_READONLY)
 
-    mode = ['-'] * 6  # # PowerShell
+    mode = ['-'] * 5  # # PowerShell
     if (
         is_symlink or
         (attrs & win32con.FILE_ATTRIBUTE_REPARSE_POINT)

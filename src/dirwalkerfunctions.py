@@ -162,7 +162,7 @@ class ErrorHandler:
 
 
 # os.scandir find
-def files_search(base_dir, search_start_dt, feedback, exclDIRS, logger, filename=None, extension=None, mode=None, iqt=False, strt=0, endp=100):
+def files_search(base_dir, search_start_dt, feedback, exclDIRS, logger, filename=None, extension=None, search_type=None, iqt=False, strt=0, endp=100):
 
     if search_start_dt and not isinstance(search_start_dt, datetime):
         print("search_start_dt is not a valid date time object exitting")
@@ -200,12 +200,12 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, logger, filename
     # set any modes
 
     matcher = None
-    if mode:
-        if mode == MODE_FILENAME:
+    if search_type:
+        if search_type == MODE_FILENAME:
             matcher = match_name
-        elif mode == MODE_EXT:
+        elif search_type == MODE_EXT:
             matcher = match_extn
-        elif mode == MODE_FILENAME_EXT:
+        elif search_type == MODE_FILENAME_EXT:
             matcher = match_name_extn
 
     exclDIRS_fullpath = set(os.path.join(base_dir, d.lstrip("\\")) for d in exclDIRS)
@@ -215,7 +215,7 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, logger, filename
         print(f"Unable to read base folders of drive {base_dir} the drive could be empty or check permissions")
         return None, 0
 
-    ino = hardlink = owner = domain = None
+    ino = hardlink = owner = domain = mode = None
 
     try:
 
@@ -387,7 +387,7 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, logger, filename
             f += 1
             try:
 
-                if not mode:
+                if not search_type:
                     d = process_scan(dir_path)
 
                 else:

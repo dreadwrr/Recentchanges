@@ -67,9 +67,9 @@ class cprint:
         """Return ANSI string; print to stdout if fp is None."""
         text = f"{color}{msg}{cprint.RESET}"
         if fp is None:
-            print(text)  # default: print to console
+            print(text)  # default print to console
         else:
-            return text  # just return string, don’t print
+            return text  # just return string
 
     @staticmethod
     def cyan(msg, fp=None): return cprint.colorize(cprint.CYAN, msg, fp)

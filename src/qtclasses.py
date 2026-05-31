@@ -112,7 +112,7 @@ class QTextEditLogger(QObject):  # gui/console
     def __init__(self, output_handler):
         super().__init__()
         self.output_handler = output_handler
-        self.console = sys.__stdout__   # save original stdout
+        self.console = sys.stdout  # 05/30/2026 changed from __stdout__ # save original stdout
 
     def write(self, message):
         if message is None:
@@ -122,6 +122,7 @@ class QTextEditLogger(QObject):  # gui/console
         # self.output_handler(message)   # show in GUI
 
         self.console.write(message)  # also show in console
+
         self.console.flush()
 
     def flush(self):
