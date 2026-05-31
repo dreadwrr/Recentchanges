@@ -30,6 +30,8 @@ Commands: <br>
 ./recentchanges query <br>
 </p><br>
 
+if encountering key issues or something else try recentchanges reset. Which can be added to path from setup button <br><br>
+
 if python is installed. <br><br>
 If you dont have python installed there is a Windows setup version available <br>
 # Installation
@@ -53,7 +55,6 @@ also to use the commandline with main edit bat files recentchanges.bat or rnt.ba
 remove python and change src\set_recent_helper.py to main in two places <br><br>
 
 Things to do after installation. Recommend installing notepad++ and changing dspEDITOR to notepad++ <br>
-Add recentchanges to path from setup button to use in terminal <br><br>
 
 
 further pyinstall documentation https://github.com/dreadwrr/Recent-Pyinstaller<br>
