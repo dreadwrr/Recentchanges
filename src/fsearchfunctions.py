@@ -208,7 +208,7 @@ def get_mode(attrs, is_symlink=None):
 
 def get_mft_mode(attribs, is_symlink=None):
     sym = None
-    mode = ["-"] * 6
+    mode = ["-"] * 5
     if is_symlink or "ReparsePoint" in attribs:
         sym = "y"
         mode[0] = "l"
