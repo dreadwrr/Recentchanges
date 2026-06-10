@@ -83,7 +83,7 @@ python -m nuitka --onefile --output-filename=main.exe `
 --onefile-tempdir-spec="{TEMP}\onefile_{PID}_YD1fmvHJ_Qc" `
 --remove-output --enable-plugin=pyside6 `
 --noinclude-qt-plugins=printsupport `
---include-qt-plugins=sensible,platforms,sqldrivers `
+--include-qt-plugins=sensible,platforms,sqldrivers, multimedia `
 --windows-icon-from-ico=Resources\recentchanges.ico `
 --windows-uac-admin `
 --jobs=4 main.py
