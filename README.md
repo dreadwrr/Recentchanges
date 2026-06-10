@@ -104,7 +104,7 @@ Ntfstools included for Mft saving, also can use the sleuth kit icat if placed in
 See required tsk files https://drive.google.com/file/d/16suEa4ohxFHdAlGsuTKjW_EgdweF9O1x/view?usp=sharing <br>
 order is: icat\fstat and ntfstools. and other can be removed <br><br>
 
-[![Alt text](https://i.imgur.com/6q4THX4.png)](https://i.imgur.com/6q4THX4.png) <br>
+[![Alt text](https://i.imgur.com/TJ1vUXp.png)](https://i.imgur.com/TJ1vUXp.png) <br>
 
 windows ui file https://drive.google.com/file/d/1DAHvPq4yqNQNxdVmFLM0SyX5lRF2Qs72/view?usp=sharing <br><br>
 mft sources <br>
