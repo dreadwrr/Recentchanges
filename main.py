@@ -19,14 +19,12 @@ from PySide6.QtCore import Qt, Slot, Signal, QThread, QTimer, QSortFilterProxyMo
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPixmap, QImage
 from PySide6.QtSql import QSqlQuery
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QMainWindow, QVBoxLayout, QMenu, QHeaderView, QStyle, QHBoxLayout, QDialog, QLabel, QPushButton
-from src.alarmclock import AlarmClock
 from src.clearworker import ClearWorker
 from src.config import dump_j_settings
 from src.config import dump_toml
 from src.config import load_toml
 from src.config import update_dict
 from src.config import update_j_settings
-from src.config import update_toml_setting
 from src.config import update_toml_values
 from src.configfunctions import check_config
 from src.configfunctions import find_user_folder
@@ -149,7 +147,7 @@ class MainWindow(QMainWindow):
     def __init__(
         self, appdata_local, home_dir, config, j_settings, toml_file, json_file, log_dir, log_path, driveTYPE, distro_name,
         dbopt, dbtarget, cache_s, cache_s_str, systimeche, suffix, gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH,
-        alarm_soundFILE, alarm_set_soundFILE, downloads, email, usr, cachermPATTERNS, tempdir
+        alarmPATH, downloads, email, usr, cachermPATTERNS, tempdir
     ):
         super().__init__()
         self.ui = Ui_MainWindow()
@@ -196,8 +194,7 @@ class MainWindow(QMainWindow):
         self.hudFNT = config['display']['hudFNT']
 
         self.alarm_24h = config['display']['alarm_24hr']
-        self.alarm_soundFILE = alarm_soundFILE
-        self.alarm_set_soundFILE = alarm_set_soundFILE
+        self.alarmPATH = alarmPATH
         self.alarmCOLOR = config['display']['alarmCOLOR']
 
         self.moduleNAME = config['paths']['moduleNAME']  # diff_file prefix
@@ -262,11 +259,6 @@ class MainWindow(QMainWindow):
         self.jpgdefault = "background.bak"  # default png
         self.crestdefault = "dragonm.bak"  # . crest
 
-        # 06/09/2026
-        # self.alarmdir = self.resources  # alarms are stored in \\Resources\\
-        self.alarm_sounddefault = "alarm.mp3"  # default in \\Resources\\
-        self.alarm_set_sounddefault = "alarmt.mp3"
-
         self.picture = self.jpgdir / "background.png"  # current png
         self.crest = self.crestdir / "dragonm.png"  # . crest
 
@@ -287,7 +279,6 @@ class MainWindow(QMainWindow):
             self.dispatch = Path(sys.argv[0]).resolve()  # set internal python
         self.isexec = False
 
-        self.new_sound_file = False  # when there is a pending sound file this is set to the path
         self.is_user_edit = False
         self.is_user_abort = False
         self.dirtybit = False  # something to save while the db is connected or program exit
@@ -308,9 +299,7 @@ class MainWindow(QMainWindow):
         self.table = None  # last loaded table
         self.sys_step = None
 
-        # 06/06/2026
         self.nt_path = None
-
         self.lastdir = None
         self.lastdrive = self.basedir
 
@@ -321,9 +310,7 @@ class MainWindow(QMainWindow):
 
         # initialize
         self.init_timers()
-        self.install_clock(alarm_soundFILE, alarm_set_soundFILE)
         self.init_events()
-
         self.install_logger()
 
         self.ui.dbprogressBAR.setValue(0)
@@ -424,21 +411,6 @@ class MainWindow(QMainWindow):
     def set_nc(self, nc):
         self.nc = nc
 
-    def install_clock(self, sound_file, sound_set_file):
-        old_widget = self.ui.widget
-        layout = self.ui.gridLayout
-        index = layout.indexOf(old_widget)
-        position = layout.getItemPosition(index)
-        layout.removeWidget(old_widget)
-        old_widget.deleteLater()
-
-        sound_path = os.path.join(self.resources, sound_file) if sound_file else None
-        sound_set_path = os.path.join(self.resources, sound_set_file) if sound_set_file else None
-        self.ui.widget = AlarmClock(self, theme=self.alarmCOLOR, _24hformat=self.alarm_24h, sound_file=sound_path, sound_set_file=sound_set_path)
-        # self.ui.widget.setMinimumSize(QSize(50, 50))
-        # self.ui.widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        layout.addWidget(self.ui.widget, *position)
-
     def install_logger(self):
         # hudt
         old_widget = self.ui.hudt
@@ -532,7 +504,6 @@ class MainWindow(QMainWindow):
         # end tomlb
 
         # bottom right
-        self.ui.widget.soundValidated.connect(self.save_sound_to_toml)  # 06/09/2026
         self.ui.textEdit.textChanged.connect(self.set_dirtybit)  # self.ui.textEdit.textChanged.connect(lambda: setattr(self, 'dirtybit', True))  # original
         # Top search
         self.ui.ftimeb.clicked.connect(lambda checked=False, s=self.ui.ftimeb: self.tsearch(s))
@@ -739,6 +710,7 @@ class MainWindow(QMainWindow):
     def initialize_ui(self, is_startup=False):
 
         self.change_format(is_startup)  # apply hudt settings
+        self.change_clock()
 
         # fill combos pg_1
         if is_startup:
@@ -775,36 +747,11 @@ class MainWindow(QMainWindow):
         self.timer.stop()
 
     # Custom settings for hudt
-
-    # on startup set the alarm formatting
     def change_clock(self):
+
         self.ui.widget.set_clock_format(self.alarm_24h)  # is it a 24hr clock?
         self.ui.widget.set_format(self.alarmCOLOR)  # digital color or theming
-
-    # after startup change the alarm sounds from the custom button
-    def save_sound_to_toml(self, valid_sound, is_set_sound, new_source):
-        if new_source:
-            sound_file = os.path.basename(new_source)
-            # it's a valid sound file save it to .toml
-            if valid_sound:
-                if is_set_sound:
-                    self.alarm_set_soundFILE = sound_file
-                    setting = "alarm_set_soundFILE"
-                else:
-                    self.alarm_soundFILE = sound_file
-                    setting = "alarm_soundFILE"
-
-                update_toml_setting("display", setting, sound_file, self.toml_file)
-            # dont save to toml
-            else:
-
-                print("Invalid media was unable to copy to", new_source)
-
-                if self.new_sound_file:
-                    # it was copied to \\Resources\\ and is invalid so delete it
-                    sound_file = os.path.join(self.resources, sound_file)
-                    removefile(sound_file)
-        self.new_sound_file = None
+        self.ui.widget.sound_file = self.alarmPATH
 
     def set_stylesht(self, f_f, ccolor):
         # print(QFontDatabase().families())
@@ -1007,8 +954,7 @@ class MainWindow(QMainWindow):
                 # added 06/08/2026
                 alarm_24h = updated_config['display']['alarm_24hr']
                 alarmCOLOR = updated_config['display']['alarmCOLOR']
-                alarm_soundFILE = updated_config['display']['alarm_soundFILE']
-                alarm_set_soundFILE = updated_config['display']['alarm_set_soundFILE']
+                alarmPATH = updated_config['display']['alarmPATH']
 
                 ll_level = self.config['logs']['logLEVEL']
                 new_ll_level = updated_config['logs']['logLEVEL']
@@ -1029,23 +975,13 @@ class MainWindow(QMainWindow):
                     self.ui.hudt.appendPlainText("Log file: " + str(log_path))
                 new_downloads = updated_downloads != self.downloads
 
-                is_alarm_path = False  # a sound file was changed
-                sound_file_path = None
-                set_sound_file_path = None
-                if self.alarm_soundFILE != alarm_soundFILE:
-                    is_alarm_path = True
-                    if alarm_soundFILE:
-                        sound_file_path = os.path.join(self.resources, alarm_soundFILE)
-                elif self.alarm_set_soundFILE != alarm_set_soundFILE:
-                    is_alarm_path = True
-                    if alarm_set_soundFILE:
-                        set_sound_file_path = os.path.join(self.resources, alarm_set_soundFILE)
+                alarm_path = self.alarmPATH != alarmPATH
 
-                if zipPATH != self.zipPATH or new_downloads or popPATH != self.popPATH or is_alarm_path:
-                    if not check_utility(zipPATH, updated_downloads, popPATH, sound_file_path, set_sound_file_path):
+                if zipPATH != self.zipPATH or new_downloads or popPATH != self.popPATH or alarm_path:
+                    if not check_utility(zipPATH, updated_downloads, popPATH, alarmPATH):
                         raise ConfigurationError
 
-                alarm_changed = (alarm_24h != self.alarm_24h or alarmCOLOR != self.alarmCOLOR)
+                alarm_changed = (alarm_24h != self.alarm_24h or alarmCOLOR != self.alarmCOLOR or alarm_path)
 
                 if new_downloads:
                     self.downloads = updated_downloads
@@ -1139,21 +1075,8 @@ class MainWindow(QMainWindow):
                 if alarm_changed:
                     self.alarm_24h = alarm_24h
                     self.alarmCOLOR = alarmCOLOR
+                    self.alarmPATH = alarmPATH
                     self.change_clock()
-
-                if is_alarm_path:
-                    self.alarm_soundFILE = alarm_soundFILE
-                    self.alarm_set_soundFILE = alarm_set_soundFILE
-                    sound_file_path = None
-                    set_sound_file_path = None
-                    if self.alarm_soundFILE:
-                        sound_file_path = os.path.join(self.resources, self.alarm_soundFILE)
-                    if self.alarm_set_soundFILE:
-                        set_sound_file_path = os.path.join(self.resources, self.alarm_set_soundFILE)
-
-                    self.ui.widget.sound_file = sound_file_path
-                    self.ui.widget.sound_set_file = set_sound_file_path
-                    self.ui.widget.validate_sounds()
 
                 if extensions != self.extensions:
                     fill_extensions(self.ui.combffile, extensions, prev_extensions=self.user_extensions)
@@ -1194,6 +1117,7 @@ class MainWindow(QMainWindow):
                 self.exclDIRS = exclDIRS
                 self.zipPROGRAM = zipPROGRAM
                 self.zipPATH = zipPATH
+                self.alarmPATH = alarmPATH
                 self.extensions = extensions
 
                 # config_changed = (self.config != updated_config)
@@ -1537,19 +1461,6 @@ class MainWindow(QMainWindow):
         self.ui.jpgcr.setPixmap(pixmap)  # Set the pixmap on the label
         self.ui.jpgcr.setScaledContents(True)
 
-    """ alarm """
-    def copy_sound(self, sound_file):
-        new_sound_file = False
-        filename = os.path.basename(sound_file)
-        dest = os.path.join(self.resources, filename)
-        # print(os.path.dirname(sound_file))
-        # print(str(self.resources))
-        # no need to copy the file to the same location
-        if Path(os.path.dirname(sound_file)) != self.resources:
-            new_sound_file = True
-            shutil.copy(sound_file, dest)
-        return dest, new_sound_file
-
     def emboss(self):
 
         if self.lastdir == self.crestdir:
@@ -1590,10 +1501,7 @@ class MainWindow(QMainWindow):
             shutil.copy(defaultflnm, target)
         # copy .bak to .png
 
-        def select_custom():
-
-            title = "Choose an Option"
-            msg = "Please select an option:"
+        def selectcustom(title, msg, importjpg, defaultjpg, importcrest, defaultcrest):
 
             dlg = QDialog(self)
             dlg.setWindowTitle(title)
@@ -1605,157 +1513,92 @@ class MainWindow(QMainWindow):
 
             # Jpg
             row1 = QHBoxLayout()
-            btn_importjpg = QPushButton("Jpg")
-            btn_resetjpg = QPushButton("Reset")
-            # Alarm One
-            btn_alarmone = QPushButton("Alarm set")
-            btn_resetalarmone = QPushButton("Reset")
-
-            # row1.addStretch()  # original
+            btn_importjpg = QPushButton(importjpg)
+            btn_resetjpg = QPushButton(defaultjpg)
+            row1.addStretch()
             row1.addWidget(btn_importjpg)
             row1.addWidget(btn_resetjpg)
-            row1.addWidget(btn_alarmone)
-            row1.addWidget(btn_resetalarmone)
-            # row1.addStretch()  # .
+            row1.addStretch()
             layout.addLayout(row1)
-
             # Crest
             row2 = QHBoxLayout()
-            btn_importcrest = QPushButton("Crest")
-            btn_resetcrest = QPushButton("Reset")
-            # Alarm Two
-            btn_alarmtwo = QPushButton("Alarm sound")
-            btn_resetalarmtwo = QPushButton("Reset")
-
-            # row2.addStretch()  # .
+            btn_importcrest = QPushButton(importcrest)
+            btn_resetcrest = QPushButton(defaultcrest)
+            row2.addStretch()
             row2.addWidget(btn_importcrest)
             row2.addWidget(btn_resetcrest)
-            row2.addWidget(btn_alarmtwo)
-            row2.addWidget(btn_resetalarmtwo)
-            # row2.addStretch()  # .
+            row2.addStretch()
             layout.addLayout(row2)
 
             row3 = QHBoxLayout()
             btn_embosscrest = QPushButton("Emboss Crest")
-            # row3.addStretch()  # .
+            row3.addStretch()
             row3.addWidget(btn_embosscrest)
-            # row3.addStretch()  # .
+            row3.addStretch()
             layout.addLayout(row3)
 
             result = {"value": None}
-            buttons = [btn_importjpg, btn_resetjpg, btn_alarmone, btn_resetalarmone, btn_importcrest, btn_resetcrest, btn_alarmtwo, btn_resetalarmtwo, btn_embosscrest]
+            buttons = [btn_importjpg, btn_resetjpg, btn_importcrest, btn_resetcrest, btn_embosscrest]
             max_w = max(b.sizeHint().width() for b in buttons)
             max_h = max(b.sizeHint().height() for b in buttons)
 
             for b in buttons:
                 b.setFixedSize(max_w, max_h)
-
             # Connect buttons to results
             btn_importjpg.clicked.connect(lambda: (result.update(value="jpg"), dlg.accept()))
             btn_resetjpg.clicked.connect(lambda: (result.update(value="defjpg"), dlg.accept()))
-            btn_alarmone.clicked.connect(lambda: (result.update(value="alarmone"), dlg.accept()))
-            btn_resetalarmone.clicked.connect(lambda: (result.update(value="defalarmone"), dlg.accept()))
             btn_importcrest.clicked.connect(lambda: (result.update(value="crest"), dlg.accept()))
             btn_resetcrest.clicked.connect(lambda: (result.update(value="defcrest"), dlg.accept()))
-            btn_alarmtwo.clicked.connect(lambda: (result.update(value="alarmtwo"), dlg.accept()))
-            btn_resetalarmtwo.clicked.connect(lambda: (result.update(value="defalarmtwo"), dlg.accept()))
             btn_embosscrest.clicked.connect(lambda: (result.update(value="emboss"), dlg.accept()))
 
             dlg.exec()
             return result["value"]
 
-        res = select_custom()
+        res = selectcustom(
+            "Choose an Option",
+            "Please select an option:",
+            "Jpg",
+            "Reset",
+            "Crest",
+            "Reset"
+        )
 
-        # Added 06/09/2026
+        if res == "jpg":
+            jpg = self.open_file_dialog(self.lastdir)
+            if jpg:
+                self.lastdir = Path(os.path.dirname(jpg))
+                if os.path.abspath(jpg) != os.path.abspath(self.picture):
+                    image = QImage(jpg)
+                    if image.isNull():
+                        QMessageBox.warning(self, "Invalid Image", f"Cannot open the selected file:\n{jpg}")
+                        return
+                    image.save(str(self.picture), "PNG")
+                    self.refresh_jpg()
+        elif res == "defjpg":
+            self.lastdir = None
+            reset_default(self.jpgdir, self.jpgdefault, self.picture)
+            self.refresh_jpg()
+        elif res == "crest":
 
-        if not self.new_sound_file:
+            crest = self.open_file_dialog(self.crestdir)  # crest dir always
+            if crest:
 
-            # alarm_set_soundFILE
-            if res == "alarmone":
-                set_sound = self.open_file_dialog(self.resources)
-                if set_sound:
-                    ext = os.path.splitext(set_sound)[1].lower()
+                file_root = Path(os.path.dirname(crest))
+                if file_root != self.crestdir:
+                    self.lastdir = file_root
 
-                    if ext in (".wav", ".mp3", ".ogg"):
+                if os.path.abspath(crest) != os.path.abspath(self.crest):  # dont reemboss the same crest in use
+                    if self.valid_crest(crest):
+                        shutil.copy(crest, self.crest)
+                        self.refresh_crest()
 
-                        is_set_sound = True
+        elif res == "defcrest":
+            self.lastdir = None
+            reset_default(self.crestdir, self.crestdefault, self.crest)
+            self.refresh_crest()
 
-                        # copy the file to .\\Resources\\
-                        dest, self.new_sound_file = self.copy_sound(set_sound)
-
-                        # will send a signal if valid sound file and then ok to save filename to .toml
-                        self.ui.widget.change_alarm_sound(dest, is_set_sound)
-                    else:
-                        print(f"Not a valid sound file supported .wav .mp3 .ogg given: {ext}")
-
-            elif res == "defalarmone":
-                if self.alarm_set_soundFILE:
-                    update_toml_values({'display': {'alarm_set_soundFILE': ""}}, self.toml_file)
-
-                    self.alarm_set_soundFILE = None
-                    self.ui.widget.sound_set_file = None
-
-            # alarm_soundFILE
-            elif res == "alarmtwo":
-                alarm_sound = self.open_file_dialog(self.resources)
-                if alarm_sound:
-                    ext = os.path.splitext(alarm_sound)[1].lower()
-
-                    if ext in (".wav", ".mp3", ".ogg"):
-
-                        is_set_sound = False
-
-                        dest, self.new_sound_file = self.copy_sound(alarm_sound)
-
-                        self.ui.widget.change_alarm_sound(dest, is_set_sound)
-                    else:
-                        print(f"Not a valid sound file supported .wav .mp3 .ogg given: {ext}")
-
-            elif res == "defalarmtwo":
-                if self.alarm_soundFILE:
-                    update_toml_values({'display': {'alarm_soundFILE': ""}}, self.toml_file)
-
-                    self.alarm_soundFILE = None
-                    self.ui.widget.sound_file = None
-                    self.ui.widget.valid_sound = False
-
-            # other logic jpg crest ect
-            elif res == "jpg":
-                jpg = self.open_file_dialog(self.lastdir)
-                if jpg:
-                    self.lastdir = Path(os.path.dirname(jpg))
-                    if os.path.abspath(jpg) != os.path.abspath(self.picture):
-                        image = QImage(jpg)
-                        if image.isNull():
-                            QMessageBox.warning(self, "Invalid Image", f"Cannot open the selected file:\n{jpg}")
-                            return
-                        image.save(str(self.picture), "PNG")
-                        self.refresh_jpg()
-            elif res == "defjpg":
-                self.lastdir = None
-                reset_default(self.jpgdir, self.jpgdefault, self.picture)
-                self.refresh_jpg()
-            elif res == "crest":
-
-                crest = self.open_file_dialog(self.crestdir)  # crest dir always
-                if crest:
-
-                    file_root = Path(os.path.dirname(crest))
-                    if file_root != self.crestdir:
-                        self.lastdir = file_root
-
-                    if os.path.abspath(crest) != os.path.abspath(self.crest):  # dont reemboss the same crest in use
-                        if self.valid_crest(crest):
-                            shutil.copy(crest, self.crest)
-                            self.refresh_crest()
-
-            elif res == "defcrest":
-                self.lastdir = None
-                reset_default(self.crestdir, self.crestdefault, self.crest)
-                self.refresh_crest()
-
-            elif res == "emboss":
-                self.emboss()
+        elif res == "emboss":
+            self.emboss()
 
     ''' Combo boxes '''
 
@@ -3480,8 +3323,7 @@ def start_main_window():
 
     home_dir = Path.home()
     log_dir = appdata_local / "logs"
-    resources = appdata_local / "Resources"
-    iconPATH = resources / "rntchanges.ico"
+    iconPATH = appdata_local / "Resources" / "rntchanges.ico"
     flth = appdata_local / "flth.csv"
     dbtarget_frm = appdata_local / "recent.gpg"
     cache_f_frm = appdata_local / "ctimecache.gpg"
@@ -3509,9 +3351,7 @@ def start_main_window():
         if dspEDITOR is None:
             return 1
     cachermPATTERNS = config['backend']['cachermPATTERNS']
-    alarm_soundFILE = config['display']['alarm_soundFILE']
-    alarm_set_soundFILE = config['display']['alarm_set_soundFILE']
-
+    alarmPATH = config['display']['alarmPATH']
     popPATH = config['display']['popPATH']
     basedir = config['search']['drive']
     driveTYPE_frm = config['search']['driveTYPE']
@@ -3525,16 +3365,8 @@ def start_main_window():
     cachermPATTERNS = cache_clear_patterns(usr, cachermPATTERNS)
     # startup/initialize
 
-    sound_file_path = None
-    set_sound_file_path = None
-
-    if alarm_soundFILE:
-        sound_file_path = os.path.join(resources, alarm_soundFILE)
-    if alarm_set_soundFILE:
-        set_sound_file_path = os.path.join(resources, alarm_set_soundFILE)
-
     # check ps paths have to be relative. check certain paths exist. check the config file for mismatches.
-    if not check_config(proteuspaths, nogo, suppress_list) or not check_utility(zipPATH, downloads, popPATH, sound_file_path, set_sound_file_path):
+    if not check_config(proteuspaths, nogo, suppress_list) or not check_utility(zipPATH, downloads, popPATH, alarmPATH):
         return 1
 
     log_path = log_dir / log_file
@@ -3674,9 +3506,8 @@ def start_main_window():
             window = MainWindow(
                 appdata_local, home_dir, config, j_settings, toml_file, json_file, log_dir, log_path,
                 driveTYPE, distro_name, dbopt, dbtarget, cache_s, cache_s_str, systimeche, suffix,
-                gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH, alarm_soundFILE,
-                alarm_set_soundFILE, downloads, email, usr, cachermPATTERNS,
-                tempdir
+                gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH, alarmPATH, downloads, email,
+                usr, cachermPATTERNS, tempdir
             )
             window.setWindowIcon(QIcon(icon_path))
             window.show()
