@@ -21,13 +21,10 @@ _filter = [
     r'C:\\Users\\{{user}}\\AppData\\Local\\Packages\\[^\\]+\\LocalCache',
     r'C:\\Users\\{{user}}\\AppData\\Local\\Packages\\.*?\\LocalCache'
 
-    #      Now we get into the important directories. Do we exclude at the risk missing something? its better to include than
-    #       exclude
-    #
 ]
 
 
-# filter hits to reset on cache clear in ftlh.csv in app install. copy from filter items above
+# filter hits to reset on cache clear in flth.csv in app install. copy from filter items above
 _filterhitRESET = [
 
     r'C:\\Users\\{{user}}\\AppData\\Local\\Packages\\[^\\]+\\LocalCache',
