@@ -15,7 +15,6 @@ a = Analysis(
         'PySide6.QtWebEngine',
         'PySide6.QtWebEngineWidgets',
         'PySide6.QtWebEngineCore',
-        'PySide6.QtMultimedia',
         'PySide6.QtNetwork',
         'PySide6.QtQml',
         'PySide6.QtQuick',
