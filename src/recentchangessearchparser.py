@@ -19,7 +19,7 @@ def build_subparser(script):
         recent_args = [
             r_args.argone, r_args.argtwo, r_args.usr, r_args.pwd, r_args.argf, r_args.method,
             r_args.iqt, r_args.drive, r_args.dtype, r_args.db_output, r_args.cache_file,
-            r_args.post_OP, r_args.scan_idx, r_args.showDiff, r_args.dspPATH
+            r_args.post_OP, r_args.dspPATH
         ]
         return recent_args
     else:
@@ -46,10 +46,6 @@ def parse_recent_args(parser):
                         help="Path to systimeche.gpg or systimeche_xsdx.gpg profile cache file for build and scan IDX (default:None)")
     parser.add_argument("post_OP", nargs="?", type=to_bool, default=False,
                         help="post_OP boolean postop create file doctrine (default: False)")
-    parser.add_argument("scan_idx", nargs="?", type=to_bool, default=False,
-                        help="scan_idx boolean postop scan index (default: False)")
-    parser.add_argument("showDiff", nargs="?", type=to_bool, default=False,
-                        help="showDiff boolean show symmetric differences for idx scan (default: False)")
     parser.add_argument("dspPATH", nargs="?", default=None,
                         help="Optional dspPATH verified path to editor (default: None)")
 

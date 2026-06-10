@@ -4,6 +4,7 @@ import os
 import stat
 from datetime import datetime
 from io import StringIO
+from .config import get_json_settings
 from .dirwalkerwin import return_info
 from .fileops import calculate_checksum
 from .fileops import find_dir_link_target
@@ -130,6 +131,18 @@ def get_base_folders(basedir, exclDIRS_fullpath):
             c += 1
             base_folders.append(folder_path)
     return base_folders, c
+
+
+def get_drive_type(basedir, driveTYPE, cache_s, json_file):
+    """ from config return the drive type or default passed default driveTYPE """
+    # _, suffix = parse_systimeche(basedir, cache_s)
+    di = get_json_settings(None, basedir, json_file) or {}
+    dtype = di.get("drive_type")
+    if dtype in ("HDD", "SSD"):
+        return dtype
+    else:
+        print("Warning entry for", basedir, "is malformed in json file:", json_file, "using default", driveTYPE)
+    return driveTYPE
 
 
 def create_profile_baseline(EXEC_EXTN):
@@ -515,6 +528,7 @@ def collect_files(basedir, exclDIRS_fullpath, filter_tup, exec_tup, extn_tup, pa
 
                                     if found:
                                         stat_info = get_stat(entry, logger=logger)
+
                                         if not stat_info:
                                             continue
 

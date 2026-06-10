@@ -55,6 +55,7 @@ def return_info(file_path, st, symlink, link_target, log_q):
     if symlink:
         sym = "y"
         target = link_target
+
     # attrs = getattr(st, "st_file_attributes", 0)
     # mode, _ = get_mode(attrs, sym)
     # inode = st.st_ino
@@ -64,7 +65,7 @@ def return_info(file_path, st, symlink, link_target, log_q):
     if status in ("Nosuchfile", "Error"):
         return sym, target, mode, inode, hardlink, None, None, None, st.st_mtime_ns, None, None, None, st.st_size, status
     resolve_owner = file_owner(file_path, log_q)
-    if resolve_owner in (None, "Nosuchfile"):
+    if resolve_owner in ("Nosuchfile", "Error"):
         return sym, target, mode, inode, hardlink, None, None, None, st.st_mtime_ns, None, None, None, st.st_size, status
     owner, domain = resolve_owner if resolve_owner else (None, None)
 
@@ -77,6 +78,7 @@ def return_info(file_path, st, symlink, link_target, log_q):
     c_time = epoch_to_str(c_epoch)
     a_time = epoch_to_str(a_epoch)
     size = st.st_size
+
     return sym, target, mode, inode, hardlink, owner, domain, m_dt, m_epoch_ns, m_time, c_time, a_time, size, status
 
 

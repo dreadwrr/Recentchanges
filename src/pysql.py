@@ -153,6 +153,14 @@ def create_db(database, sys_tables, action=None):
             notes TEXT,
             UNIQUE(extension)
         )
+        ''',
+        '''
+        CREATE TABLE IF NOT EXISTS analytics (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            total_files INTEGER NOT NULL DEFAULT 0,
+            total_time INTEGER NOT NULL DEFAULT 0,
+            last_start INTEGER
+        )
         '''
     ]
     # sys and sys2 table

@@ -116,7 +116,7 @@ def build_tuple(proc):
 
             last_usn = record[14]
             name = record[15]
-            path = record[16]
+            path = "C:" + record[16]
 
             entries.append((recno, sequence_num, in_use, parent_recno, parent_sequence, path, name, size, hardlinks, has_ads, file_attribs, creation_time, mod_time, mft_mod, access_time, last_usn))
 

@@ -67,6 +67,7 @@ def build_index(chunk, i, num_chunks, show_progress=False, strt=0, endp=100):
                         emit_log("DEBUG", f"scandir_meta File not found: {file_path}: ", logs.WORKER_LOG_Q)
                     elif rlt is None:
                         emit_log("DEBUG", f"status: {status}, Hash skipped {file_path} . record: {record}",  logs.WORKER_LOG_Q)
+                    emit_log("DEBUG", f"unknown {file_path} . record: {record}",  logs.WORKER_LOG_Q)
             else:
                 emit_log("DEBUG", f"file not found during indexing, skipping: {file_path}",  logs.WORKER_LOG_Q)
 

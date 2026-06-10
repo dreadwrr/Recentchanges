@@ -19,13 +19,13 @@ def parse_rout(line):
 
 
 # preprocess diff file
-def isdiff(recent, absent, rout, diffnm, difff_file, flsrh, parsed_PRD, fmt):
+def isdiff(recent, absent, rout, diffnm, diff_file, flsrh, parsed_PRD, fmt):
 
     ranged = []
 
     if not flsrh:
 
-        for line in difff_file:
+        for line in diff_file:
             parts = line.strip().split(None, 2)
             if not parts:
                 continue
@@ -37,7 +37,7 @@ def isdiff(recent, absent, rout, diffnm, difff_file, flsrh, parsed_PRD, fmt):
             if timestp >= parsed_PRD:
                 ranged.append(line)
     else:
-        ranged = difff_file[:]
+        ranged = diff_file[:]
 
     if ranged:
         d_paths = set(entry[1] for entry in recent)

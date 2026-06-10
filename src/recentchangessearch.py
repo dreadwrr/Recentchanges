@@ -1,5 +1,5 @@
 #! python3
-#   Windows 10 / 11                                                                05/30/2026
+#   Windows 10 / 11                                                                06/08/2026
 #   recentchanges. Developer buddy      recentchanges/ recentchanges search
 #   Provide ease of pattern finding ie what files to block we can do this a number of ways
 #   1) if a file was there (many as in more than a few) and another search lists them as deleted its either a sys file or not but unwanted nontheless
@@ -7,17 +7,19 @@
 #   3) intangibles ie trashed items that may pop up infrequently and are not known about
 #
 #   This script is called by two methods. recentchanges and recentchanges search. The former is discussed below
-#
+
 #   recentchanges
-#           Searches are saved in app install.
+#           Searches are saved in <app_install> and are unfiltered.
+#           old search can be grabbed from <app_install>\\{moduleNAME}_MDY\\
 #
 #   recentchanges search
-#
-#           1. old searches can be grabbed from Desktop, <app_install>, <app_install>\\{moduleNAME}_MDY\\. for convenience
+#           Output to Desktop
+#           The search is unfiltered and a filesearch is filtered.
+#           old searches can be grabbed from <app_install> or <app_install>\\{moduleNAME}_MDY\\ for convenience
 #           if there is no differences it displays the old search for specified search criteria
-#           2. The search is unfiltered and a filesearch is filtered.
-#           2. rnt search inverses the results. rnt.bat   ie for recentchanges search it will filter the results. For a file search it removes the filter.
-#  Also borrowed script features from various scripts on porteus forums
+#
+#   rnt inverses the results. rnt.bat   ie for rnt or rnt search will filter the results. For a file search it removes the filter.
+#   Also borrowed script features from various scripts on porteus forums
 import logging
 import os
 import re
@@ -34,7 +36,6 @@ from .configfunctions import find_install
 from .configfunctions import find_user_folder
 from .configfunctions import get_config
 from .config import dump_toml
-from .dirwalker import scan_system
 from .filterhits import update_filter_csv
 from .fsearchfunctions import set_excl_dirs
 from .gpgcrypto import check_for_gpg
@@ -44,6 +45,7 @@ from .gpgkeymanagement import genkey
 from .gpgkeymanagement import iskey
 from .logs import setup_logger
 from .pstsrg import main as pst_srg
+from .pyfunctions import cache_clear_patterns
 from .pyfunctions import cprint
 from .pyfunctions import user_path
 from .recentchangessearchparser import build_parser
@@ -54,7 +56,6 @@ from .rntchangesfunctions import filter_lines_from_list
 from .rntchangesfunctions import filter_output
 from .rntchangesfunctions import find_ps1
 from .rntchangesfunctions import find_scan
-from .rntchangesfunctions import get_diff_file
 from .rntchangesfunctions import get_runtime_exclude_list
 from .rntchangesfunctions import hsearch
 from .rntchangesfunctions import logic
@@ -91,7 +92,7 @@ pstsrg with postop and scanIDX 65 - 75%
 '''
 
 
-def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None, dtype=None, dbopt=None, cache_s=None, POST_OP=False, scan_idx=False, showDiff=False, dspPATH=None):
+def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None, dtype=None, dbopt=None, cache_s=None, post_OP=False, dspPATH=None):
 
     appdata_local = find_install()  # appdata software install aka workdir
     toml_file, json_file, usr = get_config(appdata_local, usr, platform="Windows")
@@ -108,25 +109,22 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
     j_settings = {}  # convenience for commandline if basedir other than C:\\ always have available.
     # if basedir is C:\\ doesnt not touch json for speed as its set that way most of the time **
-    config = load_toml(toml_file)  # setup_logger(process_label="RECENTCHANGES", wdir=appdata_local)
+    config = load_toml(toml_file)
     if not config:
         return 1
     feedback = config['analytics']['feedback']
-    analytics = config['analytics']['analyticSECT']
-    analyticSECT = config['analytics']['analyticSECT']
+    analytics = config['analytics']['analytics']
     email = config['backend']['email']
     email_name = config['backend']['name']
     cachermPATTERNS = config['backend']['cachermPATTERNS']
+    cachermPATTERNS = cache_clear_patterns(usr, cachermPATTERNS)
     checksum = config['diagnostics']['checkSUM']
     cdiag = config['diagnostics']['cdiag']
-    scanIDX = config['diagnostics']['scanIDX']
-    autoIDX = config['diagnostics']['autoIDX']
     suppress_browser = config['diagnostics']['supbrw']
     supbrwLIST = config['diagnostics']['supbrwLIST']
     suppress = config['diagnostics']['suppress']
     postop = config['diagnostics']['postop']
     ps = config['shield']['proteusSHIELD']  # proteus shield
-    show_diff = config['diagnostics']['showDIFF']
     compLVL = config['logs']['compLVL']
     moduleNAME = config['paths']['moduleNAME']
     archivesrh = config['search']['archivesrh']
@@ -142,13 +140,6 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
     dspPATH_frm = config['display']['dspPATH']
 
     escaped_user = re.escape(usr)
-
-    # db cache patterns in config
-    cachermPATTERNS = config['backend']['cachermPATTERNS']
-    cachermPATTERNS = [
-        p.replace("{{user}}", usr)
-        for p in cachermPATTERNS
-    ]
 
     # suppress browser list in config. regex
     supbrwLIST = [
@@ -168,9 +159,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
         else:
             print("driveTYPE for drive", basedir, " was null check json file", json_file)
 
-        show_diff = showDiff
-        postop = POST_OP
-        scanIDX = scan_idx
+        postop = post_OP
         dspPATH = dspPATH
     else:
         if shutil.which("gpg") is None:
@@ -188,7 +177,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
         outfile = name_of(dbtarget, '.db')
         dbopt = os.path.join(appdata_local, outfile)
 
-        if ps or scanIDX:
+        if ps:
             proteusPATH = config['shield']['proteusPATH']
             nogo = user_path(config['shield']['nogo'], usr)
             suppress_list = user_path(config['shield']['filterout'], usr)
@@ -218,7 +207,6 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
         'driveTYPE': driveTYPE,
         'feedback': feedback,
         'analytics': analytics,
-        'analyticSECT': analyticSECT,
         'checksum': checksum,
         'ps': ps,
         'cdiag': cdiag,
@@ -257,7 +245,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
     flsrh = False
     filtered = False
     validrlt = None
-
+    valid_data = False
     dcr = True  # means to remove after encrypting. and backwards for this script dcr True is meant to mean leave open
 
     flnm = ""
@@ -268,7 +256,6 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
     dirSRC = ""
 
     tsv_doc = "doctrine.tsv"
-    mergeddb = "recent_merged.db"
     excl_file = 'excluded.txt'  # find and powershell directory excludes from exclDIRS
 
     proval = 20  # progress
@@ -302,7 +289,8 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
         start = time.time()
 
-        logging_values = (log_file, ll_level, appdata_local, tempwork)
+        # make a named tuple to pass less args
+        logging_values = (log_file, ll_level, appdata_local, tempwork, scr, cerr, cache_f, cache_s, json_file, gnupg_home)  # append to so pass less args in pstsrg
 
         setup_logger(log_file, logging_values[1], "MAIN")
 
@@ -546,7 +534,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
         # Apply filter. recent is unfiltered all data to store in db
         tmpopt = filter_lines_from_list(tmpopt, escaped_user)
-
+        temp_flnm = f"{moduleNAME}xSystemTmpfiles{argone}.txt"
         logf = recent  # all files
         if filtered:
             logf = tmpopt
@@ -558,6 +546,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
             if flsrh:
                 flnm = f'xNewerThan_{parseflnm}{argone}'
                 flnmdff = f'xDiffFromLast_{parseflnm}{argone}'
+                temp_flnm = f"{moduleNAME}xSystemTmpfiles{parseflnm}{argone}"
             elif argf == "filtered":
                 flnm = f'xFltchanges_{argone}.txt'
                 flnmdff = f'xFltDiffFromLastSearch_{argone}.txt'
@@ -590,21 +579,20 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
                     hsearch(oldsort, appdata_local, moduleNAME, flnm)
 
             # Move or clear previous searches
-            validrlt = clear_logs(dirSRC,  method, appdata_local, moduleNAME, archivesrh)
+            validrlt = clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh)
 
             target_path = None
-            # output tmp file results
-            if method != "rnt":
-                # send Temp results to user
-                if tmpoutput:
-                    target_filename = f"{moduleNAME}xSystemTmpfiles{parseflnm}{argone}"
 
-                    target_path = os.path.join(usrDIR, target_filename)
-                    with open(target_path, 'w') as dst:
-                        for entry in tmpoutput:
-                            tss = entry[0].strftime(fmt)
-                            fp = entry[1]
-                            dst.write(f'{tss} {fp}\n')
+            # send Temp results to user
+            if tmpoutput:
+                target_filename = temp_flnm
+
+                target_path = os.path.join(dirSRC, target_filename)
+                with open(target_path, 'w') as dst:
+                    for entry in tmpoutput:
+                        tss = entry[0].strftime(fmt)
+                        fp = entry[1]
+                        dst.write(f'{tss} {fp}\n')
 
             diff_file = os.path.join(dirSRC, moduleNAME + flnmdff)
 
@@ -639,48 +627,54 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
             if postop:
                 endval = 85  # adjust 65% - 85%
 
-            if scanIDX or iqt:
-                dcr = True  # leave open as there is a system scan after
+            # if scanIDX:
+            #     endval = 80  # adjust 65% - 80%
 
-            if scanIDX:
-                endval = 80  # adjust 65% - 80%
-
-            if postop and scanIDX:
-                endval = 75
+            # if postop and scanIDX:
+            #     endval = 75
 
             if iqt:
+                dcr = True  # leave open as its called from the app
                 print(f"Progress: {proval}", flush=True)
-            elif not scanIDX:
+            # elif not scanIDX:
+            #     dcr = False
+            else:
                 dcr = False
+
+            # pass some analytics into pstsrg
+            el = end - start
+            el2 = cend - cstart
+            total_time = el + el2
+            total_files = len(sortcomplete)
             # Backend
 
-            dbopt, csum = pst_srg(
-                dbopt, dbtarget, basedir, sortcomplete, complete, rout, scr, cerr, cache_s, cachermPATTERNS, json_file, gnupg_home, user_setting, logging_values,
-                dcr=dcr, iqt=iqt, strt=proval, endp=endval
+            dbopt, data = pst_srg(
+                dbopt, dbtarget, sortcomplete, complete, rout, cachermPATTERNS, user_setting, logging_values,
+                total_time, total_files, dcr=dcr, iqt=iqt, strt=proval, endp=endval
             )
             # dbopt return from pst_srg is either path, encr_error, new_profile or None
             proval = endval + 1
             endval = 100
 
-            if not iqt and scanIDX:
-                dcr = False  # for command line reset to default False. This means to remove db after system scan. qt remains open for gui
             if not dbopt:
                 print("There is a problem in pst_srg no return value. likely database wasnt created, path to database did not exist or permission issue")
                 return 1
             if iqt:
                 print(f"Progress: {proval}")  # print +1 for stop request polling Linux *
-            if scanIDX and not os.path.isfile(dbopt):
-                print(f"dbopt missing from pstsrg. {dbopt} unable to scan profile")
-                scanIDX = False
-                # if dbopt and dbopt != "encr_error":
-                #     if os.path.isfile(dbtarget):
-                #         change_perm(dbtarget, uid, gid, 0o644)
+            # if dbopt and dbopt != "encr_error":
+            #     if os.path.isfile(dbtarget):
+            #         change_perm(dbtarget, uid, gid, 0o644)
 
-            if analyticSECT:
-                print(f'Search took {end - start:.3f} seconds')
-            if checksum:
-                print(f'Checksum took {cend - cstart:.3f} seconds')
-            print()
+            #
+            csum, unique_files, lifetime_throughput, ha_total_time, logger_total_time = data
+
+            # for benchmarking pstsrg returned the time for multiprocessing ect. This can help verify if any changes or new designs improve performance and also
+            # where the bulk of the work is. This data isnt stored so it is essentially free and adds no complexity.
+            if analytics:
+                if dbopt not in ("new_database", "encr_error", "db_error"):  # "new_profile" would be not to scan index as it was just made
+                    valid_data = True
+                    if ha_total_time:
+                        print("Hanly total time:", format(ha_total_time, ".3f"), "seconds", "logger:", format(logger_total_time, ".3f"), "seconds")
 
             # Diff output to user
 
@@ -721,9 +715,8 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
             if os.path.isfile(scr):
                 removefile(scr)
 
-            if pwrshell:  # powershellcleanup
-                database_merged = os.path.join(tempwork, mergeddb)
-                removefile(database_merged)
+            # old powershell cleanup for merged db when using PSSQLite
+            # powershellcleanup
 
         try:
 
@@ -732,31 +725,57 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
         except Exception as e:
             print(f"Error in logic or display {type(e).__name__} : {e} ")
 
-        if dbopt not in ("new_profile", "encr_error", "db_error") and scanIDX:  # Scan system index. If it is from the command line and a new profile was just made dont scan it. Encryption failure dont scan as there is a problem.
+        if analytics:
 
-            cprint.green('Running postop system index scan.')
+            print(f'Search took {el:.3f} seconds')
+            if checksum:
+                print(f'Checksum took {el2:.3f} seconds')
+            print()
 
-            # append to old or use new default
-            diff_file = diff_file if diffrlt else get_diff_file(appdata_local, usrDIR, moduleNAME)
+            print("Files scanned:", total_files)
+            throughput = total_files / total_time
+            if total_files != 0:
 
-            rlt = scan_system(appdata_local, dbopt, dbtarget, basedir, usr, diff_file, cache_s, email, analyticSECT, show_diff, compLVL, dcr=dcr, iqt=iqt, strt=proval, endp=endval)
-            if not iqt and not autoIDX:  # if commandline, turn off so doesnt scan every time. autoIDX permissive to auto scan
-                # update_toml_values({'diagnostics': {'scanIDX': False}}, toml_file)
-                config['diagnostics']['scanIDX'] = False
-                dump_toml(None, config, toml_file)
+                output = "Perceived throughput: {:.3f} files per second".format(60 / throughput)
+                if valid_data:
+                    output += f" Lifetime throughput: {lifetime_throughput:.3f}" if lifetime_throughput else ""
+                print(output)
+                if unique_files:
+                    print()
+                    print("Total unique files in logs:", unique_files)
+        print()
 
-            if rlt != 0:
-                if rlt == 1:
-                    print("Post op index scan failed scan_system dirwalker.py")
-                    return 1
-                if rlt == 7:
-                    if not iqt:
-                        print("No profile created. set proteusSHIELD to create profile")
-                    else:
-                        print("No profile created. run build IDX on pg2")
-                else:
-                    print(f"Unexpected error scan_system : error code {rlt}")
-                    return rlt
+        # removed below to handle scan idx after this script in qt as scanning a profile index from commandline is unecessary hence
+        # why its removed from the script. Makes it less complex and its a feature that wouldnt be used because there is a gui
+        #
+
+        # Scan system index. If it is from the command line and a new profile was just made dont scan it.
+        # Encryption failure dont scan as there is a problem.
+        # if dbopt not in ("new_profile", "encr_error", "db_error") and scanIDX:
+        #     cprint.green('Running postop system index scan.')
+
+        #   append to old or use new default
+        #   diff_file = diff_file if diffrlt else get_diff_file(appdata_local, usrDIR, moduleNAME)
+
+        #   rlt = scan_system(appdata_local, dbopt, dbtarget, basedir, usr, diff_file, cache_s, email, analytics, show_diff, compLVL, dcr=dcr, iqt=iqt, strt=proval, endp=endval)
+        #   if commandline, turn off so doesnt scan every time. autoIDX permissive to auto scan
+        #   if not iqt and not autoIDX:
+        #       # update_toml_values({'diagnostics': {'scanIDX': False}}, toml_file)
+        #       config['diagnostics']['scanIDX'] = False
+        #       dump_toml(None, config, toml_file)
+
+        #   if rlt != 0:
+        #       if rlt == 1:
+        #           print("Post op index scan failed scan_system dirwalker.py")
+        #           return 1
+        #       if rlt == 7:
+        #           if not iqt:
+        #               print("No profile created. set proteusSHIELD to create profile")
+        #           else:
+        #               print("No profile created. run build IDX on pg2")
+        #       else:
+        #           print(f"Unexpected error scan_system : error code {rlt}")
+        #           return rlt
 
         if syschg:
             if iqt:
@@ -782,8 +801,6 @@ def main_entry(argv):
         args.db_output,
         args.cache_file,
         args.post_OP,
-        args.scan_idx,
-        args.showDiff,
         args.dspPATH
     ]
 

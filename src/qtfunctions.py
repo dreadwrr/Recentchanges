@@ -2,11 +2,13 @@ import logging
 import os
 import re
 import requests
+import shutil
 import sqlite3
 import subprocess
 import threading
 import traceback
 import webbrowser
+from datetime import datetime
 from packaging import version
 from pathlib import Path
 from PySide6.QtCore import QDateTime
@@ -22,7 +24,7 @@ from .gpgcrypto import decrypt_from_text
 from .gpgcrypto import encr
 from .gpgcrypto import encrypt_to_text
 from .pyfunctions import is_integer
-# 05/29/2026
+# 06/02/2026
 
 
 def find_gnupg_home(json_file, j_settings=None, iqt=False):
@@ -146,9 +148,16 @@ def select_custom(parent, title, msg, importjpg, defaultjpg, importcrest, defaul
     row1 = QHBoxLayout()
     btn_importjpg = QPushButton(importjpg)
     btn_resetjpg = QPushButton(defaultjpg)
+
+    # Alarm one
+    btn_alarmone = QPushButton("megar")
+    btn_resetalarmone = QPushButton('targ')
+
     row1.addStretch()
     row1.addWidget(btn_importjpg)
     row1.addWidget(btn_resetjpg)
+    row1.addWidget(btn_alarmone)
+    row1.addWidget(btn_resetalarmone)
     row1.addStretch()
     layout.addLayout(row1)
     # Crest
@@ -549,12 +558,17 @@ def handle_output(proc):
 
 
 def set_path(appdata_local):
+
+    path = str(appdata_local)
+
     ps_command = f"""
     $old = [Environment]::GetEnvironmentVariable("Path", "User")
-    if ($old -notlike "*{str(appdata_local)}*") {{
-        $new = ($old -split ";") | Where-Object {{ $_ -ne "" }}
-        $new = $new + ";{str(appdata_local)};"
-        [Environment]::SetEnvironmentVariable("Path", $new, "User")
+    if ($old -notlike "*{path}*") {{
+        [Environment]::SetEnvironmentVariable(
+            "Path",
+            $old + ";{path}",
+            "User"
+        )
     }}
     """
     proc = subprocess.Popen(["powershell.exe", "-Command", ps_command], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -607,8 +621,12 @@ def load_pshell(lclhome, popPATH=None):
     # env["PATH"] = r";" + env["PATH"]
     # env=env,
 
+    pwsh_path = shutil.which("pwsh")
+    if not pwsh_path:
+        pwsh_path = "powershell.exe"  # or "powershell" for v5
+
     subprocess.Popen(
-        ["pwsh", "-NoExit"],       # or "powershell" for v5
+        [pwsh_path, "-NoExit"],
         cwd=work_area,  # start directory
         creationflags=subprocess.CREATE_NEW_CONSOLE
     )
@@ -728,12 +746,27 @@ def user_data_to_database(notes, logger, dbopt, dbtarget, email, nc, isexit=Fals
     return False
 
 
-def user_data_from_database(logger, textEdit, combffile, extensions, dbopt, parent=None):
+def user_data_from_database(logger, textEdit, combffile, extensions, dbopt, is_startup=False, parent=None):
     query = None
     extension_data = []
     data_name = ""
     try:
         with DBMexec(dbopt, "sq_1", ui_logger=logger) as dmn:
+
+            # this is called when the app is started store the current time so later can check if app has been started after system boot
+            if is_startup:
+                last_start = int(datetime.now().timestamp())  # to compare later to system start time to see if the app is launched for the first time **
+                sql = """
+                    INSERT INTO analytics (id,last_start)
+                    VALUES (1, :last_start)
+                    ON CONFLICT(id) DO UPDATE SET
+                        last_start = excluded.last_start;
+                """
+                query = dmn.execute(sql, {"last_start": str(last_start)})
+                if not query:
+                    logger.appendPlainText("Query failed analytics table in user_data_from_database while starting up")
+
+            # get saved extensions skiping the first row which has the encrypted notes
             data_name = "extn"
             sql = "SELECT extension FROM extn WHERE id != 1"
             query = dmn.execute(sql)
@@ -741,6 +774,8 @@ def user_data_from_database(logger, textEdit, combffile, extensions, dbopt, pare
                 extension_data = fill_extensions(combffile, extensions, query=query)
             else:
                 logger.appendPlainText("Query failed extn table in user_data_from_database.")
+
+            # get encrypted notes
             data_name = "notes"
             sql = "SELECT notes FROM extn WHERE id = 1"
             query = dmn.execute(sql)
@@ -785,7 +820,10 @@ def user_data_from_database(logger, textEdit, combffile, extensions, dbopt, pare
         err = ""
         if query:
             err = f":{query.lastError().text()}"
-        err_msg = f"err while loading user data table extn loading {data_name} fail: {type(e).__name__} {e} query err: {err}"
+        err_msg = (
+            f"err while loading user data table extn loading {data_name} fail: {type(e).__name__} {e} "
+            f"{err if err else ''}"
+        )
         logger.appendPlainText(err_msg)
         logging.error(err_msg, exc_info=True)
     return []

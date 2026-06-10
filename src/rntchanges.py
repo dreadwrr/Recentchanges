@@ -7,13 +7,12 @@
 # the filtered arg just changes a regular search to the inverse
 #
 # for recentchanges the arguments shift
-# recentchanges takes 1 argument the time n or no arguments for 5 minutes.
+# recentchanges -  AppData unfiltered files. takes 1 argument the time n or no arguments for 5 minutes.
 #
-# recentchanges search - Desktop unfiltered files and tmp files. Also search for newer than file filtered. if called from rnt.bat its the opposite.
+# recentchanges search - Desktop unfiltered files. Also search for newer than file filtered. if called from rnt.bat its the opposite.
 # query - show stats from the database from past searches
 #
-# reset - reset gpg key pair and clear gpgs
-# recentchanges - AppData unfiltered and archives searches
+# reset - reset gpg key pair and clear gpgs. prompt to remove configs
 #
 # all searches are stored in the database before filtering. This is for hybrid analysis to capture the necessary data
 

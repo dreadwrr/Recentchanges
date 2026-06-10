@@ -166,14 +166,26 @@ def file_owner(file_path, log_q=None, logger=None):
     try:
         sd = win32security.GetFileSecurity(file_path, win32security.OWNER_SECURITY_INFORMATION)
         owner_sid = sd.GetSecurityDescriptorOwner()
-        name, domain, _ = win32security.LookupAccountSid(None, owner_sid)
+        domain = None
+        try:
+            name, domain, _ = win32security.LookupAccountSid(None, owner_sid)
+
+        except pywintypes.error as e:
+            # the account doesnt map to an account on the machine
+            name = win32security.ConvertSidToStringSid(owner_sid)  # put SID as the owner
+
+            if e.winerror != 1332:
+                raise
+
         return name, domain
+
     except FileNotFoundError:
         emit_log("DEBUG", f"file_owner File not found while getting owner domain for file: {file_path}", log_q, logger=logger)
         return "Nosuchfile"
+
     except Exception as e:
-        emit_log("DEBUG", f"file_owner unable to resolve owner domain file: {file_path} error: {e}", log_q, logger=logger)
-        return None
+        emit_log("ERROR", f"file_owner unable to resolve owner domain file: {file_path} error: {e}", log_q, logger=logger)
+        return "Error"
 
 
 def get_mode(attrs, is_symlink=None):
@@ -208,7 +220,7 @@ def get_mode(attrs, is_symlink=None):
 
 def get_mft_mode(attribs, is_symlink=None):
     sym = None
-    mode = ["-"] * 5
+    mode = ["-"] * 6
     if is_symlink or "ReparsePoint" in attribs:
         sym = "y"
         mode[0] = "l"

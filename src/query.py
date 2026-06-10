@@ -6,6 +6,7 @@ import tempfile
 import traceback
 from collections import Counter
 from datetime import datetime
+from math import sin, cos, atan2, pi
 from pathlib import Path
 from .config import load_toml
 from .configfunctions import find_install
@@ -14,11 +15,12 @@ from .gpgcrypto import check_for_gpg
 from .gpgcrypto import decr
 from .gpgkeymanagement import delete_gpg_keys
 from .pyfunctions import is_integer
+from .pyfunctions import parse_datetime
 from .pysql import clear_conn
 from .rntchangesfunctions import name_of
 from .rntchangesfunctions import set_gpg
 # from .rntchangesfunctions import cprint
-# 03/11/2026
+# 06/06/2026
 
 
 # see config.toml cache clear patterns for db
@@ -39,19 +41,22 @@ def blank_count(curs):
     return count[0]
 
 
+# ORDER BY timestamp DESC
+# LIMIT ?
 def dexec(cur, actname, limit):
     query = '''
     SELECT *
     FROM stats
     WHERE action = ?
-    ORDER BY timestamp DESC
-    LIMIT ?
     '''
-    cur.execute(query, (actname, limit))
+    cur.execute(query, (actname,))
     return cur.fetchall()
 
 
-def averagetm(conn, cur):
+def average_time(conn, cur):
+    # original function for average access time and file activity
+    # Would be inaccurate for times that wrap around ie 23:00 - 01:00
+    # not in use
     cur.execute('''
     SELECT timestamp
     FROM logs
@@ -72,6 +77,67 @@ def averagetm(conn, cur):
         avg_time = f"{avg_hours:02d}:{avg_minutes:02d}"
         return avg_time
     return "N/A"
+
+
+def clock_average(rows):
+    sum_sin = 0
+    sum_cos = 0
+    n = 0
+
+    for r in rows:
+        if not r or not r[0]:
+            continue
+
+        seconds = int(r[0]) % 86400  # time of day only
+        angle = 2 * pi * seconds / 86400
+
+        sum_sin += sin(angle)
+        sum_cos += cos(angle)
+        n += 1
+
+    if n == 0:
+        return "N/A"
+
+    angle = atan2(sum_sin, sum_cos)
+    if angle < 0:
+        angle += 2 * pi
+
+    avg_seconds = angle * 86400 / (2 * pi)
+
+    hours = int(avg_seconds // 3600)
+    minutes = int((avg_seconds % 3600) // 60)
+
+    return f"{hours:02d}:{minutes:02d}"
+
+
+def search_times(cur):
+    groups, current = [], []
+
+    cur.execute("SELECT timestamp FROM logs")
+    rows = cur.fetchall()
+
+    for row in rows:
+        ts = row[0]
+
+        is_blank = (ts is None or ts == "")
+
+        if is_blank:
+            if current:
+                groups.append(current)
+                current = []
+            continue
+
+        dt = parse_datetime(ts)
+        if dt:
+            current.append([dt.timestamp(),])
+
+    if current:
+        groups.append(current)
+
+    # first timestamp or start of each search
+    first_times = [group[0] for group in groups if group]
+
+    return first_times
 
 
 def main(appdata_local=None, user=None, email=None, reset=None, database=None, log_fn=print):
@@ -132,23 +198,34 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                     try:
                         conn = sqlite3.connect(dbopt)
                         cur = conn.cursor()
-                        # optionally run database commands
+                        # optionally run database commands here
                         # cur.execute("DELETE FROM logs WHERE filename = ?", ('/home/guest/Downloads/Untitled' ,))
                         # conn.commit()
-                        atime = averagetm(conn, cur)
+
+                        # Search time area
                         ctext = "\033[36mSearch breakdown \033[0m"
                         log_fn(ctext)
+                        # average file access time
                         cur.execute("""
-                            SELECT
-                            datetime(AVG(strftime('%s', accesstime)), 'unixepoch') AS average_accesstime
+                            SELECT strftime('%s', accesstime)
                             FROM logs
                             WHERE accesstime IS NOT NULL;
                         """)
-                        rows = cur.fetchone()
-                        average_accesstime = rows[0] if rows and rows[0] is not None else None
-                        if average_accesstime:
-                            log_fn(f'Average access time: {average_accesstime}')
-                        log_fn(f'Avg hour of activity: {atime}')
+                        rows = cur.fetchall()
+                        avg_atime = clock_average(rows)
+                        log_fn(f'Average access time: {avg_atime}')
+
+                        # average time user searches
+                        rows = search_times(cur)
+                        avg_search = clock_average(rows)
+                        log_fn(f'Average time of file searches: {avg_search}')
+
+                        # average file modified time
+                        # cur.execute("SELECT strftime('%s', timestamp) FROM logs")
+                        # rows = cur.fetchall()
+                        # avg_mtime = clock_average(rows)
+                        # log_fn(f'Average time of file activity: {avg_mtime}')
+                        # end Search time area
                         c = blank_count(cur)
                         cur.execute('''
                         SELECT filesize
@@ -193,12 +270,12 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                         if extensions:
                             counter = Counter(extensions)
                             top_3 = counter.most_common(3)
-                            ctext = "\033[36mTop extension\033[0m"
+                            ctext = "\033[36mMost common extensions\033[0m"
                             log_fn(ctext)
                             for ext, count in top_3:
                                 log_fn(f"{ext}")
                         log_fn("")
-                        directory_counts = Counter(directories)  # top directories ln170
+                        directory_counts = Counter(directories)  # top directories ln181
                         top_3_directories = directory_counts.most_common(3)
                         ctext = "\033[36mTop 3 directories\033[0m"
                         log_fn(ctext)
@@ -207,35 +284,40 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                         log_fn("")
                         # cur.execute("SELECT filename FROM logs WHERE TRIM(filename) != ''")  # common file 5 # original
                         # filenames = [row[0] for row in cur.fetchall()]  # end='' prevents extra newlines # original
-                        filename_counts = Counter(filenames)
-                        top_5_filenames = filename_counts.most_common(5)
-                        ctext = "\033[36mTop 5 created\033[0m"
-                        log_fn(ctext)
-                        for file, count in top_5_filenames:
-                            log_fn(f'{count} {file}')
                         top_5_modified = dexec(cur, 'Modified', 5)
                         filenames = [row[3] for row in top_5_modified]
                         filename_counts = Counter(filenames)
                         top_5_filenames = filename_counts.most_common(5)
-                        ctext = "\033[36mTop 5 modified\033[0m"
+                        ctext = "\033[36mMost Modified\033[0m"
                         log_fn(ctext)
                         for filename, count in top_5_filenames:
                             filename = filename.strip()
                             log_fn(f'{count} {filename}')
-                        top_7_deleted = dexec(cur, 'Deleted', 7)
+                        top_7_deleted = dexec(cur, 'Deleted', 5)
                         filenames = [row[3] for row in top_7_deleted]
                         filename_counts = Counter(filenames)
                         top_7_filenames = filename_counts.most_common(7)
-                        ctext = "\033[36mTop 7 deleted\033[0m"
+                        ctext = "\033[36mTop 5 Deleted\033[0m"
                         log_fn(ctext)
                         for filename, count in top_7_filenames:
                             filename = filename.strip()
                             log_fn(f'{count} {filename}')
-                        top_7_writen = dexec(cur, 'Overwrite', 7)
+
+                        top_7_replaced = dexec(cur, 'Replaced', 7)
+                        filenames = [row[3] for row in top_7_replaced]
+                        filename_counts = Counter(filenames)
+                        top_7_replaced = filename_counts.most_common(7)
+                        ctext = "\033[36mTop 7 Most replaced\033[0m"
+                        log_fn(ctext)
+                        for filename, count in top_7_replaced:
+                            filename = filename.strip()
+                            log_fn(f'{count} {filename}')
+
+                        top_7_writen = dexec(cur, 'Overwrite', 3)
                         filenames = [row[3] for row in top_7_writen]
                         filename_counts = Counter(filenames)
                         top_7_filenames = filename_counts.most_common(7)
-                        ctext = "\033[36mTop 7 overwritten\033[0m"
+                        ctext = "\033[36mTop 3 Overwritten\033[0m"
                         log_fn(ctext)
                         for filename, count in top_7_filenames:
                             filename = filename.strip()
@@ -245,12 +327,13 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                         filename_counts = Counter(filenames)
                         if filename_counts:
                             top_5_filenames = filename_counts.most_common(5)
-                            ctext = "\033[36mNot actually a file\033[0m"
+                            ctext = "\033[36mTop 5 Thats not actually a file\033[0m"
                             log_fn(ctext)
                             for filename, count in top_5_filenames:
                                 log_fn(f'{count} {filename}')
                         log_fn("")
-                        ctext = "\033[1;32mFilter hit\033[0m"
+                        # ctext = "\033[1;32mFilter\033[0m"
+                        ctext = "\033[31mFilter\033[0m"
                         log_fn(ctext)
                         if os.path.isfile(flth):
                             with open(flth, 'r') as file:

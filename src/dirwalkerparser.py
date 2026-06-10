@@ -32,7 +32,7 @@ def build_dwalk_parser():
     scan_p.add_argument("difffile", help="result output for scan IDX")
     scan_p.add_argument("cache_s")
     scan_p.add_argument("email")
-    scan_p.add_argument("analyticSECT", nargs="?", type=to_bool, default=True, help="show extra display such as total time")
+    scan_p.add_argument("analytics", nargs="?", type=to_bool, default=True, help="show extra display such as total time")
     scan_p.add_argument("showDiff", nargs="?", type=to_bool, default=False, help="showDiff boolean show profile files that no longer exist if True (default: False)")
     scan_p.add_argument("compLVL", nargs="?", type=int, default=200, help="compLVL integer when to turn off compression (default: 200)")
     scan_p.add_argument("dcr", nargs="?", type=to_bool, default=False, help="dcr boolean: keep the plaintext .db after encrypting when True")
@@ -50,7 +50,7 @@ def build_dwalk_parser():
     build_p.add_argument("user")
     build_p.add_argument("cache_s")
     build_p.add_argument("email")
-    build_p.add_argument("analyticSECT", nargs="?", type=to_bool, default=True, help="show extra display such as total time")
+    build_p.add_argument("analytics", nargs="?", type=to_bool, default=True, help="show extra display such as total time")
     build_p.add_argument("idx_drive", nargs="?", type=to_bool, default=False, help="idx_drive boolean its a drive index and exit early (default: False)")
     build_p.add_argument("gnupghome", nargs="?", type=str, default=None, help="GNUPGHOME to filter out runtime file (default: None)")
     build_p.add_argument("compLVL", nargs="?", type=int, default=200, help="compLVL integer when to turn off compression (default: 200)")
@@ -73,7 +73,7 @@ def build_dwalk_parser():
     downloads_p.add_argument("dspEDITOR", type=multi_value)
     downloads_p.add_argument("dspPATH")
     downloads_p.add_argument("email")
-    downloads_p.add_argument("analyticSECT", nargs="?", type=to_bool, default=True, help="show extra display such as total time")
+    downloads_p.add_argument("analytics", nargs="?", type=to_bool, default=True, help="show extra display such as total time")
     downloads_p.add_argument("compLVL", nargs="?", type=int, default=200, help="compLVL integer when to turn off compression (default: 200)")
 
     return parser

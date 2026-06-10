@@ -23,12 +23,19 @@ from .query import blank_count
 from .rntchangesfunctions import removefile
 
 
-def main(dbopt, dbtarget, basedir, xdata, complete, rout, scr, cerr, cache_s, cachermPATTERNS, json_file, gnupg_home, user_setting, logging_values, dcr=False, iqt=False, strt=65, endp=90):
+def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, logging_values, total_time, total_files, dcr=False, iqt=False, strt=65, endp=90):
+    #  scr, cerr, cache_f, cache_s, json_file)
+    scr = logging_values[4]
+    cerr = logging_values[5]
+    cache_s = logging_values[7]
+    json_file = logging_values[8]
+    gnupg_home = logging_values[9]
 
     user = user_setting['usr']
+    basedir = user_setting['basedir']
     email = user_setting['email']
     model_type = user_setting['driveTYPE']
-    analyticSECT = user_setting['analyticSECT']
+    analytics = user_setting['analytics']
     checksum = user_setting['checksum']
     cdiag = user_setting['cdiag']
     ps = user_setting['ps']
@@ -42,12 +49,18 @@ def main(dbopt, dbtarget, basedir, xdata, complete, rout, scr, cerr, cache_s, ca
 
     csum = False
     new_profile = False
+    new_database = False
     db_error = False
     goahead = True
     is_ps = False
     conn = None
 
     res = 0
+
+    ha_total_time = logger_total_time = 0
+    unique_files = 0
+    lifetime_files = lifetime_total_time = 0
+    total_throughput = 0
 
     # original with a temp dir cant leave db to reencrypt if everything succeeds but only reencryption fails. so leave in app directory with proper perms
     # tempdir = tempfile.gettempdir()
@@ -67,6 +80,7 @@ def main(dbopt, dbtarget, basedir, xdata, complete, rout, scr, cerr, cache_s, ca
                 print(f'Find out why db not decrypting or delete: {dbtarget} and make a new one')
                 return None, None
         else:
+            new_database = True
             try:
                 conn = create_db(dbopt, sys_tables)
                 cprint.green('Persistent database created')
@@ -109,7 +123,7 @@ def main(dbopt, dbtarget, basedir, xdata, complete, rout, scr, cerr, cache_s, ca
 
                 print('Generating system profile.')
                 appdata_local = logging_values[2]
-                res = index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, analyticSECT, False, gnupg_home, compLVL, iqt, strt, endp)
+                res = index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, analytics, False, gnupg_home, compLVL, iqt, strt, endp)
                 if res != 0:
                     print("index_system from dirwalker failed to hash in pstsrg")
                 conn = sqlite3.connect(dbopt)
@@ -126,7 +140,8 @@ def main(dbopt, dbtarget, basedir, xdata, complete, rout, scr, cerr, cache_s, ca
                     if iqt:
                         print(f"Progress: {strt}", flush=True)
 
-                    csum = hanly_parallel(model_type, rout, scr, cerr, xdata, cachermPATTERNS, analyticSECT, checksum, cdiag, dbopt, is_ps, user, logging_values, sys_tables, iqt, strt, endp)
+                    # get the time for multiprocessing and logger for benchmark. These are not stored and are for per run execution.
+                    csum, ha_total_time, logger_total_time = hanly_parallel(model_type, rout, scr, cerr, xdata, cachermPATTERNS, checksum, cdiag, dbopt, is_ps, user, logging_values, sys_tables, iqt, strt, endp)
 
                 except Exception as e:
                     print(f"hanlydb failed to process : {type(e).__name__} : {e} \n{traceback.format_exc().strip()}", file=sys.stderr)
@@ -168,6 +183,9 @@ def main(dbopt, dbtarget, basedir, xdata, complete, rout, scr, cerr, cache_s, ca
                     parts = record.strip().split(maxsplit=5)
                     if len(parts) < 6:
                         continue
+                    # No need to record created not a useful statistic
+                    if parts[0] == "Created":
+                        continue
                     action = parts[0]
                     timestamp = f'{parts[1]} {parts[2]}'
                     changetime = f'{parts[3]} {parts[4]}'
@@ -179,6 +197,37 @@ def main(dbopt, dbtarget, basedir, xdata, complete, rout, scr, cerr, cache_s, ca
                 print(f'stats db failed to insert err: {e}  \n{traceback.format_exc()}')
                 db_error = True
 
+        # Analytics - Store the total files and total time for the search. Also get unique files and lifetime throughput.
+        if total_files:
+            # How many unique files are in the logs table
+            unique_files = c.execute(
+                "SELECT COUNT(DISTINCT filename) FROM logs WHERE filename IS NOT NULL"
+            ).fetchone()[0]
+            # Lifetime throughput
+            # get the lifetime total files processed and total time since app or database was made
+
+            total_time_int = int(total_time * 1000)
+            c.execute("""
+                INSERT INTO analytics (id, total_files, total_time)
+                VALUES (1, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    total_files = total_files + excluded.total_files,
+                    total_time = total_time + excluded.total_time;
+            """, (total_files, total_time_int))
+
+            lifetime_files, lifetime_time = c.execute("""
+                SELECT total_files, total_time
+                FROM analytics
+            """).fetchone()
+
+            if lifetime_files and lifetime_time:
+
+                lifetime_total_time = lifetime_time / 1000
+
+                total_throughput = 60 / (lifetime_files / lifetime_total_time)
+            else:
+                print("pstsrg couldnt get analytics. skipped")
+            # end Lifetime throughput
         sts = False
 
         # Encrypt if o.k.
@@ -207,15 +256,19 @@ def main(dbopt, dbtarget, basedir, xdata, complete, rout, scr, cerr, cache_s, ca
     finally:
         clear_conn(conn, c)
 
+    data = (csum, unique_files, total_throughput, ha_total_time, logger_total_time)
+
     if not dcr and res != 3:
         removefile(dbopt)
     if res == 0 and new_profile:
-        return "new_profile", csum
+        return "new_profile", data
+    elif res == 0 and new_database:
+        return "new_database", data
     elif res == 0:
-        return dbopt, csum
+        return dbopt, data
         # return 0
     elif res == 3:
-        return "encr_error", csum
+        return "encr_error", data
     elif res == 4:
-        return "db_error", csum
-    return None, csum
+        return "db_error", data
+    return None, None

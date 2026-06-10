@@ -2,6 +2,7 @@ import os
 import sqlite3
 import wmi
 import traceback
+from PySide6.QtWidgets import QApplication
 from .config import get_json_settings
 from .config import dump_j_settings
 from .config import set_json_settings
@@ -9,6 +10,7 @@ from .config import update_dict
 from .config import update_toml_values
 from .gpgcrypto import decr
 from .gpgcrypto import encr
+from .qtfunctions import window_prompt
 from .pysql import clear_conn
 from .pysql import table_exists
 from .pyfunctions import cnc
@@ -169,29 +171,74 @@ def get_drive_from_partguid(partguid: str) -> str | None:
 #     return None
 
 
-def get_drive_type(basedir, driveTYPE, cache_s, json_file):
-    # _, suffix = parse_systimeche(basedir, cache_s)
-    di = get_json_settings(None, basedir, json_file) or {}
-    dtype = di.get("drive_type")
-    if dtype in ("HDD", "SSD"):
-        return dtype
-    else:
-        print("Warning entry for", basedir, "is malformed in json file:", json_file, "using default", driveTYPE)
-    return driveTYPE
+# def pwsh_get_drive_type(basedir):
+#     """ commented out in favor of get_drive_type below ln 208 """
+#     """ use powershell to check if its listed as SSD or HDD on newer hard drives
+#         a usb stick would not showup. this function is efficient as it doesnt
+#         need to do any benchmarks and also doesnt encompass too much which
+#         can be a problem for circumstances like differing hardware """
+#     import json
+#     import subprocess
+#     command = f"""
+#     Get-Partition -DriveLetter {basedir} |
+#     Get-Disk |
+#     Get-PhysicalDisk |
+#     Select FriendlyName, MediaType, BusType, Size |
+#     ConvertTo-Json -Depth 3
+#     """
+#     #
+#     result = subprocess.run(
+#         ["powershell", "-NoProfile", "-Command", command],
+#         capture_output=True,
+#         text=True
+#     )
 
+#     output = result.stdout.strip()
 
-def is_model_ssd(model: str) -> bool:
-    SSD_KEYWORDS = [
-        "SSD", "NVME", "NVM", "M.2", "EVO",
-        "SOLID", "FLASH", "V-NAND", "3D NAND"
-    ]
-    if not model:
-        return False
-    m = model.upper()
-    return any(keyword in m for keyword in SSD_KEYWORDS)
+#     if not output or result.returncode != 0:
+#         if result.stderr:
+#             print(result.stderr.strip())
+#         return None
+
+#     data = json.loads(output)
+#     if isinstance(data, list):
+#         return data[0]
+#     return data
+
+def get_drive_type(drive):
+    # drive = os.path.splitdrive(basedir)[0].upper()
+    c = wmi.WMI()
+    index = {}
+    for phy_disk in c.Win32_DiskDrive():
+        for partition in phy_disk.associators('Win32_DiskDriveToDiskPartition'):
+            for log_disk in partition.associators('Win32_LogicalDiskToPartition'):
+                index[log_disk.Caption] = phy_disk.Index
+    # it is a ramdisk because it isnt listed
+    if drive not in index:
+        return "SSD"
+    ws = wmi.WMI(namespace='root/Microsoft/Windows/Storage')
+    disks = ws.MSFT_PhysicalDisk(DeviceId=str(index[drive]))
+    for disk in disks:
+        if disk.MediaType == 4:
+            print("SSD")
+        if disk.BusType == 7:
+            print("USB")
 
 
 def current_drive_type_model_check(root_dir="C:\\"):
+    """ If it is not listed as a disk partition it is a ram disk or SSD
+        Depending on Bus Type
+    """
+    def is_model_ssd(model: str) -> bool:
+        SSD_KEYWORDS = [
+            "SSD", "NVME", "NVM", "M.2", "EVO",
+            "SOLID", "FLASH", "V-NAND", "3D NAND"
+        ]
+        if not model:
+            return False
+        m = model.upper()
+        return any(keyword in m for keyword in SSD_KEYWORDS)
+
     try:
         drive_id_model = "Unknown"
         model_type = "Unknown"
@@ -216,8 +263,8 @@ def current_drive_type_model_check(root_dir="C:\\"):
         partition = partitions[0]
         # disk_number = partition.DiskIndex
         # volume_number = partition.Index
-
         # print("disk_number, volume_number", disk_number, volume_number)
+
         disk = partition.associators("Win32_DiskDriveToDiskPartition")[0]
         if not disk:
             return None
@@ -235,6 +282,7 @@ def current_drive_type_model_check(root_dir="C:\\"):
         }
         # for key, value in info.items():
         #     print(f"{key}: {value}")
+
         if info["manufacturer"]:
             model_type = info["manufacturer"]
 
@@ -246,14 +294,15 @@ def current_drive_type_model_check(root_dir="C:\\"):
         #     for prop in disk_full.properties:
         #         print(f"{prop}: {getattr(disk_full, prop)}")
 
-        # see if its an SSD possibly newer hard disk with RotationRate in wmi
+        # see if its a SSD or possibly newer hard disk with RotationRate
 
         if is_model_ssd(disk.Model) or is_model_ssd(info["pnp_id"]):
             drive_type = "SSD"
+
         pnp = (info["pnp_id"] or "").lower()
         iface = (info["interface"] or "").lower()
         is_usb = iface == "usb" or "usb" in pnp or "usbstor" in pnp
-        # if "usb" in media_type.lower():
+
         if is_usb:
             drive_type = "SSD"
             model_type = "USB"
@@ -266,11 +315,43 @@ def current_drive_type_model_check(root_dir="C:\\"):
                 elif rotation is not None:
                     drive_type = "HDD"
             else:
-                print("Tried to use RotationRate and not available, fallback needed")
+                print("Tried to use RotationRate and is not available")
+
+        # if we still dont know try a quick check
+        if not drive_type:
+            data = get_drive_type(drive_letter)
+            if data:
+                if data["MediaType"] == "SSD":
+                    return drive_id_model, model_type, data["MediaType"]
+                elif data["MediaType"] == "USB":
+                    return drive_id_model, data["MediaType"], "SSD"
+
+            # failing all else prompt the user to save on having to perform
+            # a speed test which are unreliable time consuming puts wear on
+            # the drive and then leads to including unecessary packages
+            drive_type = "HDD"
+            parent = None
+            app_inst = QApplication.instance()
+            if app_inst:
+                parent = QApplication.activeWindow()
+                uinpt = window_prompt(parent, "Drive type", f"Is {root_dir} ssd", "Yes", "No")
+                if uinpt:
+                    drive_type = "SSD"
+            else:
+                while True:
+                    uinp = input(f"Is {root_dir} ssd (Y/N): ").strip().lower()
+                    if uinp == 'y':
+                        drive_type = "SSD"
+                        break
+                    elif uinp == 'n':
+                        break
+                    else:
+                        print("Invalid input, please enter 'Y' or 'N'.")
+
+        return drive_id_model, model_type, drive_type
 
     except Exception:
         return None
-    return drive_id_model, model_type, drive_type
 
 
 # check by model type, pnp description or rotation. if not run read test fall back to write test. if all fails set to HDD.

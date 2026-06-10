@@ -151,8 +151,8 @@ class ProcessHandler(QObject):
 
         # Windows only
         env = QProcessEnvironment.systemEnvironment()
-        env.insert("PYTHONUTF8", "1")
-        env.insert("PYTHONIOENCODING", "utf-8")
+        # env.insert("PYTHONUTF8", "1")
+        # env.insert("PYTHONIOENCODING", "utf-8")
         self.process.setProcessEnvironment(env)
 
         self.script = script
@@ -253,7 +253,7 @@ class ProcessHandler(QObject):
         self._stdout_buffer = lines.pop()
 
         for raw_line in lines:
-            line = raw_line.rstrip()
+            line = raw_line
 
             if self.is_search:  # it is a powershell script so parse PSSQLite colored text from find_filesps1
                 match = self.key_value_pattern.match(line)

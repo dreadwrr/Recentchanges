@@ -11,7 +11,7 @@ def suppress_list(escaped_user, suppress_list):
 
 def cache_clear_patterns(usr, cachermPATTERNS):
     return [
-        p.replace("{{user}}", usr)
+        f"%{p.replace("{{user}}", usr)}%"
         for p in cachermPATTERNS
     ]
 

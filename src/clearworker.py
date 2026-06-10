@@ -93,9 +93,10 @@ class ClearWorker(Worker):
                             if clear_cache(conn, cur, self.cachermPATTERNS, log_fn=self.log.emit):
                                 rlt = 0
                                 try:
-                                    reset_csvliteral(self.flth)
+                                    is_diff = reset_csvliteral(self.flth)
                                     self.status.emit("Cache cleared")
-                                    self.log.emit("Filter hits cleared.")
+                                    if is_diff:
+                                        self.log.emit("Filter hits cleared.")
                                     x = blank_count(cur)
                                     if x % 5 == 0:
                                         filter_path = os.path.join(self.lclhome, "filter.py")

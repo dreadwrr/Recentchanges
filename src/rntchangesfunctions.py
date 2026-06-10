@@ -32,13 +32,15 @@ spec.loader.exec_module(user_filter)
 def reset_csvliteral(csv_file):
 
     patterns_to_reset = user_filter._filterhitRESET
-
+    is_diff = False
     try:
         with open(csv_file, newline='') as f:
             reader = csv.reader(f)
             rows = list(reader)
         for row in rows[1:]:
             if row[0] in patterns_to_reset:
+                if row[1] != '0':
+                    is_diff = True
                 row[1] = '0'
         with open(csv_file, 'w', newline='') as f:
             writer = csv.writer(f)
@@ -46,6 +48,7 @@ def reset_csvliteral(csv_file):
     except (FileNotFoundError, PermissionError):
         print(f"nfs permission error on {csv_file} reset_csvliteral.")
         pass
+    return is_diff
 
 
 # return base filename or base filename a new extension
@@ -334,10 +337,11 @@ def find_ps1(command, recent, complete, init, cfr, search_start_dt, user_setting
     validrlt = False
 
     print("Launching powershell.", flush=True)
-
+    print(command[0])
+    print()
     try:
-        print('Running command:', ' '.join(command), flush=True)
-        print()
+        # print('Running command:', ' '.join(command), flush=True)  # debug
+        # print()
 
         with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:  # stderr=subprocess.STDOUT
 
@@ -467,7 +471,7 @@ def clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh):
     return validrlt
 
 
-def check_utility(zipPATH=None, downloads=None, popPATH=None):
+def check_utility(zipPATH=None, downloads=None, popPATH=None, alarm_sound=None, alarm_set_sound=None):
     res = True
     if downloads:
         if not os.path.isdir(downloads):
@@ -480,6 +484,14 @@ def check_utility(zipPATH=None, downloads=None, popPATH=None):
     if popPATH:
         if not os.path.isdir(popPATH):
             print(f"setting popPATH {popPATH} does not exist. check setting")
+            res = False
+    if alarm_sound:
+        if not os.path.isfile(alarm_sound):
+            print(f"setting alarm_soundFILE {alarm_sound} does not exist. check setting")
+            res = False
+    if alarm_set_sound:
+        if not os.path.isfile(alarm_set_sound):
+            print(f"setting alarm_soundFILE {alarm_set_sound} does not exist. check setting")
             res = False
     return res
 

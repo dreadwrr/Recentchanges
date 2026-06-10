@@ -29,9 +29,10 @@ from .dirwalkerfunctions import check_specified_paths
 from .dirwalkerfunctions import chunk_split
 from .dirwalkerfunctions import create_profile_baseline
 from .dirwalkerfunctions import collect_files
-from .dirwalkerfunctions import EXEC_EXTN
 from .dirwalkerfunctions import decr_cache
+from .dirwalkerfunctions import EXEC_EXTN
 from .dirwalkerfunctions import get_base_folders
+from .dirwalkerfunctions import get_drive_type
 from .dirwalkerfunctions import get_filter_tup
 from .dirwalkerparser import build_dwalk_parser
 from .dirwalkersrg import create_new_index
@@ -55,7 +56,6 @@ from .pyfunctions import cprint
 from .pyfunctions import epoch_to_str
 from .pysql import clear_conn
 from .pysql import find_symmetrics
-from .qtdrivefunctions import get_drive_type
 from .qtdrivefunctions import get_idx_tables
 from .qtdrivefunctions import parse_systimeche
 from .pyfunctions import cnc
@@ -77,7 +77,7 @@ fmt = "%Y-%m-%d %H:%M:%S"
 #
 # Drive index find downloads
 # systimeche.gpg aka cache_s
-def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, gnupg_home, cache_s, dspEDITOR, dspPATH, email, analyticSECT=True, compLVL=200):
+def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, gnupg_home, cache_s, dspEDITOR, dspPATH, email, analytics=True, compLVL=200):
 
     cfr_src = decr_cache(cache_s)
     if not cfr_src:
@@ -225,7 +225,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
     end = time.time()
 
     if rlt == 0:
-        if analyticSECT:
+        if analytics:
             el = end - start
             print(f'Search took {el:.3f} seconds')
 
@@ -361,7 +361,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
 # chunks = split_dirs_for_workers(all_dirs, num_chunks)
 #
 # 3
-def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, analyticSECT=False, idx_drive=False, gnupghome=None, compLVL=200, iqt=False, strt=0, endp=100):
+def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, analytics=False, idx_drive=False, gnupghome=None, compLVL=200, iqt=False, strt=0, endp=100):
 
     appdata_local = Path(appdata_local)
     config_data = get_config_data(appdata_local, user)
@@ -482,7 +482,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
 
     prog_v = proval
     el = end - start
-    if analyticSECT:
+    if analytics:
         print(f'\nCache indexing took {el:.3f} seconds\n')
         print(f'Total files during search: {j}')
         print("Found files ", r)
@@ -621,7 +621,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
 
         # save system profile
         if parsedsys:
-            if analyticSECT:
+            if analytics:
                 el = end - start
                 print(f'Search took {el:.3f} seconds')
 
@@ -657,7 +657,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
 # get the index from sys table recent.db and find differences
 
 
-def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, cache_s, email, analyticSECT=True, showDiff=False, compLVL=200, dcr=False, iqt=False, strt=0, endp=100):
+def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, cache_s, email, analytics=True, showDiff=False, compLVL=200, dcr=False, iqt=False, strt=0, endp=100):
 
     if not os.path.isfile(dbopt):
         print(f"scan_system Unable to locate {dbopt}")
@@ -807,7 +807,6 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, cache_s
 
     end = time.time()
 
-    recent_files = []
     dir_diff = []
     new_diff = []
     cmsg = ""
@@ -820,7 +819,7 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, cache_s
             systimeche = name_of(cache_s)
             dir_diff, new_diff = find_symmetrics(dbopt, cache_table, systimeche)
 
-        if analyticSECT:
+        if analytics:
             el = end - start
             print(f'Search took {el:.3f} seconds\n')
         if x != 0:
@@ -828,15 +827,11 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, cache_s
             if p > 30:
                 cmsg = f"\nThe sys index had over 30% miss rate recommend rebuild index: {p:.2f}%"
 
-        # output terminal
         if all_sys:
-
+            all_sys.sort(key=lambda x: x[0])
             # symmetric differences
             # show sylinks that have new targets
             # show the files that no longer exist from the miss rate
-            for record in all_sys:
-                record_str = ' '.join(map(str, record))
-                recent_files.append(record_str)
 
             # Insert changes
 
@@ -854,8 +849,9 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, cache_s
     hdr2 = "The following files from sys index have changes by checksum\n"
     fstr = "timestamp,filename,creationtime,inode,accesstime,checksum,filesize,symlink,user,group,mode,casmod,target,lastmodified,hardlinks,count,mtimeus"
     current_time = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M")
-    is_all_results = len(recent_files) > 0
+    is_all_results = len(all_sys) > 0
     are_symmetrics = link_diff or nfs_records or dir_diff or new_diff
+    # output terminal
     # output at bottom diff file
     with open(difffile, mode) as f:
         if is_all_results:
@@ -867,9 +863,10 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, cache_s
             print(fstr, file=f)
             print(hdr2)
 
-            for record in recent_files:
-                f.write(record + '\n')
-                print(record)
+            for record in all_sys:
+                record_str = ' '.join(map(str, record))
+                f.write(record_str + '\n')
+                print(record[0], record[1])
 
             if cmsg:
                 print(cmsg, file=f)
@@ -996,7 +993,7 @@ def main_entry(argv):
     if args.action == "scan":
         calling_args = [
             args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.difffile, args.cache_s,
-            args.email, args.analyticSECT, args.showDiff, args.compLVL, args.dcr, args.iqt, args.strt,
+            args.email, args.analytics, args.showDiff, args.compLVL, args.dcr, args.iqt, args.strt,
             args.endp
         ]
         sys.exit(scan_system(*calling_args))
@@ -1004,7 +1001,7 @@ def main_entry(argv):
     elif args.action == "build":
         calling_args = [
             args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.cache_s, args.email,
-            args.analyticSECT, args.idx_drive, args.gnupghome, args.compLVL, args.iqt, args.strt,
+            args.analytics, args.idx_drive, args.gnupghome, args.compLVL, args.iqt, args.strt,
             args.endp
         ]
         sys.exit(index_system(*calling_args))
@@ -1012,7 +1009,7 @@ def main_entry(argv):
     elif args.action == "downloads":
         calling_args = [
             args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.dtype, args.tempdir,
-            args.gnupghome, args.cache_s, args.dspEDITOR, args.dspPATH, args.email, args.analyticSECT,
+            args.gnupghome, args.cache_s, args.dspEDITOR, args.dspPATH, args.email, args.analytics,
             args.compLVL
         ]
         sys.exit(find_created(*calling_args))
