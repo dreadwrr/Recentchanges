@@ -1,3 +1,5 @@
+New long term support features are in <br>
+An alarm clock was added for an office enivornment look! <br>
 Last updated: 06/10/2026 <br>
 Windows 10 11 <br>
 
