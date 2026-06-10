@@ -80,7 +80,6 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
                 print(f'Find out why db not decrypting or delete: {dbtarget} and make a new one')
                 return None, None
         else:
-            new_database = True
             try:
                 conn = create_db(dbopt, sys_tables)
                 cprint.green('Persistent database created')
@@ -146,7 +145,41 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
                 except Exception as e:
                     print(f"hanlydb failed to process : {type(e).__name__} : {e} \n{traceback.format_exc().strip()}", file=sys.stderr)
 
-            parsed = xdata
+        # Analytics - Store the total files and total time for the search. Also get unique files and lifetime throughput.
+        if total_files:
+            # How many unique files are in the logs table
+            unique_files = c.execute(
+                "SELECT COUNT(DISTINCT filename) FROM logs WHERE filename IS NOT NULL"
+            ).fetchone()[0]
+            # Lifetime throughput
+            # get the lifetime total files processed and total time since app or database was made
+            if not unique_files:
+                new_database = True
+            else:
+                total_time_int = int(total_time * 1000)
+                c.execute("""
+                    INSERT INTO analytics (id, total_files, total_time)
+                    VALUES (1, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                        total_files = total_files + excluded.total_files,
+                        total_time = total_time + excluded.total_time;
+                """, (total_files, total_time_int))
+
+                lifetime_files, lifetime_time = c.execute("""
+                    SELECT total_files, total_time
+                    FROM analytics
+                """).fetchone()
+
+                if lifetime_files and lifetime_time:
+
+                    lifetime_total_time = lifetime_time / 1000
+
+                    total_throughput = 60 / (lifetime_files / lifetime_total_time)
+                else:
+                    print("pstsrg couldnt get analytics. skipped")
+                # end Lifetime throughput
+
+        parsed = xdata
 
         if parsed:
             try:
@@ -197,37 +230,6 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
                 print(f'stats db failed to insert err: {e}  \n{traceback.format_exc()}')
                 db_error = True
 
-        # Analytics - Store the total files and total time for the search. Also get unique files and lifetime throughput.
-        if total_files:
-            # How many unique files are in the logs table
-            unique_files = c.execute(
-                "SELECT COUNT(DISTINCT filename) FROM logs WHERE filename IS NOT NULL"
-            ).fetchone()[0]
-            # Lifetime throughput
-            # get the lifetime total files processed and total time since app or database was made
-
-            total_time_int = int(total_time * 1000)
-            c.execute("""
-                INSERT INTO analytics (id, total_files, total_time)
-                VALUES (1, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    total_files = total_files + excluded.total_files,
-                    total_time = total_time + excluded.total_time;
-            """, (total_files, total_time_int))
-
-            lifetime_files, lifetime_time = c.execute("""
-                SELECT total_files, total_time
-                FROM analytics
-            """).fetchone()
-
-            if lifetime_files and lifetime_time:
-
-                lifetime_total_time = lifetime_time / 1000
-
-                total_throughput = 60 / (lifetime_files / lifetime_total_time)
-            else:
-                print("pstsrg couldnt get analytics. skipped")
-            # end Lifetime throughput
         sts = False
 
         # Encrypt if o.k.
