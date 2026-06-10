@@ -736,7 +736,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
             throughput = total_files / total_time
             if total_files != 0:
 
-                output = "Perceived throughput: {:.3f} files per second".format(60 / throughput)
+                output = "Perceived throughput: {:.3f} files per second".format(60 * throughput)
                 if valid_data:
                     output += f" Lifetime throughput: {lifetime_throughput:.3f}" if lifetime_throughput else ""
                 print(output)
