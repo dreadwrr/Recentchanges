@@ -1,3 +1,6 @@
+Note can quickly find new files on the system using: <br>
+<app install>\\bin\\parsec.exe --cutoff "2026-06-15 07:13:18" \# or "2026-06-15T07:13:18"<br>
+where the time is current local system time <br><br>
 New long term support features are in <br>
 An alarm clock was added for an office enivornment look! <br>
 Last updated: 06/10/2026 <br>
