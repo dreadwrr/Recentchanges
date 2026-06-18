@@ -7,7 +7,8 @@ Last updated: 06/10/2026 <br>
 Windows 10 11 <br><br>
 
 06/18/2026 <br>
-An update is under way to ensure proper output and also dynamic appending for system index scan <br><br>
+An update is under way to ensure proper output and also dynamic appending for system index scan <br>
+this is to put in place functionality for long term maintenance and stability <br><br>
 
 
 
