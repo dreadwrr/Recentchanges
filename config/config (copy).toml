@@ -176,6 +176,7 @@ hudFNT = "Monaco"
 alarm_24hr = true
 
 # color for alarm lcd display. default system theme
+                                # ""
                                 # redblack
                                 # red
                                 # blue
