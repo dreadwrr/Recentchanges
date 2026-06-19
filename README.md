@@ -4,7 +4,7 @@ where the time is current local system time <br><br>
 New long term support features are in <br>
 An alarm clock was added for an office enivornment look! <br>
 Last updated: 06/19/2026 <br>
-Windows 10 11 <br><br>
+Windows 10 11 <br>
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 File search application with Hybrid analysis and MFT search <br><br>
