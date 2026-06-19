@@ -1,9 +1,10 @@
-# 05/29/2026               Qt gui windows 11                  Developer buddy 5.0
+# 06/18/2026               Qt gui windows 11                  Developer buddy 5.0
 import glob
 import logging
 import multiprocessing
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 # 05/30/2026 this can bypass prevent cp1252 unicode error
@@ -29,6 +30,7 @@ from src.config import update_j_settings
 from src.config import update_toml_setting
 from src.config import update_toml_values
 from src.configfunctions import check_config
+from src.configfunctions import find_gnupg_home
 from src.configfunctions import find_user_folder
 from src.configfunctions import get_config
 from src.dbworkerstream import DbWorkerIncremental
@@ -52,6 +54,8 @@ from src.pyfunctions import user_path
 from src.pysql import clear_extn_tbl
 from src.pysql import create_db
 from src.pysql import dbtable_has_data
+from src.pysql import get_lifetime_throughput
+from src.pysql import get_unique_files
 from src.qtclasses import BasedirDrive
 from src.qtclasses import BasedirProfiles
 from src.qtclasses import ConfigurationError
@@ -74,7 +78,6 @@ from src.qtfunctions import check_for_updates
 from src.qtfunctions import command_prompt
 from src.qtfunctions import commit_note
 from src.qtfunctions import fill_extensions
-from src.qtfunctions import find_gnupg_home
 from src.qtfunctions import get_conn
 from src.qtfunctions import get_help
 from src.qtfunctions import has_log_data
@@ -96,6 +99,7 @@ from src.qtfunctions import user_data_to_database
 from src.qtfunctions import window_prompt
 from src.qtfunctions import window_message
 from src.qtparser import dispatch_internal as dispatcher
+from src.query import blank_count
 from src.rntchangesfunctions import check_installed_app
 from src.rntchangesfunctions import check_utility
 from src.rntchangesfunctions import display
@@ -342,6 +346,8 @@ class MainWindow(QMainWindow):
         if fo:
             self.ui.sffile.setValue(int(fo))
 
+        json_dump = False
+
         so = self.j_settings.get("search_output")
         if so:
             ix = self.ui.combftimeout.findText(so)
@@ -349,7 +355,7 @@ class MainWindow(QMainWindow):
                 self.ui.combftimeout.setCurrentIndex(ix)
             else:
                 update_dict(None, self.j_settings, "search_output")
-                dump_j_settings(self.j_settings, self.sj)
+                json_dump = True
                 print(f"Couldnt find search output setting {so}")
         else:
             self.ui.combftimeout.setCurrentText("Desktop")
@@ -362,7 +368,7 @@ class MainWindow(QMainWindow):
                 self.ui.combt.setCurrentIndex(ix)
             else:
                 update_dict(None, self.j_settings, "newer_output")
-                dump_j_settings(self.j_settings, self.sj)
+                json_dump = True
                 print(f"Couldnt find newer than output setting {no}")
         # newer than starting directory for convenience
         self.nt_path = str(self.lclhome)
@@ -372,7 +378,7 @@ class MainWindow(QMainWindow):
                 self.nt_path = ntp
             else:
                 update_dict(None, self.j_settings, "newer_path")
-                dump_j_settings(self.j_settings, self.sj)
+                json_dump = True
                 print(f"Couldnt find newer than output setting {no}")
         # end newer than
 
@@ -383,8 +389,11 @@ class MainWindow(QMainWindow):
             res = self.ui.widget.set_alarm_time(ao)
             if res == 2 or res == 3:
                 update_dict(None, self.j_settings, "alarm_time")
-                dump_j_settings(self.j_settings, self.sj)
+                json_dump = True
                 print(f"Alarm saved time was invalid using default value {ao}")
+
+        if json_dump:
+            dump_j_settings(self.j_settings, self.sj)
 
         self.initialize_ui(is_startup=True)
         # end one time items
@@ -434,7 +443,11 @@ class MainWindow(QMainWindow):
 
         sound_path = os.path.join(self.resources, sound_file) if sound_file else None
         sound_set_path = os.path.join(self.resources, sound_set_file) if sound_set_file else None
+
+        if self.alarmCOLOR == "":
+            self.alarmCOLOR = None
         self.ui.widget = AlarmClock(self, theme=self.alarmCOLOR, _24hformat=self.alarm_24h, sound_file=sound_path, sound_set_file=sound_set_path)
+
         # self.ui.widget.setMinimumSize(QSize(50, 50))
         # self.ui.widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         layout.addWidget(self.ui.widget, *position)
@@ -784,9 +797,11 @@ class MainWindow(QMainWindow):
     # after startup change the alarm sounds from the custom button
     def save_sound_to_toml(self, valid_sound, is_set_sound, new_source):
         if new_source:
+
             sound_file = os.path.basename(new_source)
             # it's a valid sound file save it to .toml
             if valid_sound:
+
                 if is_set_sound:
                     self.alarm_set_soundFILE = sound_file
                     setting = "alarm_set_soundFILE"
@@ -1045,8 +1060,6 @@ class MainWindow(QMainWindow):
                     if not check_utility(zipPATH, updated_downloads, popPATH, sound_file_path, set_sound_file_path):
                         raise ConfigurationError
 
-                alarm_changed = (alarm_24h != self.alarm_24h or alarmCOLOR != self.alarmCOLOR)
-
                 if new_downloads:
                     self.downloads = updated_downloads
                     self.load_find_file_combo()
@@ -1136,6 +1149,8 @@ class MainWindow(QMainWindow):
                     self.hudFNT = hudFNT
                     self.change_format(True)
 
+                alarm_changed = (alarm_24h != self.alarm_24h or alarmCOLOR != self.alarmCOLOR)
+
                 if alarm_changed:
                     self.alarm_24h = alarm_24h
                     self.alarmCOLOR = alarmCOLOR
@@ -1144,12 +1159,6 @@ class MainWindow(QMainWindow):
                 if is_alarm_path:
                     self.alarm_soundFILE = alarm_soundFILE
                     self.alarm_set_soundFILE = alarm_set_soundFILE
-                    sound_file_path = None
-                    set_sound_file_path = None
-                    if self.alarm_soundFILE:
-                        sound_file_path = os.path.join(self.resources, self.alarm_soundFILE)
-                    if self.alarm_set_soundFILE:
-                        set_sound_file_path = os.path.join(self.resources, self.alarm_set_soundFILE)
 
                     self.ui.widget.sound_file = sound_file_path
                     self.ui.widget.sound_set_file = set_sound_file_path
@@ -1290,6 +1299,30 @@ class MainWindow(QMainWindow):
         if table_loaded(self.dbopt, self.sys_a, self.ui.hudt):
             ps = True
 
+        psEXTN = self.j_settings.get(self.suffix, {}).get("proteusEXTN")
+
+        search_count = 0
+        unique_files = 0
+        lifetime_throughput = 0
+        total_scans = 0
+        conn = sqlite3.connect(self.dbopt)
+        cur = conn.cursor()
+
+        search_count = blank_count(cur)
+        if search_count and search_count > 0:
+            unique_files = get_unique_files(cur)
+            lifetime_throughput = get_lifetime_throughput(cur)
+        if ps and psEXTN:
+            # cur.execute("SELECT COUNT(*) FROM scans")
+            cur.execute("""
+                SELECT COUNT(DISTINCT e.scan_id)
+                FROM scan_entries e
+                WHERE e.basedir = ?
+            """, (self.basedir,))
+            total_scans = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+
         stat_value = {}
 
         stat_value['Exhibit2'] = "Pwrshell" if self.pwrshell else "os.scandir"
@@ -1353,16 +1386,24 @@ class MainWindow(QMainWindow):
             else:
                 hudt("Thread")
 
-        hudt('\n')
-
         if ps:
-            psEXTN = self.j_settings.get(self.basedir, {}).get("proteusEXTN")
             if psEXTN:
+                hudt('\n')
                 is_exec_profile = ps_profile_type(psEXTN)
                 extn = profile_to_str(psEXTN, is_exec_profile)
                 hudt(f"proteusTYPE: {'exec' if is_exec_profile else 'extn'}")
                 hudt("proteusEXTN: " + extn)
+                if total_scans:
+                    hudt(f"Total scans: {total_scans}")
 
+        if search_count:
+            hudt('')
+            hudt(f"Searches: {search_count}")
+            if lifetime_throughput:
+                hudt(f'Lifetime throughput: {lifetime_throughput:.3f} files per second')
+            if unique_files:
+                hudt("")
+                hudt(f"Total unique files in logs: {unique_files}")
         # """ stored drive values """
         # hudt('\n')
         # hudt("mem")
@@ -2797,9 +2838,9 @@ class MainWindow(QMainWindow):
             tbl = sort_right(tables, self.cache_table, self.systimeche, self.suffix)  # self.basedir
             cd.addItems(tbl)
 
-            ix = cd.findText('extn')  # dont display extn table
-            if ix != -1:
-                cd.removeItem(ix)
+            # ix = cd.findText('extn')  # dont display extn table
+            # if ix != -1:
+            #     cd.removeItem(ix)
 
             ix = cd.findText(c_text)  # restore prev setting
             if ix != -1:
@@ -2832,7 +2873,10 @@ class MainWindow(QMainWindow):
 
                 tables = db.tables()
                 if tables:
-
+                    tables = [
+                        t for t in tables
+                        if t not in {"extn", "analytics", "scans", "scan_entries"}
+                    ]
                     res = True
                     self.db = True
                     load_combdb()  # Update combobox
@@ -3059,40 +3103,6 @@ class MainWindow(QMainWindow):
     # alternative would be search by string box and search by filename box
     #
 
-    # search logic
-    # self.proxy.setFilterKeyColumn(0)
-    #
-    # self.search_box.textChanged.connect(self.proxy.setFilterFixedString)
-
-    # def on_text_changed(text):
-    #     regex = QRegularExpression(text)
-    #     regex.setPatternOptions(QRegularExpression.CaseInsensitiveOption)
-    #     self.proxy.setFilterRegularExpression(regex)
-
-    # def next_match(self):
-    #     row_count = self.proxy.rowCount()
-
-    #     if row_count == 0:
-    #         return
-
-    #     self.current_match_row = (self.current_match_row + 1) % row_count
-
-    #     index = self.proxy.index(self.current_match_row, 0)
-    #     self.table_view.setCurrentIndex(index)
-    #     self.table_view.scrollTo(index)
-    # PREV button
-    # def prev_match(self):
-    #     row_count = self.proxy.rowCount()
-
-    #     if row_count == 0:
-    #         return
-
-    #     self.current_match_row = (self.current_match_row - 1) % row_count
-
-    #     index = self.proxy.index(self.current_match_row, 0)
-    #     self.table_view.setCurrentIndex(index)
-    #     self.table_view.scrollTo(index)
-
     # end Sql helpers
 
     ''' Thread '''
@@ -3209,11 +3219,11 @@ class MainWindow(QMainWindow):
         self.worker.moveToThread(self.worker_thread)
 
     # Db
-    def start_cleartrd(self):
+    def start_cleartrd(self, drive):
 
         self.worker_thread = QThread()
 
-        self.worker = ClearWorker(self.lclhome, self.home_dir, self.dbopt, self.dbtarget, self.usr, self.email, self.flth, self.compLVL)
+        self.worker = ClearWorker(self.lclhome, self.home_dir, self.dbopt, self.dbtarget, drive, self.usr, self.email, self.flth, self.compLVL)
         self.worker.moveToThread(self.worker_thread)
 
         self.worker.progress.connect(self.increment_db_progress)
@@ -3241,7 +3251,7 @@ class MainWindow(QMainWindow):
         if self.table == "logs" and not self.tableview_loaded() or not table_loaded(self.dbopt, 'logs', self.ui.hudt):
             self.isexec = False
             return
-        self.start_cleartrd()
+        self.start_cleartrd(self.basedir)
         self.worker.progress.connect(self.increment_progress)
         self.worker.status.connect(self.update_db_status)
         self.ui.hudt.appendPlainText("\n")
@@ -3254,7 +3264,7 @@ class MainWindow(QMainWindow):
         if not table_loaded(self.dbopt, 'logs', self.ui.hudt):
             self.isexec = False
             return
-        self.start_cleartrd()
+        self.start_cleartrd(self.basedir)
         self.worker.status.connect(self.update_db_status)  # db label pg2
         self.worker.complete.connect(lambda code: self.reload_database_sn.emit(code, False, ("logs",)))  # db reload pg2
         self.worker.set_cache(self.cachermPATTERNS)
@@ -3293,7 +3303,7 @@ class MainWindow(QMainWindow):
                 self.isexec = False
                 return
 
-        self.start_cleartrd()
+        self.start_cleartrd(drive)
         self.worker.status.connect(self.update_db_status)  # db label pg2
         self.worker.complete.connect(lambda code, tables=tables: self.reload_database_sn.emit(code, True, tables))
 
