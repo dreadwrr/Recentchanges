@@ -1,4 +1,4 @@
-# 05/29/2026           developer buddy core
+# 06/19/2026           developer buddy core
 import csv
 import ctypes
 import glob
@@ -16,8 +16,8 @@ from pathlib import Path
 from .config import update_toml_values
 from .configfunctions import find_install
 from .dirwalkerfunctions import files_search
-from .fsearchps1 import process_ps1
 from .fsearchparallel import process_lines
+from .fsearchps1 import process_ps1
 from .fsearchscan import process_scan
 from .pyfunctions import cprint
 from .pyfunctions import suppress_list
@@ -307,7 +307,7 @@ def find_scan(recent, complete, init, cfr, search_start_dt, user_setting, loggin
 
     # normal execution
 
-    records, _ = files_search(basedir, search_start_dt, feedback, exclDIRS, logger, iqt=iqt, strt=strt, endp=endp)
+    records, _ = files_search(basedir, search_start_dt, feedback, exclDIRS, iqt=iqt, logger=logger, strt=strt, endp=endp)
     strt += 15
     end = time.time()
     if records is None:

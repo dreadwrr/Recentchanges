@@ -20,9 +20,9 @@ from .pyfunctions import user_path
 from .rntchangesfunctions import display
 from .rntchangesfunctions import filter_lines_from_list
 from .rntchangesfunctions import get_runtime_exclude_list
-from .rntchangesfunctions import search_pwsh
 from .rntchangesfunctions import removefile
-# 05/02/2026
+from .rntchangesfunctions import search_pwsh
+# 06/19/2026
 
 
 def archive_failure_blk(result, file_list):
@@ -306,7 +306,7 @@ def main(localappdata, action, filename, extension, basedir, usr, dspEDITOR, dsp
             feedback = True
             iqt = True
 
-            target_files, _ = files_search(basedir, search_start_dt, feedback, exclDIRS, logger, filename, extension, mode, iqt, strt=0, endp=100)
+            target_files, _ = files_search(basedir, search_start_dt, feedback, exclDIRS, filename, extension, mode, iqt, logger, strt=0, endp=100)
 
             if target_files:
                 with open(recent_files, "w", encoding="utf-8") as f1:

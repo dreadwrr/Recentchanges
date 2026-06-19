@@ -1,4 +1,4 @@
-#   build first to find the files then distribute round-robin to multiprocessing            05/02/2026
+#   build first to find the files then distribute round-robin to multiprocessing            06/19/2026
 # to hash. This was found to be the fastest as other methods have too much overhead
 
 # scan the important files for modified with same mtime or spoofed timestamp
@@ -27,23 +27,25 @@ from .buildindex import build_index
 from .config import set_json_settings
 from .dirwalkerfunctions import check_specified_paths
 from .dirwalkerfunctions import chunk_split
-from .dirwalkerfunctions import create_profile_baseline
 from .dirwalkerfunctions import collect_files
+from .dirwalkerfunctions import create_profile_baseline
 from .dirwalkerfunctions import decr_cache
 from .dirwalkerfunctions import EXEC_EXTN
 from .dirwalkerfunctions import get_base_folders
 from .dirwalkerfunctions import get_drive_type
 from .dirwalkerfunctions import get_filter_tup
+from .dirwalkerfunctions import output_diff
 from .dirwalkerparser import build_dwalk_parser
 from .dirwalkersrg import create_new_index
 from .dirwalkersrg import db_sys_changes
+from .dirwalkersrg import differences_db
 from .dirwalkersrg import hardlinks
 from .dirwalkersrg import save_db
 from .dirwalkersrg import sync_db
 from .dirwalkerwin import get_config_data
 from .dirwalkerwin import get_extension_tup
-from .gpgcrypto import encrm
 from .gpgcrypto import encr
+from .gpgcrypto import encrm
 from .gpgcrypto import dict_string
 from .gpgcrypto import dict_to_list_sys
 from .logs import emit_log
@@ -55,7 +57,6 @@ from .logs import write_logs_to_logger
 from .pyfunctions import cprint
 from .pyfunctions import epoch_to_str
 from .pysql import clear_conn
-from .pysql import find_symmetrics
 from .qtdrivefunctions import get_idx_tables
 from .qtdrivefunctions import parse_systimeche
 from .pyfunctions import cnc
@@ -128,7 +129,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
     filter_tup = get_filter_tup(filterout_list)
 
     base_folders, root_count = get_base_folders(basedir, exclDIRS_fullpath)
-    if root_count == 0:
+    if root_count <= 1:
         print(f"Unable to read base folders of drive {basedir} the drive could be empty or check permissions")
         return 1
 
@@ -657,7 +658,9 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
 # get the index from sys table recent.db and find differences
 
 
-def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, cache_s, email, analytics=True, showDiff=False, compLVL=200, dcr=False, iqt=False, strt=0, endp=100):
+def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_s, email, analytics=True, showDiff=False, compLVL=200, dcr=False, iqt=False, strt=0, endp=100):
+
+    scan_start_dt = datetime.now()
 
     if not os.path.isfile(dbopt):
         print(f"scan_system Unable to locate {dbopt}")
@@ -807,17 +810,23 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, cache_s
 
     end = time.time()
 
+    prev_scans = {}
     dir_diff = []
     new_diff = []
     cmsg = ""
 
-    current_time = None
+    scan_start = scan_start_dt.strftime(fmt)
 
     if rlt == 0:
+        systimeche = name_of(cache_s)
 
-        if showDiff:
-            systimeche = name_of(cache_s)
-            dir_diff, new_diff = find_symmetrics(dbopt, cache_table, systimeche)
+        if all_sys:
+            all_sys.sort(key=lambda x: x[0])
+
+        prev_scans, dir_diff, new_diff = differences_db(dbopt, basedir, all_sys, cache_table, systimeche, showDiff, scan_start)
+        prev_scans = prev_scans or {}
+        for scantime, rows in prev_scans.items():
+            prev_scans[scantime] = [tuple(row.values())[3:] for row in rows]
 
         if analytics:
             el = end - start
@@ -828,106 +837,26 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, difffile, cache_s
                 cmsg = f"\nThe sys index had over 30% miss rate recommend rebuild index: {p:.2f}%"
 
         if all_sys:
-            all_sys.sort(key=lambda x: x[0])
-            # symmetric differences
-            # show sylinks that have new targets
-            # show the files that no longer exist from the miss rate
-
+            prev_scans[scan_start] = [tuple(row) for row in all_sys]
             # Insert changes
 
             if not save_db(dbopt, dbtarget, basedir, cache_s, email, user, None, None, all_sys, keys=None, idx_drive=False, compLVL=compLVL, dcr=dcr):
                 rlt = 1
                 print(f"Failed to insert profile changes into {sys_tables[1]} table in scan_system")
+            # change_perm(dbtarget, uid, gid, 0o644)
+
         else:
             print(f'No results found for sys index scan system{' multiprocessing' if driveTYPE.lower() == "ssd" else ''}.')
+
+        # output terminal and differences
+
+        are_symmetrics = link_diff or nfs_records or dir_diff or new_diff
+        if all_sys or are_symmetrics:
+
+            output_diff(diff_file, prev_scans, all_sys, link_diff, nfs_records, dir_diff, new_diff, cmsg, are_symmetrics, showDiff, scan_start)
+
     else:
         print("Scan index failed scan_system dirwalker.py.")
-
-    hdr1 = 'System index scan'
-    mode = 'a' if os.path.isfile(difffile) else 'w'
-    write_type = "appended" if mode == 'a' else "written"
-    hdr2 = "The following files from sys index have changes by checksum\n"
-    fstr = "timestamp,filename,creationtime,inode,accesstime,checksum,filesize,symlink,user,group,mode,casmod,target,lastmodified,hardlinks,count,mtimeus"
-    current_time = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M")
-    is_all_results = len(all_sys) > 0
-    are_symmetrics = link_diff or nfs_records or dir_diff or new_diff
-    # output terminal
-    # output at bottom diff file
-    with open(difffile, mode) as f:
-        if is_all_results:
-
-            f.write("\n")
-            print()
-            print(hdr1, file=f)
-            print(hdr2, file=f)
-            print(fstr, file=f)
-            print(hdr2)
-
-            for record in all_sys:
-                record_str = ' '.join(map(str, record))
-                f.write(record_str + '\n')
-                print(record[0], record[1])
-
-            if cmsg:
-                print(cmsg, file=f)
-                print(cmsg)
-
-            print(f"\nChanges {write_type} to difference file {difffile}")
-            if showDiff and not are_symmetrics:
-                print(current_time, file=f)
-
-        # symmetric differences
-        # symlink target change and files no longer present
-        # show directories that had 0 files at indexing but now have files
-        # show new directories since profile was created
-        if showDiff and are_symmetrics:
-
-            if not is_all_results:
-                print("Directory differences found")
-                f.write("\n")
-                print()
-                print(hdr1, file=f)
-
-            if link_diff:
-                link_header = "symlink(s) with changed target"
-                f.write("\n")
-                print(link_header, file=f)
-                for i in range(0, len(link_diff), 2):
-                    tup = link_diff[i]  # file record
-                    if i+1 < len(link_diff):
-                        second_tup = link_diff[i+1]  # old target new target
-                        tup_str = " ".join(map(str, tup)) + " " + "→".join(map(str, second_tup))
-                    else:
-                        tup_str = " ".join(map(str, tup))
-                    f.write(tup_str + "\n")
-
-            if nfs_records:
-                header = "following profile files no longer exist"
-                f.write("\n")
-                print(header, file=f)
-                for tup in nfs_records:
-                    tup_str = " ".join(map(str, tup))
-                    f.write(tup_str + "\n")
-
-            if dir_diff:
-                diff_header = "Directory had 0 files when profile created but now has files"
-                f.write("\n")
-                print(diff_header, file=f)
-                for tup in dir_diff:
-                    f.write(" ".join(map(str, tup)) + "\n")
-
-            if new_diff:
-                p = len(new_diff)
-                f.write('\n')
-                print(f'{p} new directories since profile was created', file=f)
-                for d in new_diff:
-                    f.write(d + "\n")
-
-            if is_all_results:
-                print("Differences included")
-            print(f"{write_type} to difference file {difffile}")
-        elif showDiff:
-            print("no symmetric differences found.")
 
     if rlt == 0:
         if iqt:
@@ -992,7 +921,7 @@ def main_entry(argv):
 
     if args.action == "scan":
         calling_args = [
-            args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.difffile, args.cache_s,
+            args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.diff_file, args.cache_s,
             args.email, args.analytics, args.showDiff, args.compLVL, args.dcr, args.iqt, args.strt,
             args.endp
         ]

@@ -20,7 +20,7 @@ from .pysql import clear_conn
 from .rntchangesfunctions import name_of
 from .rntchangesfunctions import set_gpg
 # from .rntchangesfunctions import cprint
-# 06/06/2026
+# 06/19/2026
 
 
 # see config.toml cache clear patterns for db
@@ -79,6 +79,37 @@ def average_time(conn, cur):
     return "N/A"
 
 
+# def clock_average(rows):
+#     sum_sin = 0
+#     sum_cos = 0
+#     n = 0
+
+#     for r in rows:
+#         if not r or not r[0]:
+#             continue
+
+#         seconds = int(r[0]) % 86400  # time of day only
+#         angle = 2 * pi * seconds / 86400
+
+#         sum_sin += sin(angle)
+#         sum_cos += cos(angle)
+#         n += 1
+
+#     if n == 0:
+#         return "N/A"
+
+#     angle = atan2(sum_sin, sum_cos)
+#     if angle < 0:
+#         angle += 2 * pi
+
+#     avg_seconds = angle * 86400 / (2 * pi)
+
+#     hours = int(avg_seconds // 3600)
+#     minutes = int((avg_seconds % 3600) // 60)
+
+#     return f"{hours:02d}:{minutes:02d}"
+
+
 def clock_average(rows):
     sum_sin = 0
     sum_cos = 0
@@ -88,7 +119,14 @@ def clock_average(rows):
         if not r or not r[0]:
             continue
 
-        seconds = int(r[0]) % 86400  # time of day only
+        # seconds = int(r[0]) % 86400  # time of day only
+        dt = datetime.fromtimestamp(int(r[0]))  # local time
+
+        seconds = (
+            dt.hour * 3600 +
+            dt.minute * 60 +
+            dt.second
+        )
         angle = 2 * pi * seconds / 86400
 
         sum_sin += sin(angle)
@@ -110,10 +148,45 @@ def clock_average(rows):
     return f"{hours:02d}:{minutes:02d}"
 
 
+# def search_times(cur):
+#     groups, current = [], []
+
+#     cur.execute("SELECT timestamp FROM logs")
+#     rows = cur.fetchall()
+
+#     for row in rows:
+#         ts = row[0]
+
+#         is_blank = (ts is None or ts == "")
+
+#         if is_blank:
+#             if current:
+#                 groups.append(current)
+#                 current = []
+#             continue
+
+#         dt = parse_datetime(ts)
+#         if dt:
+#             current.append([dt.timestamp(),])
+
+#     if current:
+#         groups.append(current)
+
+    # # first timestamp or start of each search
+    # first_times = [group[0] for group in groups if group]
+
+    # return first_times
+
+
 def search_times(cur):
     groups, current = [], []
 
-    cur.execute("SELECT timestamp FROM logs")
+    # keep order exactly as in database with id column sort
+    cur.execute("""
+        SELECT timestamp
+        FROM logs
+        ORDER BY id
+    """)
     rows = cur.fetchall()
 
     for row in rows:

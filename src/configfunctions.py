@@ -8,6 +8,8 @@ try:
 except ImportError:
     pwd = None
 from pathlib import Path
+from .config import dump_j_settings
+from .config import get_json_settings
 
 
 # app location if files are moved to a src or separate directory its the one below it
@@ -15,6 +17,37 @@ def find_install():
     if getattr(sys, "frozen", False) or "__compiled__" in globals():
         return Path(sys.argv[0]).resolve().parent
     return Path(__file__).resolve().parent.parent
+
+
+def find_gnupg_home(json_file, j_settings=None, iqt=False):
+    """ try to find gnupg home for exclusion purposes in build index """
+    if not j_settings and j_settings is not None:
+        print("find_gnupg_home warning json file was empty")
+    gnupg_home = None
+    try:
+        if not j_settings:
+            j_settings = get_json_settings(None, None, json_file)
+
+        gnupg_home = j_settings.get("gnupghome")
+        if gnupg_home:
+            gpg_home = os.environ.get("GNUPGHOME")
+            if gpg_home and gpg_home != gnupg_home:
+                j_settings["gnupghome"] = gpg_home
+                gnupg_home = gpg_home
+                if not iqt:
+                    dump_j_settings(j_settings, json_file)
+        else:
+            result = subprocess.run(["gpgconf", "--list-dirs", "homedir"], capture_output=True, text=True)
+            if result.returncode == 0:
+                gpg_home = result.stdout.strip()
+                if gpg_home:
+                    gnupg_home = gpg_home
+                    j_settings["gnupghome"] = gpg_home
+                    dump_j_settings(j_settings, json_file)
+        return gnupg_home
+    except OSError as e:
+        print(f"Couldnt get gnupg_home for exclusion file: {json_file} {type(e).__name__} err: {e}")
+        return None
 
 
 def not_absolute(user_path: str, quiet=False) -> bool:

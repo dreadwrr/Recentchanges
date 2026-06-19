@@ -15,7 +15,7 @@ from .query import blank_count
 from .query import main as query_main
 from .rntchangesfunctions import removefile
 from .rntchangesfunctions import reset_csvliteral
-# 03/11/2026
+# 06/19/2026
 
 
 # QObject
@@ -24,12 +24,13 @@ class ClearWorker(Worker):
     status = Signal(str)
     no_compression = Signal(bool)
 
-    def __init__(self, lclhome, home_dir, database, target, usr, email, flth, compLVL):
+    def __init__(self, lclhome, home_dir, database, target, drive, usr, email, flth, compLVL):
         super().__init__(database)
         self.lclhome = lclhome
         self.home_dir = home_dir
         self.database = database
         self.target = target
+        self.basedir = drive
         self.usr = usr
         self.email = email
         self.flth = flth
@@ -110,7 +111,7 @@ class ClearWorker(Worker):
 
                         elif action == "sys":
 
-                            if clear_sys_profile(conn, cur, self.sys_tables, self.cache_table, self.systimeche, log_fn=self.log.emit):
+                            if clear_sys_profile(conn, cur, self.basedir, self.sys_tables, self.cache_table, self.systimeche, log_fn=self.log.emit):
                                 rlt = 0
                                 self.status.emit("System index cleared")
 

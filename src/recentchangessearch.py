@@ -1,5 +1,5 @@
 #! python3
-#   Windows 10 / 11                                                                06/08/2026
+#   Windows 10 / 11                                                                06/19/2026
 #   recentchanges. Developer buddy      recentchanges/ recentchanges search
 #   Provide ease of pattern finding ie what files to block we can do this a number of ways
 #   1) if a file was there (many as in more than a few) and another search lists them as deleted its either a sys file or not but unwanted nontheless
@@ -674,7 +674,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
                 if dbopt not in ("new_database", "encr_error", "db_error"):  # "new_profile" would be not to scan index as it was just made
                     valid_data = True
                     if ha_total_time:
-                        print("Hanly total time:", format(ha_total_time, ".3f"), "seconds", "logger:", format(logger_total_time, ".3f"), "seconds")
+                        print("Hanly total time:", format(ha_total_time, ".3f"), "seconds", "logger:", format(logger_total_time, ".4f"), "seconds")
 
             # Diff output to user
 
@@ -736,7 +736,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
             throughput = total_files / total_time
             if total_files != 0:
 
-                output = "Perceived throughput: {:.3f} files per second".format(60 * throughput)
+                output = "Perceived throughput: {:.3f} files per second".format(throughput)
                 if valid_data:
                     output += f" Lifetime throughput: {lifetime_throughput:.3f}" if lifetime_throughput else ""
                 print(output)

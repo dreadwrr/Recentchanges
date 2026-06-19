@@ -15,7 +15,7 @@ from .fsearchfunctions import get_file_id
 from .gpgcrypto import decrm
 from .logs import emit_log
 from .pyfunctions import epoch_to_str
-# 04/14/2026
+# 06/19/2026
 
 fmt = "%Y-%m-%d %H:%M:%S"
 EXEC_EXTN = (".exe", ".msi", ".bat", ".com")
@@ -175,13 +175,15 @@ class ErrorHandler:
 
 
 # os.scandir find
-def files_search(base_dir, search_start_dt, feedback, exclDIRS, logger, filename=None, extension=None, search_type=None, iqt=False, strt=0, endp=100):
-
+def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpath=None, filename=None, extension=None, search_type=None, iqt=False, logger=None, strt=0, endp=100):
+    if exclDIRS_fullpath is not None and not isinstance(exclDIRS_fullpath, list):
+        raise TypeError("exclDIRS_fullpath is not a list")
+    logger = logger if logger else logging
     if search_start_dt and not isinstance(search_start_dt, datetime):
         print("search_start_dt is not a valid date time object exitting")
         return None, 0
 
-    # primary mode use process scan find created files by time for recentchangessearch
+    # if mode is None use process scan find created files by time for recentchangessearch
     # modes
     # process search find filename, extension or filename and extension and or by time for findfile
 
@@ -221,7 +223,10 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, logger, filename
         elif search_type == MODE_FILENAME_EXT:
             matcher = match_name_extn
 
-    exclDIRS_fullpath = set(os.path.join(base_dir, d.lstrip("\\")) for d in exclDIRS)
+    if not exclDIRS_fullpath:
+        exclDIRS_fullpath = [os.path.join(base_dir, d.lstrip("\\")) for d in exclDIRS]
+
+    exclDIRS_fullpath = set(exclDIRS_fullpath)
 
     base_folders, root_count = get_base_folders(base_dir, exclDIRS_fullpath)
     if root_count == 0:
@@ -801,3 +806,147 @@ def check_specified_paths(basedir, configured_paths, list_name, suppress=False):
             f'{", ".join(missing)}'
         )
     return tuple(paths), exists
+
+
+def output_diff(diff_file, prev_scans, all_sys, link_diff, nfs_records, dir_diff, new_diff, cmsg, are_symmetrics, showDiff, scan_start):
+    """ handle output of differences to terminal and to diff file. as this is a dynamic append it tries to handle situations where the scan
+         failed but still pulls previous scans and dir_diff and new_diff. If the scan succeeded you also have link_diff and nfs_records.
+
+         this function makes it so all changes since the profile was made are inserted at the bottom of a diff file entirely. This is secure
+         as the data is stored in scans and scan_entries tables. that data is pulled then the current scan is appended to the dict of lists
+         prev_scans which first has the values converted into tuples.
+
+         the end result is a history of scans along with symmetric differences at the end
+
+         symmetric differences
+         for all_sys
+         link_diff symlinks whois target has changed
+         nfs_records files that no longer exist from the profile
+         for the profile
+         dir_diff directories that had no files when the profile was created but now do
+         new_diff new directories made since the profile was created
+
+         cmsg is the hit rate and if its over 30% print to terminal and write to file """
+
+    hdr1 = 'System index scan'
+    mode = 'a' if os.path.isfile(diff_file) else 'w'
+    write_type = "appended" if mode == 'a' else "written"
+    hdr2 = "The following files from sys index have changes by checksum\n"
+    fstr = "timestamp,filename,creationtime,inode,accesstime,checksum,filesize,symlink,user,group,mode,casmod,target,lastmodified,hardlinks,count,mtimeus"
+
+    # current_time = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M_%S")  # FLBRAND
+
+    # check if there are previous scan results so they can be removed from the bottom
+
+    found = False
+
+    if mode == "a":
+
+        with open(diff_file, 'r') as f:
+            lines = f.readlines()
+
+        for i, line in enumerate(lines):
+            if line.startswith("System index scan"):
+                lines = lines[:i]
+                found = True
+                break
+
+    if found:
+        with open(diff_file, 'w') as f:
+            f.writelines(lines)
+
+    # write out the scan results for the profile
+
+    with open(diff_file, mode) as f:
+        if not found and mode == 'a':
+            f.write('\n')
+        if prev_scans:
+
+            for scan_date in prev_scans.keys():
+                records = prev_scans[scan_date]
+                if records:
+                    print(hdr1, file=f)
+                    print(hdr2, file=f)
+                    print(fstr, file=f)
+                for record in records:
+                    record_str = ' '.join(map(str, record))
+                    f.write(record_str + '\n')
+
+                parts = scan_date.split()
+                time_stamp = f'MDY_{parts[0]}-TIME_{parts[1]}'
+                f.write(time_stamp + '\n\n')
+            if cmsg:
+                print(cmsg, file=f)
+
+        # symmetric differences content
+        # if the scan was successful:
+        # symlink target change
+        # show the files that no longer exist from the miss rate
+        # always listed:
+        # show directories that had 0 files at indexing but now have files
+        # show new directories since profile was created
+
+        if showDiff and are_symmetrics:
+
+            # write out the symmetric differences
+
+            # write the header in case if the prev_scans was empty
+            if not prev_scans:
+                print(hdr1, file=f)
+
+            if link_diff:
+                link_header = "symlink(s) with changed target"
+                print(link_header, file=f)
+                for i in range(0, len(link_diff), 2):
+                    tup = link_diff[i]  # file record
+                    if i+1 < len(link_diff):
+                        second_tup = link_diff[i+1]  # old target new target
+                        tup_str = " ".join(map(str, tup)) + " " + ">".join(map(str, second_tup))
+                    else:
+                        tup_str = " ".join(map(str, tup))
+                    f.write(tup_str + "\n")
+                f.write('\n')
+            if nfs_records:
+                header = "following profile files no longer exist"
+                print(header, file=f)
+                for tup in nfs_records:
+                    tup_str = " ".join(map(str, tup))
+                    f.write(tup_str + "\n")
+                f.write('\n')
+            if dir_diff:
+                diff_header = "Directory had 0 files when profile created but now has files"
+                print(diff_header, file=f)
+                for tup in dir_diff:
+                    f.write(" ".join(map(str, tup)) + "\n")
+                f.write('\n')
+            if new_diff:
+                p = len(new_diff)
+                print(f'{p} new directories since profile was created', file=f)
+                for d in new_diff:
+                    f.write(d + "\n")
+                f.write('\n')
+            # end write out the symmetric differences
+
+    # terminal feedback
+    if prev_scans:
+        print()
+        if cmsg:
+            print(cmsg)
+
+    if all_sys:
+        print(hdr2)
+        for record in all_sys:
+            print(record[0], record[1])
+        print(f"\nChanges {write_type} to difference file {diff_file}")
+        if showDiff and are_symmetrics:
+            print("Differences included")
+
+    else:
+        if showDiff and are_symmetrics:
+            if not prev_scans and (dir_diff or new_diff):
+                print("Directory differences found")
+                print()
+            print(f"{write_type} to difference file {diff_file}")
+
+    if showDiff and not are_symmetrics:
+        print("no symmetric differences found.")

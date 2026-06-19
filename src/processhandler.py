@@ -199,6 +199,7 @@ class ProcessHandler(QObject):
     def process_finished(self, exit_code, exit_status):
 
         if exit_code == 0:
+
             if self.analyticSECT:  # powershell scripts
                 el = time.time() - self.st_time
                 self.log.emit(f'Search took {el:.3f} seconds')

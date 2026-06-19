@@ -29,7 +29,7 @@ def build_dwalk_parser():
     scan_p.add_argument("dbtarget")
     scan_p.add_argument("basedir")
     scan_p.add_argument("user")
-    scan_p.add_argument("difffile", help="result output for scan IDX")
+    scan_p.add_argument("diff_file", help="result output for scan IDX")
     scan_p.add_argument("cache_s")
     scan_p.add_argument("email")
     scan_p.add_argument("analytics", nargs="?", type=to_bool, default=True, help="show extra display such as total time")

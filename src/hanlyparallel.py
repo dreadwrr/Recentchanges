@@ -80,7 +80,7 @@ def logger_process(results, sys_records, sys_tables, rout, scr, cerr, dbopt, ps,
                                     # change as modified means it is significant in that it could be a downloaded file with preserved metadata
                                     else:
                                         mod_time = timestamp.strftime(fmt)  # lexographic compare
-                                        if creation >= mod_time:
+                                        if creation and creation >= mod_time:
                                             rout.append(f'Created {timestamp} {creation} {filepath}')
 
                             else:

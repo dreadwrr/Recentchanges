@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-# pstsrg.py - Process and store logs in a SQLite database, encrypting the database       05/02/2026
+# pstsrg.py - Process and store logs in a SQLite database, encrypting the database       06/19/2026
 import os
 import sqlite3
 import sys
 import traceback
+from .configfunctions import find_gnupg_home
 from .dirwalker import index_system
 from .gpgcrypto import encr
 from .gpgcrypto import decr
@@ -14,19 +15,23 @@ from .pyfunctions import unescf_py
 from .pysql import clear_conn
 from .pysql import collision_check
 from .pysql import create_db
+from .pysql import get_unique_files
+from .pysql import get_lifetime_throughput
 from .pysql import insert
+from .pysql import insert_files_time
 from .pysql import insert_if_not_exists
 from .pysql import table_has_data
 from .qtdrivefunctions import get_idx_tables
-from .qtfunctions import find_gnupg_home
 from .query import blank_count
 from .rntchangesfunctions import removefile
 
 
 def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, logging_values, total_time, total_files, dcr=False, iqt=False, strt=65, endp=90):
-    #  scr, cerr, cache_f, cache_s, json_file)
+
+    # tempwork = logging_values[3]  # the script temp directory
     scr = logging_values[4]
     cerr = logging_values[5]
+    # cache_f = logging_values[6]
     cache_s = logging_values[7]
     json_file = logging_values[8]
     gnupg_home = logging_values[9]
@@ -40,8 +45,6 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
     cdiag = user_setting['cdiag']
     ps = user_setting['ps']
     compLVL = user_setting['compLVL']
-
-    # tempwork = logging_values[3]  # the script temp directory
 
     sys_tables, _, _ = get_idx_tables(basedir, cache_s)
 
@@ -59,8 +62,7 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
 
     ha_total_time = logger_total_time = 0
     unique_files = 0
-    lifetime_files = lifetime_total_time = 0
-    total_throughput = 0
+    lifetime_throughput = 0
 
     # original with a temp dir cant leave db to reencrypt if everything succeeds but only reencryption fails. so leave in app directory with proper perms
     # tempdir = tempfile.gettempdir()
@@ -127,8 +129,14 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
                     print("index_system from dirwalker failed to hash in pstsrg")
                 conn = sqlite3.connect(dbopt)
                 c = conn.cursor()
+
             elif ps and not iqt:
                 print('Sys profile requires the setting checksum to index')
+
+        count = blank_count(c)
+        if count < 1:
+            goahead = False
+            new_database = True
 
         # Log
         if xdata:
@@ -145,40 +153,6 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
                 except Exception as e:
                     print(f"hanlydb failed to process : {type(e).__name__} : {e} \n{traceback.format_exc().strip()}", file=sys.stderr)
 
-        # Analytics - Store the total files and total time for the search. Also get unique files and lifetime throughput.
-        if total_files:
-            # How many unique files are in the logs table
-            unique_files = c.execute(
-                "SELECT COUNT(DISTINCT filename) FROM logs WHERE filename IS NOT NULL"
-            ).fetchone()[0]
-            # Lifetime throughput
-            # get the lifetime total files processed and total time since app or database was made
-            if not unique_files:
-                new_database = True
-            else:
-                total_time_int = int(total_time * 1000)
-                c.execute("""
-                    INSERT INTO analytics (id, total_files, total_time)
-                    VALUES (1, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET
-                        total_files = total_files + excluded.total_files,
-                        total_time = total_time + excluded.total_time;
-                """, (total_files, total_time_int))
-
-                lifetime_files, lifetime_time = c.execute("""
-                    SELECT total_files, total_time
-                    FROM analytics
-                """).fetchone()
-
-                if lifetime_files and lifetime_time:
-
-                    lifetime_total_time = lifetime_time / 1000
-
-                    total_throughput = 60 / (lifetime_files / lifetime_total_time)
-                else:
-                    print("pstsrg couldnt get analytics. skipped")
-                # end Lifetime throughput
-
         parsed = xdata
 
         if parsed:
@@ -187,12 +161,26 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
                 insert(parsed, conn, c, "logs", "mtime_us")
 
                 count = blank_count(c)
+
                 if count % 10 == 0:
-                    print(f'{count + 1} searches in gpg database')
+                    print(f'{count} searches in gpg database')
 
                 if checksum and cdiag:
                     if collision_check(xdata, cerr, sys_tables, c, ps):
                         csum = True
+
+                # Analytics - Store the total files and total time for the search. Also get unique files and lifetime throughput.
+                if total_files:
+                    if total_time > 0:
+                        insert_files_time(c, total_files, total_time)  # insert and increment
+
+                        lifetime_throughput = get_lifetime_throughput(c)  # get the total
+
+                    unique_files = get_unique_files(c)
+
+                    if not lifetime_throughput:
+                        print("pstsrg couldnt get analytics. skipped")
+                    # end Lifetime throughput
 
             except Exception as e:
                 print(f'log db failed insert err: {e} {type(e).__name__}  \n{traceback.format_exc()}')
@@ -258,7 +246,7 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
     finally:
         clear_conn(conn, c)
 
-    data = (csum, unique_files, total_throughput, ha_total_time, logger_total_time)
+    data = (csum, unique_files, lifetime_throughput, ha_total_time, logger_total_time)
 
     if not dcr and res != 3:
         removefile(dbopt)
