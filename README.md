@@ -3,15 +3,8 @@ recentchanges\\bin\\parsec.exe C: --cutoff "2026-06-15 07:13:18" \# or "2026-06-
 where the time is current local system time <br><br>
 New long term support features are in <br>
 An alarm clock was added for an office enivornment look! <br>
-Last updated: 06/10/2026 <br>
+Last updated: 06/19/2026 <br>
 Windows 10 11 <br><br>
-
-06/18/2026 <br>
-An update is under way to ensure proper output and also dynamic appending for system index scan <br>
-adjust analytics as they are slightly too high. this is to put in place functionality for long term <br>
-maintenance and stability <br><br>
-
-
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 File search application with Hybrid analysis and MFT search <br><br>
