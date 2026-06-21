@@ -39,11 +39,8 @@ if encountering gpg key issues or some other problem try recentchanges reset. Wh
 
 ## Troubleshooting
 
-before installation and setup up want to cover steps to do in case of other cases that could be encountered. <br>
-I will do my best to automate the most with recentchanges reset <br><br>
-
 This applies to GPG4Win <br>
-If on app open it says cannot open instance of qt and then no pinentry it is a condition in windows where the agent wasnt fully activated and can be resovled with: <br>
+When opening the app if it says cannot open instance of qt and then no pinentry it is a condition in windows where the agent wasnt fully activated and can be resovled with: <br>
 
 from in Kleopatra - Tools - Restart Background Processes
 
