@@ -1,10 +1,7 @@
 Note to quickly find modified and new files on the system use: <br>
 recentchanges\\bin\\parsec.exe C: --cutoff "2026-06-15 07:13:18" \# or "2026-06-15T07:13:18"<br>
 where the time is current local system time <br><br>
-New long term support features are in <br>
-Dynamic appending for scan idx <br>
-Adjusted analytics for throughput <br>
-An alarm clock was added for an office enivornment look! <br>
+
 Last updated: 06/19/2026 <br>
 Windows 10 11 <br>
 
