@@ -65,7 +65,8 @@ pyinstaller main.spec <br><br>
 copy _internal and main from in dist folder to app folder <br>
 <br>
 also to use the commandline with main edit bat files recentchanges.bat or rnt.bat. <br>
-remove python and change src\set_recent_helper.py to main in two places <br><br>
+remove python and change src\set_recent_helper.py to main in two places or copy 
+the .bat files from the pyinstaller repo <br><br>
 
 Things to do after installation. Recommend installing notepad++ and changing dspEDITOR to notepad++ <br>
 
