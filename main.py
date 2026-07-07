@@ -13,6 +13,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 import tempfile
+import threading
 import traceback
 import win32api
 from pathlib import Path
@@ -21,6 +22,7 @@ from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPixmap, QIm
 from PySide6.QtSql import QSqlQuery
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QMainWindow, QVBoxLayout, QMenu, QHeaderView, QStyle, QHBoxLayout, QDialog, QLabel, QPushButton
 from src.alarmclock import AlarmClock
+from src.calculator import SCalculator
 from src.clearworker import ClearWorker
 from src.config import dump_j_settings
 from src.config import dump_toml
@@ -42,6 +44,9 @@ from src.gpgcrypto import encr
 from src.gpgkeymanagement import genkey
 from src.gpgkeymanagement import iskey
 from src.imageraster import raised_image
+from src.inotifyfunctions import old_pid_check
+from src.inotifyfunctions import process_by_target
+from src.inotifyfunctions import trim_tout
 from src.logs import change_logger
 from src.logs import setup_logger
 from src.mftfunctions import mftec_version
@@ -215,10 +220,21 @@ class MainWindow(QMainWindow):
         self.proteusSHIELD = config['shield']['proteusSHIELD']
         self.psEXEC = config['shield']['exec']
         self.exclDIRS = user_path(config['search']['exclDIRS'], usr)
+        self.xRC = config['search']['xRC']
+        self.high_water = config['search']['high_water']
+        self.low_water = config['search']['low_water']
+        self.min_span = config['search']['min_span']
         self.zipPROGRAM = config['compress']['zipPROGRAM'].lower()
         self.zipPATH = config['compress']['zipPATH']
         self.extensions = config['search']['extension']
-
+        self.cmode = config['calculator']['mode']
+        self.cTHRESHOLD = config['calculator']['scientific_threshold']
+        self.decimals = config['calculator']['decimals']
+        self.ctheme = config['calculator']['theme']
+        self.chistory = config['calculator']['history']
+        self.randintMAX = config['calculator']['randintMAX']
+        self.randintMIN = config['calculator']['randintMIN']
+        self.clogLEVEL = config['calculator']['logLEVEL']
         self.j_settings = j_settings  # usrprofile
 
         self.psEXTN = self.j_settings.get(self.basedir, {}).get("proteusEXTN")
@@ -243,6 +259,9 @@ class MainWindow(QMainWindow):
             raise EnvironmentError("Could not find user Desktop folder")
         self.lclhome = appdata_local
         self.lclscripts = appdata_local / "scripts"
+        self.inotify_creation_file = self.lclscripts / "file_creation_log.txt"  # 07/04/2026
+        self.search_pattern = "watchdog_win.py"
+        self.watchdog_pid_file = os.path.join(self.lclscripts, 'inotify_watcher.pid')
         self.resources = appdata_local / "Resources"
         self.filter_file = appdata_local / "filter.py"
         flth_frm = appdata_local / "flth.csv"
@@ -301,6 +320,9 @@ class MainWindow(QMainWindow):
 
         self.mft = None  # is imported Mft
         self.ramdisk = None  # self.lclhome
+
+        # 07/01/2026
+        self.calculator = None
 
         self.worker = None
         self.worker2 = None
@@ -503,6 +525,8 @@ class MainWindow(QMainWindow):
         self.ui.actionQuick1.triggered.connect(lambda: display(self.dspEDITOR, self.command_file, True, self.dspPATH))
         self.ui.actionDiag1.triggered.connect(self.show_status)
         self.ui.actionLogging.triggered.connect(lambda: display(self.dspEDITOR, self.log_path, True, self.dspPATH))
+
+        self.ui.actionCalculator.triggered.connect(self.open_calculator)
 
         self.ui.actionAbout.triggered.connect(lambda: help_about(self.lclhome, self.ui.hudt, self.app_version))
         self.ui.actionResource.triggered.connect(self.open_resource)
@@ -782,7 +806,21 @@ class MainWindow(QMainWindow):
 
         # end fill combos pg_1
 
+    def trim_tout(self):
+        pid = process_by_target(self.search_pattern)
+        old_pid_check(self.watchdog_pid_file, pid, "windows")
+        if not pid:
+            trim_tout(self.inotify_creation_file, self.low_water, self.high_water, self.min_span)
+
     def remaining_startup(self):
+
+        # on startup user_data_from_database writes app start time so can determine last start time
+        # here for xRC option check file_creation_log.txt if its over the cutoff and trim.
+
+        if self.xRC:
+            if os.path.isfile(self.inotify_creation_file):
+                threading.Thread(target=self.trim_tout, daemon=True).start()
+
         # if polkit_check():
         #     self.is_polkit = True
         self.timer.stop()
@@ -1005,6 +1043,10 @@ class MainWindow(QMainWindow):
                 moduleNAME = updated_config['paths']['moduleNAME']
                 pwrshell = updated_config['search']['pwrshell']
                 exclDIRS = user_path(updated_config['search']['exclDIRS'], self.usr)
+                xRC = updated_config['search']['xRC']
+                high_water = updated_config['search']['high_water']
+                low_water = updated_config['search']['low_water']
+                min_span = updated_config['search']['min_span']
                 basedir = updated_config['search']['drive']
                 extensions = updated_config['search']['extension']
                 proteusEXTN = updated_config['shield']['proteusEXTN']
@@ -1055,6 +1097,9 @@ class MainWindow(QMainWindow):
                     is_alarm_path = True
                     if alarm_set_soundFILE:
                         set_sound_file_path = os.path.join(self.resources, alarm_set_soundFILE)
+
+                if low_water > high_water:
+                    raise ConfigurationError
 
                 if zipPATH != self.zipPATH or new_downloads or popPATH != self.popPATH or is_alarm_path:
                     if not check_utility(zipPATH, updated_downloads, popPATH, sound_file_path, set_sound_file_path):
@@ -1201,6 +1246,10 @@ class MainWindow(QMainWindow):
                 self.proteusSHIELD = proteusSHIELD
                 self.psEXEC = psEXEC
                 self.exclDIRS = exclDIRS
+                self.xRC = xRC
+                self.high_water = high_water
+                self.low_water = low_water
+                self.min_span = min_span
                 self.zipPROGRAM = zipPROGRAM
                 self.zipPATH = zipPATH
                 self.extensions = extensions
@@ -1353,6 +1402,7 @@ class MainWindow(QMainWindow):
             "Drive name/Type": typeModel,
             "Drive type": drive_type,
             "Empty1":  "",
+            "xRC": self.xRC,
             "Proteus Shield active": str(ps),
             "Checksum and Caching": "y" if self.checksum else "n",
             "Empty2a":  "",
@@ -1490,6 +1540,14 @@ class MainWindow(QMainWindow):
         self.ui.textEdit.blockSignals(True)
         self.user_extensions = user_data_from_database(self.ui.hudt, self.ui.textEdit, self.ui.combffile, self.extensions, self.dbopt, is_startup, self)
         self.ui.textEdit.blockSignals(False)
+
+    def open_calculator(self):
+        if self.calculator is None:
+            self.calculator = SCalculator(None, self.cmode, self.cTHRESHOLD, self.decimals, self.ctheme, self.chistory,
+                                          self.randintMAX, self.randintMIN, self.ui.hudt, self.clogLEVEL)
+        self.calculator.show()
+        self.calculator.raise_()
+        self.calculator.activateWindow()
 
     def open_resource(self):
         # self.doc_window = open_html_resource(self, self.lclhome)
@@ -3585,6 +3643,13 @@ def start_main_window():
             # subprocess.run(["icacls", tempdir, "/grant", "BUILTIN\\Administrators:(OI)(CI)F"], check=True)
 
             app = QApplication(sys.argv)
+
+            import qdarktheme
+            # qdarktheme.setup_theme("auto")
+            palette = qdarktheme.load_palette(theme="dark")
+            app.setPalette(palette)
+            # stylesheet = qdarktheme.load_stylesheet(theme="dark")
+            # app.setStyleSheet(stylesheet)
 
             is_key, err = iskey(email)
             if is_key is False:
