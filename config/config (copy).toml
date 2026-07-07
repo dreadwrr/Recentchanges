@@ -39,8 +39,8 @@ driveTYPE=""
 
 # Directories to exclude from the searches      Default Windows
 # prevent windows permission error. this applies to both powershell and python scans.
-                            # eg ["Windows", "Users\\{{user}}\\AppData\\Local\\Opera Software"]
-exclDIRS = ["Windows", "$Recycle.Bin"]
+                            # eg ["Windows"]
+exclDIRS = ["Windows", "$Recycle.Bin", "Users\\{{user}}\\AppData\\Roaming\\Microsoft\\Windows\\Recent"]
 
 # Use powershell. if false use alternative search Python instead of powershell.
                 # default true 
@@ -65,9 +65,52 @@ extension = [
  ".iso", ".md5", ".sha1", ".torrent", ".dat"
 ]
 
+# run inotifywait for one hour to look for new files where ctime > mtime in /changes. this is for downloads or copies with preserved metadata
+# hashes created files and inserts into the cache ctimecache.gpg.
+xRC = true              # false - default. if false the files will still show up
+                         # true
+_time = 3600
+
+# Hours back to start file_creation_log.txt trim.
+high_water = 9
+
+# trim back to hours on high water
+low_water = 6
+
+# clear the log instead of high water if above minimum span hours
+min_span = 0
+
                         # How many old searches to save. These can be grabbed by `recentchanges search` and `recentchanges`
                         # for comparisons in diff file
 archivesrh = 5
+
+
+[calculator]
+
+                # regular
+                # scientific
+mode = "regular"
+
+# decimal precision
+decimals = 51
+
+# leading zeros needed to use exponent
+scientific_threshold = 6
+
+                # default or ""
+                # block
+theme = "default"
+
+# show computed expressions in hudt
+history = false
+
+# from 0 to target ceiling. 
+randintMAX = 9999999
+
+randintMIN = 0
+                # default ERROR
+                # DEBUG
+logLEVEL="ERROR"
 
 
 [compress]
@@ -261,7 +304,6 @@ nogo = [
 
 # no match file patterns removes noise
 filterout = [
-    'Users\{{user}}\AppData\Roaming\Microsoft\Windows\Recent',
     'Users\{{user}}\AppData\Local\save-changesnew\gpg\gnupghome\random_seed'
 ]
 
