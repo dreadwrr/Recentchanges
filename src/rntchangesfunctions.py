@@ -77,7 +77,7 @@ def get_runtime_exclude_list(appdata_local, usrDIR, moduleNAME, flth, dbtarget, 
 
     dir_pth = os.path.join(appdata_local, f"{moduleNAME}_MDY_*")
     folders = glob.glob(dir_pth)
-    old_searches = [os.path.join(fld, moduleNAME) for fld in folders]
+    old_searches = [os.path.join(fld, f"{moduleNAME}x") for fld in folders]
 
     ad_results = os.path.join(appdata_local, f'{moduleNAME}x')
     download_results = os.path.join(usrDIR, f'{moduleNAME}x')

@@ -86,8 +86,9 @@ def normalize_to_us(mod_time):
     return int(s[:-3] or "0")
 
 
-def calculate_checksum(file_path, mtime, mod_time, inode, size_int, prev_hash=None, st=None, retry=1, max_retry=1, cacheable=True, log_q=None, logger=None):
-
+def calculate_checksum(file_path, mtime, mod_time, inode, size_int, prev_hash=None, st=None, retry=1, max_retry=None, cacheable=True, log_q=None, logger=None):
+    if max_retry is None:
+        max_retry = retry
     total_size = 0
 
     try:

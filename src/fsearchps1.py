@@ -67,7 +67,7 @@ def process_ps1(line, checksum, filetype, search_start_dt, cache_f, logger=None)
         if size > CSZE:
             cached = get_cached(cache_f, size, mtime_us, file_path)
             if cached is None:
-                checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, max_retry=1, cacheable=True, log_q=logs.WORKER_LOG_Q, logger=logger)
+                checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, cacheable=True, log_q=logs.WORKER_LOG_Q, logger=logger)
                 if checks is not None:
                     if status == "Retried":
                         checks, mtime, st, mtime_us, c_time, inode, size = set_stat(line, checks, file_dt, file_st, file_us, inode, logs.WORKER_LOG_Q, logger=logger)
@@ -83,7 +83,7 @@ def process_ps1(line, checksum, filetype, search_start_dt, cache_f, logger=None)
                 checks = cached.get("checksum")
 
         else:
-            checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, max_retry=1, cacheable=False, log_q=logs.WORKER_LOG_Q, logger=logger)
+            checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, cacheable=False, log_q=logs.WORKER_LOG_Q, logger=logger)
             if checks is not None:
                 if status == "Retried":
                     checks, mtime, st, mtime_us, c_time, inode, size = set_stat(line, checks, file_dt, file_st, file_us, inode, logs.WORKER_LOG_Q, logger=logger)

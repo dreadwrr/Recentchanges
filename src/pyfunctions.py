@@ -134,6 +134,16 @@ def ap_decode(s):
     return s
 
 
+def ap_encode(s):
+    s = s.replace('\\', '\\ap5c')
+    s = s.replace('\n', '\\ap0A')
+    s = s.replace('"', '\\ap22')
+    s = s.replace('\t', '\\ap09')
+    # s = s.replace('\\ap24', '$')
+    s = s.replace(' ', '\\ap20')
+    return s
+
+
 def escf_py(filename):
     filename = filename.replace('\\', '\\ap5c')
     filename = filename.replace('\n', '\\\\n')

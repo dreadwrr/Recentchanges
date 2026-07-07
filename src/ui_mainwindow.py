@@ -76,6 +76,8 @@ class Ui_MainWindow(object):
         self.action_Quit.setObjectName(u"action_Quit")
         self.actionLogging = QAction(MainWindow)
         self.actionLogging.setObjectName(u"actionLogging")
+        self.actionCalculator = QAction(MainWindow)
+        self.actionCalculator.setObjectName(u"actionCalculator")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.gridLayout_6 = QGridLayout(self.centralwidget)
@@ -774,7 +776,7 @@ class Ui_MainWindow(object):
         self.widget.setSizePolicy(sizePolicy)
         self.widget.setMinimumSize(QSize(50, 50))
 
-        self.gridLayout.addWidget(self.widget, 30, 5, 3, 4)
+        self.gridLayout.addWidget(self.widget, 30, 4, 3, 5)
 
 
         self.gridLayout_7.addLayout(self.gridLayout, 0, 0, 1, 1)
@@ -1007,6 +1009,8 @@ class Ui_MainWindow(object):
         self.menuHelp.setObjectName(u"menuHelp")
         self.menuComm = QMenu(self.menubar)
         self.menuComm.setObjectName(u"menuComm")
+        self.menuTool = QMenu(self.menubar)
+        self.menuTool.setObjectName(u"menuTool")
         MainWindow.setMenuBar(self.menubar)
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
@@ -1019,6 +1023,7 @@ class Ui_MainWindow(object):
 
         self.menubar.addAction(self.menuRecent_changes.menuAction())
         self.menubar.addAction(self.menuComm.menuAction())
+        self.menubar.addAction(self.menuTool.menuAction())
         self.menubar.addAction(self.menuHelp.menuAction())
         self.menuRecent_changes.addSeparator()
         self.menuRecent_changes.addAction(self.actionStop)
@@ -1037,6 +1042,7 @@ class Ui_MainWindow(object):
         self.menuComm.addAction(self.actionDiag1)
         self.menuComm.addSeparator()
         self.menuComm.addAction(self.actionLogging)
+        self.menuTool.addAction(self.actionCalculator)
 
         self.retranslateUi(MainWindow)
 
@@ -1091,6 +1097,7 @@ class Ui_MainWindow(object):
 #if QT_CONFIG(shortcut)
         self.actionLogging.setShortcut(QCoreApplication.translate("MainWindow", u"F11", None))
 #endif // QT_CONFIG(shortcut)
+        self.actionCalculator.setText(QCoreApplication.translate("MainWindow", u"Calculator", None))
         self.ftimelabel1.setText(QCoreApplication.translate("MainWindow", u"Output", None))
         self.ntlabel.setText(QCoreApplication.translate("MainWindow", u"Newer than", None))
         self.combd.setItemText(0, QCoreApplication.translate("MainWindow", u"C:\\", None))
@@ -1241,5 +1248,6 @@ class Ui_MainWindow(object):
         self.menuRecent_changes.setTitle(QCoreApplication.translate("MainWindow", u"File", None))
         self.menuHelp.setTitle(QCoreApplication.translate("MainWindow", u"Help", None))
         self.menuComm.setTitle(QCoreApplication.translate("MainWindow", u"Comm", None))
+        self.menuTool.setTitle(QCoreApplication.translate("MainWindow", u"Tool", None))
     # retranslateUi
 

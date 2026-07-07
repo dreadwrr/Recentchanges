@@ -43,6 +43,7 @@ from .gpgcrypto import decr_ctime
 from .gpgcrypto import encr_cache
 from .gpgkeymanagement import genkey
 from .gpgkeymanagement import iskey
+from .inotifyfunctions import init_recentchanges
 from .logs import setup_logger
 from .pstsrg import main as pst_srg
 from .pyfunctions import cache_clear_patterns
@@ -138,6 +139,8 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
     if dspEDITOR:
         dspEDITOR = multi_value(dspEDITOR)
     dspPATH_frm = config['display']['dspPATH']
+    xRC = config['search']['xRC']
+    _time = config['search']['_time']
 
     escaped_user = re.escape(usr)
 
@@ -296,10 +299,14 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
         # initialize
 
-        # Linux. windows ln 496 start, rntchangesfunction.py find_scan and ctime.py init_recentchanges using journal db dir cache system
-        # load ctime or files created or copied with preserved metadata.
+        # load hashes into the cache of created files from watchdog service
         # if xRC
-        # tout = init_recentchanges(script_dir, home_dir, xdg_runtime, inotify_creation_file, cfr, xRC, checksum, moduleNAME, log_file)
+        home_dir = ""
+
+        init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, tempwork, gnupg_home, cfr, xRC, _time, checksum,
+                           usr, moduleNAME, log_file, ll_level, supbrwLIST, platform="Windows")
+
+        # other options could build directory map from mft use fsutil and check usn jrnl for created filed but is too complex and also takes up size for another dbs
 
         if argone != "search":
             thetime = argone

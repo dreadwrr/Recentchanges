@@ -656,7 +656,7 @@ def scandir_meta(file_path, st, symlink, link_target, found, sys_data, log_q=Non
 
         if found and sym != "y":
 
-            checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, m_dt, mtime_us, inode, size, retry=2, max_retry=2, cacheable=False, log_q=log_q)
+            checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, m_dt, mtime_us, inode, size, retry=2, cacheable=False, log_q=log_q)
 
             if checks is not None:  # if status in ("Returned", "Retried"):
                 if status == "Retried":
@@ -731,7 +731,7 @@ def meta_sys(file_path, previous_md5, previous_symlink, previous_target, previou
 
         if sym != "y":
 
-            checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, m_dt, mtime_us, inode, size, retry=2, max_retry=2, cacheable=False, log_q=log_q)
+            checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, m_dt, mtime_us, inode, size, retry=2, cacheable=False, log_q=log_q)
             if checks is not None:  # if status in ("Returned", "Retried"):
                 if status == "Retried":
                     checks, mtime, st, mtime_us, c_time, inode, size = set_stat(file_info, checks, file_dt, file_st, file_us, inode, log_q)

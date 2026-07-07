@@ -378,7 +378,6 @@ def main(localappdata, action, filename, extension, basedir, usr, dspEDITOR, dsp
                 gnupg_home = None
                 # exclude certain files from .rar/.zip. app inclusions and temp work area
 
-                # def get_runtime_exclude_list(appdata_local, usrDIR, moduleNAME, flth, dbtarget, cache_f, cache_s, gnupg_home, log_path, dbopt=None, temp_dir=None):
                 arch_exclude = get_runtime_exclude_list(
                     localappdata, usrDIR, moduleNAME, flth, dbtarget, cache_f, cache_s,
                     gnupg_home, str(log_file), recent_files, temp_dir=temp_dir
