@@ -20,7 +20,7 @@ def window_message(parent, message, title="Status", default=True):  # ok
         msg.setIcon(QtWidgets.QMessageBox.Icon.Information)
     msg.setWindowTitle(title)
     msg.setText(message)
-    msg.setWindowIcon(QtGui.QIcon("./icon/48.png"))
+    msg.setWindowIcon(QtGui.QIcon("./Resources/calculator/48.png"))
     msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
     msg.exec()
 
