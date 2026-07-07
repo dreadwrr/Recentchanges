@@ -812,7 +812,7 @@ class SCalculator(QtWidgets.QWidget):
     def keyPressEvent(self, event):
         key_text = event.text()
         # exit on ctrl-c
-        print("keyPressEvent", self.sender(), QtWidgets.QApplication.focusWidget())
+        # print("keyPressEvent", self.sender(), QtWidgets.QApplication.focusWidget())  # debug
         if event.key() == QtCore.Qt.Key.Key_C and event.modifiers() & QtCore.Qt.KeyboardModifier.ControlModifier:
             QtWidgets.QApplication.quit()
             sys.exit(0)
