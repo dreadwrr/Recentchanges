@@ -174,6 +174,7 @@ def create_db(database, sys_tables, action=None):
             extension TEXT,
             timestamp TEXT,
             notes TEXT,
+            history TEXT,
             UNIQUE(extension)
         )
         ''',
@@ -448,6 +449,7 @@ def clear_sys_profile(conn, cur, basedir, sys_tables, cache_table, systimeche, l
 
 
 def dbclear_sys_profile(dbopt, sys_tables, cache_table, systimeche):
+    """ Template not currently used """
     # Drop system time table
     fn = "dbclear_sys_profile"
     del_tables = sys_tables + (cache_table,) + (systimeche,)
@@ -476,6 +478,7 @@ def dbclear_sys_profile(dbopt, sys_tables, cache_table, systimeche):
 
 
 def dbtable_exists(dbopt, table_name):
+    """ Template not currently used """
     fn = "dbtable_exists"
     conn = None
     cur = None
@@ -504,27 +507,6 @@ def table_exists(conn, table_name):
     return True
 
 
-def dbclear_table(dbopt, table_name):
-    fn = "dbclear_table"
-    conn = None
-    cur = None
-    try:
-        conn = sqlite3.connect(dbopt)
-        cur = conn.cursor()
-        if table_has_data(conn, table_name):
-            if not clear_table(table_name, conn, cur, True):
-                return False
-        return True
-    except sqlite3.OperationalError as e:
-        print(f"OperationalError {dbopt} connection problem {fn}:", e)
-        return False
-    except (sqlite3.Error, Exception) as e:
-        print(f"Problem with {dbopt} general error {fn}:", e)
-        return False
-    finally:
-        clear_conn(conn, cur)
-
-
 def clear_table(table, conn, cur, quiet=False):
     try:
         cur.execute(f"DELETE FROM {table}")
@@ -543,23 +525,23 @@ def clear_table(table, conn, cur, quiet=False):
     return False
 
 
-def clear_extn_tbl(dbopt, quiet):
+def dbclear_table(dbopt, table_name):
+    """ Template not currently used """
+    fn = "dbclear_table"
     conn = None
     cur = None
     try:
         conn = sqlite3.connect(dbopt)
         cur = conn.cursor()
-        cur.execute("DELETE FROM extn WHERE ID != 1")
-        conn.commit()
-
-        if not quiet:
-            print("extn table cleared.")
+        if table_has_data(conn, table_name):
+            if not clear_table(table_name, conn, cur, True):
+                return False
         return True
-    except Exception as e:
-        print("Reencryption failed extension table clear")
-        if conn:
-            conn.rollback()
-        print(f"failure clear_extn_tbl func {type(e).__name__}: {e}")
+    except sqlite3.OperationalError as e:
+        print(f"OperationalError {dbopt} connection problem {fn}:", e)
+        return False
+    except (sqlite3.Error, Exception) as e:
+        print(f"Problem with {dbopt} general error {fn}:", e)
         return False
     finally:
         clear_conn(conn, cur)

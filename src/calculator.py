@@ -3,9 +3,10 @@ import mpmath
 import random
 import re
 import sys
+from functools import partial
 from PySide6 import QtWidgets, QtCore, QtGui
 from .ui_calculator import Ui_Form
-# 07/05/2026
+# 07/08/2026
 
 
 def window_message(parent, message, title="Status", default=True):  # ok
@@ -34,73 +35,6 @@ def str_to_mpmath(expression):
     )
 
 
-def resolve_percent_chains(expression, is_mpmath, logger):
-    """
-    this calculator allows for the % to either be modulo or percent so some logic is needed
-    Whenever a % is NOT followed by a digit or decimal point, treat as percent-conversion
-    this is because eval does not recognize % as percent. only modulo.
-    A % followed by a digit is left alone as modulo.
-    """
-    i = 0
-    while i < len(expression):
-        if expression[i] == "%":
-
-            next_char = expression[i + 1] if i + 1 < len(expression) else ""
-            if next_char.isdigit() or next_char == ".":
-                i += 1
-                continue
-            else:
-
-                j = i - 1
-                while j >= 0 and (expression[j].isdigit() or expression[j] == "."):
-                    j -= 1
-                num_str = expression[j + 1:i]
-                if num_str == "":
-                    em = f"No number found before % at position {i}"
-                    logger(em + "\n" + f"expression: \n {expression}")
-                    raise ValueError(em)
-
-                if is_mpmath:
-                    value = mpmath.mpf(num_str) / 100
-                    value_str = mpmath.nstr(value, mpmath.mp.dps, strip_zeros=False)
-                else:
-                    value = float(num_str) / 100
-                    value_str = str(value)
-                expression = expression[:j + 1] + value_str + expression[i + 1:]
-
-                i = j + 1 + len(value_str)
-        else:
-            i += 1
-
-    return expression
-
-
-def resolve_operand(text, token, compute, namespaces, is_mpmath):
-    """
-    find and parse and then eval each convention before and evaluating main expression
-    windows calc uses yroot this uses root. logbase is used which is same.
-    """
-    while token in text:
-        idx = text.find(token)
-
-        left = idx
-        while left > 0 and (text[left-1].isdigit() or text[left-1] == "." or text[left-1] == "-"):
-            left -= 1
-
-        right = idx + len(token)
-        while right < len(text) and (text[right].isdigit() or text[right] == "."):
-            right += 1
-
-        a = text[left:idx]
-        b = text[idx+len(token):right]
-
-        result = eval(compute(a, b), {"__builtins__": {}}, namespaces)
-
-        result_str = mpmath.nstr(result, mpmath.mp.dps, strip_zeros=False) if is_mpmath else str(result)
-        text = text[:left] + result_str + text[right:]
-    return text
-
-
 class SCalculator(QtWidgets.QWidget):
     """ calculator with minimal form factor to implement some math with python. Intention was to make it in a way that
         it can later be customized for other specific use cases or layed adjusted to preference. Was a result of
@@ -111,7 +45,7 @@ class SCalculator(QtWidgets.QWidget):
 
     FLOAT_SIG_DIGITS = 14
     DECIMAL_DIGITS = 55
-
+    DECIMAL_MAX = 150
     OUTPUT_LIMIT = 57  # 57 chars at font size 35 scientific. 24 chars at font size 25 regular
 
     SCI_THRESHOLD = 10
@@ -177,9 +111,11 @@ class SCalculator(QtWidgets.QWidget):
         "tan": "tan", "atan": "tan⁻¹", "tanh": "tanh", "atanh": "tanh⁻¹",
     }
 
+    complete = QtCore.Signal()
+
     def __init__(
             self, parent=None, mode="scientific", sci_threshold=6, decimals=50, theme="block", history_view=False,
-            rand_max=9999999, rand_min=0, logger: QtWidgets.QTextEdit | None = None,
+            saved_history="", rand_max=9999999, rand_min=0, logger: QtWidgets.QTextEdit | None = None,
             log_level: str | None = "ERROR"
     ):
         super().__init__(parent)
@@ -187,20 +123,20 @@ class SCalculator(QtWidgets.QWidget):
         self.ui.setupUi(self)
 
         self.mode = mode  # regular use python standard library. scientific use mpmath for binary arbitrary precision
+        self.sci_threshold = sci_threshold
+        self.decimals = decimals
         self.theme = theme  # there is one theme block. any other circular
         self.history_view = history_view  # if history view show expression with the result by outputting to console or text edit to display expressions.
+        self.saved_history = saved_history
         self.rand_max = rand_max  # to adjust desired random ceiling to scenario
         self.rand_min = rand_min
         self.logger = logger.appendPlainText if logger else print
-        self.log_level = log_level
-
-        # log level ERROR or DEBUG will print pre computed expression(s)
-        self.SCI_THRESHOLD = sci_threshold
-        self.DECIMAL_DIGITS = decimals
+        self.log_level = log_level  # log level ERROR or DEBUG will print pre computed expression(s)
 
         self.preview_log = []  # holds each expression for logging or using alternative to eval
 
         self._dragPos = None
+        self._pos = None
         # auto equals
         self.last_operator = None
         self.last_operand = None
@@ -214,6 +150,7 @@ class SCalculator(QtWidgets.QWidget):
 
         self.memory = ""  # mr
         self.last_expression = ""  # handle function input if repeated hold so already built
+        self.last_history_view = ""  # hold the results of any equations for user saving
 
         self.angle_mode = "DEG"
 
@@ -229,19 +166,19 @@ class SCalculator(QtWidgets.QWidget):
             self.OUTPUT_LIMIT = 24
             self.MIN_FONT_SIZE = 30
             ranges = self.FONT_SIZE_RANGES
-            self.is_mpmath = False
+
         else:
             ranges = self.FONT_SIZE_RANGES_MP
             try:
                 import mpmath
-                max_decimals = self.OUTPUT_LIMIT - 2
-                if decimals > max_decimals:
-                    self.DECIMAL_DIGITS = max_decimals
-                    print(f"Max decimals set to {max_decimals} exceeded OUTPUT_LIMIT {self.OUTPUT_LIMIT} vs {decimals}")
+                self.is_mpmath = True
+                self.decimal_set(decimals)
 
-                mpmath.mp.dps = self.DECIMAL_DIGITS + 30  # set decimal precision
             except ImportError:
                 self.is_mpmath = False
+
+        if 0 <= sci_threshold <= 20:
+            self.SCI_THRESHOLD = sci_threshold
 
         self.FONT_SIZE_BY_LENGTH = {
             length: font_size
@@ -279,19 +216,21 @@ class SCalculator(QtWidgets.QWidget):
             self.ui.percentButton: ["./Resources/calculator/percent-solid.svg", 50],
         }
 
-        self.initialize_ui(mode, theme)
+        self.initialize_ui()
 
-    def initialize_ui(self, mode, theme):
+        self.print_history(self.saved_history)  # print any saved history view
 
-        self.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground)
+    def initialize_ui(self):
+        if self.DECIMAL_DIGITS <= 55:
+            self.setWindowFlags(QtCore.Qt.WindowType.FramelessWindowHint)
+            self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground)
         self.expression.clear()
         self.expression.setEnabled(True)
         self.output.setText("0")
         self.output.setEnabled(True)
         self.setup_buttons()
         self.init_signal_slot()
-        self.set_formatting(mode, theme)
+        self.set_formatting()
 
     def setup_buttons(self):
         """ Set up buttons with icons and configurations """
@@ -305,17 +244,19 @@ class SCalculator(QtWidgets.QWidget):
         self.ui.angleButton.setText("DEG")
 
     def init_signal_slot(self):
-        self.output.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+        # self.output.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
         self.output.textChanged.connect(self.clear_button_text)
         self.output.textChanged.connect(self.update_font_size)
 
         self.ui.angleButton.clicked.connect(self.cycle_angle_mode)
         self.ui.mrButton.clicked.connect(self.memory_store)
         self.ui.msButton.clicked.connect(self.memory_recall)
-        # self.ui.rndButton.clicked.connect(self.random)  # for rnd rndno rndg
 
         self.ui.closeButton.clicked.connect(self.close)
         self.ui.delButton.clicked.connect(self.backspace)
+
+        self.ui.button_frame.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.ui.button_frame.customContextMenuRequested.connect(self.button_frame_alt_menu)
 
         # Connect all button clicks to main calculate method
         btn_list = self.ui.button_frame.findChildren(QtWidgets.QPushButton)
@@ -327,7 +268,7 @@ class SCalculator(QtWidgets.QWidget):
         self.ui.functionButton.toggled.connect(self.function)
         self.ui.hypButton.toggled.connect(self.hyp)
 
-    def set_formatting(self, mode, theme):
+    def set_formatting(self):
 
         self.output.setStyleSheet(f"font-size:{self.MAX_FONT_SIZE}px")
 
@@ -336,13 +277,11 @@ class SCalculator(QtWidgets.QWidget):
             font-family: "Segoe UI";
         """)
 
-        if theme == "block":
-            self.ui.button_frame.layout().setSpacing(5)
-            self.ui.button_frame.setStyleSheet(
-                "#button_frame QPushButton { border-radius: 0px; }"
-            )
+        if self.theme == "block":
+            self.set_format("block")
+
         # if folding the calculator
-        if mode == "regular":
+        if self.mode == "regular":
 
             grid = self.ui.button_frame.layout()
 
@@ -363,13 +302,54 @@ class SCalculator(QtWidgets.QWidget):
             # self.ui.angleButton.hide()
             # self.ui.mrButton.hide()
             # self.ui.msButton.hide()
-            # self.ui.rndButton.hide()
 
             self.ui.lineEdit.setFixedWidth(445)
             self.resize(445, 600)  # self.adjustSize() #  stretches buttons
 
+        # else:
+        #     self.ui.lineEdit.setFixedWidth(905)
+
+    # Helper functions or utility
+
+    def set_format(self, theme):
+        """ after created change the fmt """
+        if theme == "block":
+            self.ui.button_frame.layout().setSpacing(5)
+            self.ui.button_frame.setStyleSheet(
+                "#button_frame QPushButton { border-radius: 0px; }"
+            )
         else:
-            self.ui.lineEdit.setFixedWidth(905)
+            self.ui.button_frame.setStyleSheet(
+                "#button_frame QPushButton { border-radius: 50px; }"
+            )
+
+    def decimal_set(self, decimals):
+        """ scientific set the decimal precision """
+        if self.is_mpmath:
+            # max_decimals = self.OUTPUT_LIMIT - 2
+
+            self.DECIMAL_DIGITS = decimals
+            if decimals > self.DECIMAL_MAX:
+                self.DECIMAL_DIGITS = self.DECIMAL_MAX
+                self.OUTPUT_LIMIT = self.DECIMAL_DIGITS
+                print(f"Max decimals set to {self.DECIMAL_MAX} exceeded OUTPUT_LIMIT {self.OUTPUT_LIMIT} given {decimals}")
+            elif decimals < 20:
+                self.DECIMAL_DIGITS = 20
+
+            mpmath.mp.dps = self.DECIMAL_DIGITS + 30
+
+    def print_history(self, saved_history):
+        """ print last_history_view to logger
+            on init. as well as saving hist
+            to db.
+            trims any trailing newline char """
+        if saved_history:
+            out_str = saved_history
+            if saved_history.endswith("\n"):
+                out_str = saved_history[:-1]
+            self.logger(out_str)
+
+    # end Helper functions or utility
 
     def build_namespace(self):
         return {
@@ -394,7 +374,8 @@ class SCalculator(QtWidgets.QWidget):
             "ln": math.log,
             "pi": math.pi,
             "e": math.e,
-            "fact": math.factorial
+            "fact": math.factorial,
+            "rndg": random.gauss
         }
 
     def build_namespace_mpmath(self):
@@ -421,7 +402,8 @@ class SCalculator(QtWidgets.QWidget):
             "ln": lambda x: mpmath.log(mpmath.mpf(x)),
             "pi": mpmath.pi,
             "e": mpmath.e,
-            "fact": mpmath.factorial
+            "fact": mpmath.factorial,
+            "rndg": self.rndg_mpmath
         }
 
     def fwd_trig(self, func):
@@ -482,6 +464,14 @@ class SCalculator(QtWidgets.QWidget):
         x = mpmath.mpf(x)
         return x ** 2
 
+    def rndg_mpmath(self, mu, sigma):
+        mu = mpmath.mpf(mu)
+        sigma = mpmath.mpf(sigma)
+        u1 = mpmath.rand()
+        u2 = mpmath.rand()
+        z = mpmath.sqrt(-2 * mpmath.log(u1)) * mpmath.cos(2 * mpmath.pi * u2)
+        return mu + sigma * z
+
     # return an integer let mpmath handle scientific
     # then for float check if it fits on screen otherwise use scientific
     def get_mpmath_scientific(self, val):
@@ -527,7 +517,8 @@ class SCalculator(QtWidgets.QWidget):
         else:
             exp = mpmath.floor(mpmath.log10(abs_val))
             leading_zeros = max(-int(exp) - 1, 0)
-            if leading_zeros >= self.SCI_THRESHOLD:
+
+            if self.SCI_THRESHOLD != 0 and leading_zeros >= self.SCI_THRESHOLD:
                 sig_digits = 0
             else:
                 sig_digits = max(self.DECIMAL_DIGITS - leading_zeros, 1)
@@ -601,7 +592,7 @@ class SCalculator(QtWidgets.QWidget):
         # estimate leading zeros only for small numbers
         leading_zeros = max(-exp - 1, 0)
 
-        if leading_zeros >= self.SCI_THRESHOLD:
+        if self.SCI_THRESHOLD != 0 and leading_zeros >= self.SCI_THRESHOLD:
             return f"{rounded:.{self.FLOAT_SIG_DIGITS}e}"
 
         return fixed
@@ -680,6 +671,17 @@ class SCalculator(QtWidgets.QWidget):
         if event.buttons() == QtCore.Qt.MouseButton.LeftButton and self._dragPos:
             self.move(self.pos() + event.globalPosition().toPoint() - self._dragPos)
             self._dragPos = event.globalPosition().toPoint()
+
+    def closeEvent(self, event):
+        self.complete.emit()
+        super().closeEvent(event)
+
+    def button_frame_alt_menu(self, _pos):
+        menu = QtWidgets.QMenu(self)
+        menu.addAction("rnd", partial(self.random, "RAND"))
+        menu.addAction("rndint", partial(self.random, "RNDINT"))
+        menu.addAction("rndg", partial(self.random, "RNDG"))
+        menu.exec(self.ui.button_frame.mapToGlobal(_pos))
 
     def logline_out(self, text, logger, log_level):
         if log_level and log_level == "DEBUG":
@@ -868,6 +870,88 @@ class SCalculator(QtWidgets.QWidget):
 
         self.display_text()
 
+    def resolve_percent_chains(self, expression, is_mpmath):
+        """
+        this calculator allows for the % to either be modulo or percent so some logic is needed
+        Whenever a % is NOT followed by a digit or decimal point, treat as percent-conversion
+        this is because eval does not recognize % as percent. only modulo.
+        A % followed by a digit is left alone as modulo.
+        """
+        i = 0
+        while i < len(expression):
+            if expression[i] == "%":
+
+                next_char = expression[i + 1] if i + 1 < len(expression) else ""
+                if next_char.isdigit() or next_char == ".":
+                    i += 1
+                    continue
+                else:
+
+                    j = i - 1
+                    while j >= 0 and (expression[j].isdigit() or expression[j] == "."):
+                        j -= 1
+                    num_str = expression[j + 1:i]
+                    if num_str == "":
+                        em = f"No number found before % at position {i}"
+                        self.logger(em + "\n" + f"expression: \n {expression}")
+                        raise ValueError(em)
+
+                    if is_mpmath:
+                        value = mpmath.mpf(num_str) / 100
+                        logged_value = f"mpmath.mpf({num_str}) / 100"
+                        value_str = mpmath.nstr(value, mpmath.mp.dps, strip_zeros=False)
+                    else:
+                        value = float(num_str) / 100
+                        logged_value = num_str + " / 100"
+                        value_str = str(value)
+
+                    exp_a = expression[:j + 1]
+                    exp_b = expression[i + 1:]
+
+                    self.logline_out(exp_a + logged_value + exp_b, self.logger, self.log_level)
+
+                    expression = exp_a + value_str + exp_b
+
+                    i = j + 1 + len(value_str)
+            else:
+                i += 1
+
+        return expression
+
+    def resolve_operand(self, text, token, compute, namespaces, is_mpmath):
+        """
+        find and parse and then eval each convention before and evaluating main expression
+        windows calc uses yroot this uses root. logbase is used which is same.
+        """
+
+        while token in text:
+            idx = text.find(token)
+
+            left = idx
+            while left > 0 and (text[left-1].isdigit() or text[left-1] == "." or text[left-1] == "-"):
+                left -= 1
+
+            right = idx + len(token)
+            while right < len(text) and (text[right].isdigit() or text[right] == "."):
+                right += 1
+
+            a = text[left:idx]
+            b = text[idx+len(token):right]
+
+            logged = compute(a, b)
+            result = eval(logged, {"__builtins__": {}}, namespaces)
+
+            result_str = mpmath.nstr(result, mpmath.mp.dps, strip_zeros=False) if is_mpmath else str(result)
+
+            left = text[:left]
+            right = text[right:]
+            text = left + result_str + right
+            logged_value = left + logged + right
+
+            self.logline_out(logged_value, self.logger, self.log_level)
+
+        return text
+
     def commit_pending_operand(self, suffix):
         curr_text = self.load_current_value()
         expression = curr_text + suffix
@@ -921,17 +1005,19 @@ class SCalculator(QtWidgets.QWidget):
         resolved = expression.replace("π", "pi").replace("√", "sqrt").replace("∛", "cbrt").replace("^", "**")
 
         if self.is_mpmath:
-            resolved = resolve_operand(
+            resolved = self.resolve_operand(
                 resolved, "root", lambda x, y: f"(mpf('{x}'))**(1/(mpf('{y}')))", self.eval_namespace, self.is_mpmath
             )
         else:
-            resolved = resolve_operand(
+            resolved = self.resolve_operand(
                 resolved, "root", lambda x, y: f"({x})**(1/({y}))", self.eval_namespace, self.is_mpmath
             )
 
-        resolved = resolve_operand(resolved, "logbase", lambda x, y: f"logbase({x},{y})", self.eval_namespace, self.is_mpmath)
+        resolved = self.resolve_operand(resolved, "logbase", lambda x, y: f"logbase({x},{y})", self.eval_namespace, self.is_mpmath)
 
-        resolved = resolve_percent_chains(resolved, self.is_mpmath, self.logger)  # percent modulo
+        resolved = self.resolve_operand(resolved, "rndg", lambda x, y: f"rndg({x},{y})", self.eval_namespace, self.is_mpmath)
+
+        resolved = self.resolve_percent_chains(resolved, self.is_mpmath)  # percent modulo
 
         # cast types if in decimal arbitrary precision
         if self.is_mpmath:
@@ -1009,7 +1095,9 @@ class SCalculator(QtWidgets.QWidget):
 
             step = "substiting"
             resolved_expression = self.substitute_expression(full_expression)
+
             self.logline_out(resolved_expression, self.logger, self.log_level)
+
             step = "eval"
 
             result = eval(resolved_expression, {"__builtins__": {}}, self.eval_namespace)
@@ -1024,9 +1112,12 @@ class SCalculator(QtWidgets.QWidget):
             step = "display"
             self.display_text()
             if self.history_view:
+
                 if self.log_level != "DEBUG":
                     self.logger(self.expression_text)
-                self.logger(self.text)
+                    self.last_history_view += self.expression_text + "\n" + self.text + "\n\n"
+
+                self.logger(self.text + "\n")
 
             # reset
             self.ui.negateButton.blockSignals(True)
@@ -1099,7 +1190,7 @@ class SCalculator(QtWidgets.QWidget):
 
             resolved = self.substitute_expression(sub_expr)
 
-            # if having to diagnose unknown results this area can help track stages as built
+            # if having to diagnose unknown results this area can help track each stage
             # self.logger("on paren close sub_expr to resolved \n")
             # self.logline_out(sub_expr, self.logger, self.log_level)
             # self.logline_out(resolved, self.logger, self.log_level)
@@ -1162,15 +1253,22 @@ class SCalculator(QtWidgets.QWidget):
             self.text = "0"
         self.display_text()
 
-    def random(self):
-        if self.ui.rndButton.text() == "RANDINT":
-            self.text = str(random.randint(self.rand_min, self.rand_max))
-            # digits = random.randint(1, 16)
-            # self.text = str(random.randint(0, 10**digits - 1))
+    def random(self, kind):
+
+        if kind == "RNDG":
+            self.commit_pending_operand("rndg")
+            self.expression.setText(self.display_expression())
+
         else:
-            self.text = str(mpmath.rand()) if self.is_mpmath else str(random.random())
-        self.del_locked = False
-        self.display_text()
+            if kind == "RAND":
+                self.text = str(mpmath.rand()) if self.is_mpmath else str(random.random())
+                # digits = random.randint(1, 16)
+                # self.text = str(random.randint(0, 10**digits - 1))
+            elif kind == "RNDINT":
+                self.text = str(random.randint(self.rand_min, self.rand_max))
+
+            self.del_locked = False
+            self.display_text()
 
     def percent(self):
         curr_text = self.output.text().replace(",", "")
@@ -1195,14 +1293,12 @@ class SCalculator(QtWidgets.QWidget):
     def function(self, state):
 
         if state:
-            # self.ui.rndButton.setText("RANDINT")
             self.ui.squareButton.setText("2ˣ")
             self.ui.logBaseButton.setText("n!")
             self.ui.logButton.setText("log₂")
             self.ui.lnButton.setText("eˣ")
             self.ui.tenPowerButton.setText("10ˣ")
         else:
-            # self.ui.rndButton.setText("RAND")
             self.ui.squareButton.setText("x²")
             self.ui.logBaseButton.setText("log(y)(x)")
             self.ui.logButton.setText("log")

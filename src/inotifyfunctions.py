@@ -463,10 +463,10 @@ def init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, temp_dir, gn
 
         else:
 
-            # inotify_creation_file main output /scripts/file_creation_log.txt
-            # CACHE_F cache output              /scripts/ctimecache
-            # watchdog_pid_file                 /scripts/inotify_watcher.pid
-            # lockfile                          /scripts/ctime.lock
+            # inotify_creation_file main output \\scripts\\file_creation_log.txt
+            # CACHE_F cache output              \\scripts\\ctimecache
+            # watchdog_pid_file                 \\scripts\\inotify_watcher.pid
+            # lockfile                          \\scripts\\ctime.lock
 
             script = search_pattern = "watchdog_win.py"
             cdir = script_dir
