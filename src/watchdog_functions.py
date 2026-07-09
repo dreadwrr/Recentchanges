@@ -35,7 +35,7 @@ def emit_write_linux(output_file, CACHE_F, cdir, size, out_data, cache_data, loc
         log_q.put(("write", payload))
     else:
         try:
-            file_lineout(payload, lockfile, logger)
+            file_lineout_linux(payload, lockfile, logger)
         except Exception as e:
             emit_log("ERROR", f"write failed: {e}", logger=logger)
 
@@ -133,7 +133,7 @@ def log_lineout(log_q, logger, path, status, message):
     return is_error
 
 
-def get_specs(event, entry, path, output_file, CACHE_F, lockfile, pending_files, log_q, logger):
+def get_specs(entry, path, output_file, CACHE_F, lockfile, log_q, logger):
     fmt = "%Y-%m-%d %H:%M:%S"
 
     cam = last_modified = None
@@ -182,14 +182,6 @@ def get_specs(event, entry, path, output_file, CACHE_F, lockfile, pending_files,
 
         # or can be used for debug output line = ', '.join(map(str, file_info)) and would have to be updated after set_stat
 
-        # if it is concurrent a moved event count be already triggered for the file
-        if event.event_type == "created":
-            key = (path, size, m_epoch)
-            if key in pending_files:
-                del pending_files[key]
-                emit_log("DEBUG", f"get_specs created event file was renamed or moved returned on: {path}", log_q, logger=logger)
-                return
-
         checks, file_dt, file_us, file_st, status = calculate_checksum(path, mtime, mtime_us, inode, size, retry=2, cacheable=True, log_q=log_q, logger=logger)
 
         if checks is not None:  # if status in ("Returned", "Retried"):
@@ -199,6 +191,8 @@ def get_specs(event, entry, path, output_file, CACHE_F, lockfile, pending_files,
                 if mtime is None:
                     return log_lineout(log_q, logger, path, "Error", "get_specs Retried mtime was None skipping")
 
+                m_time = mtime.strftime(fmt)
+                c_time = ctime.strftime(fmt) if ctime else None
                 m_epoch = mtime.timestamp()
                 c_epoch = ctime.timestamp() if ctime else None
 
@@ -214,14 +208,12 @@ def get_specs(event, entry, path, output_file, CACHE_F, lockfile, pending_files,
 
             elif ctime > mtime:
                 cam = "y"
-                last_modified = mtime.strftime(fmt)
+                last_modified = m_time
+                m_time = c_time
 
         # Output results
 
         emit_log("DEBUG", f"change time: {c_epoch} and mtime: {m_epoch} , get_specs passed processed line", log_q, logger=logger)
-
-        m_time = mtime.strftime(fmt)
-        c_time = ctime.strftime(fmt) if ctime else None
 
         # get proper formatting - printf '%s|%s|%s\t%s\t%s\n' "$inode" "$size" "$mtime" "$checksum" "$path" >> "$cache_file"  # uptcache from pblk on cache
         #
@@ -244,7 +236,7 @@ def get_specs(event, entry, path, output_file, CACHE_F, lockfile, pending_files,
         emit_write(output_file, CACHE_F, size, data, out_str, lockfile, log_q, logger)
 
 
-def get_specs_linux(event, entry, path, output_file, CACHE_F, cdir, lockfile, pending_files, log_q, logger):
+def get_specs_linux(entry, path, output_file, CACHE_F, cdir, lockfile, log_q, logger):
     fmt = "%Y-%m-%d %H:%M:%S"
     sym = cam = last_modified = None
 
@@ -298,6 +290,8 @@ def get_specs_linux(event, entry, path, output_file, CACHE_F, cdir, lockfile, pe
                 if mtime is None:
                     return log_lineout(log_q, logger, path, "Error", "get_specs Retried mtime was None skipping")
 
+                m_time = mtime.strftime(fmt)
+                c_time = ctime.strftime(fmt) if ctime else None
                 m_epoch = mtime.timestamp()
                 c_epoch = ctime.timestamp() if ctime else None
 
@@ -313,14 +307,12 @@ def get_specs_linux(event, entry, path, output_file, CACHE_F, cdir, lockfile, pe
 
             elif ctime > mtime:
                 cam = "y"
-                last_modified = mtime.strftime(fmt)
+                last_modified = m_time
+                m_time = c_time
 
         # Output results
 
         emit_log("DEBUG", f"change time: {c_epoch} and mtime: {m_epoch} , get_specs passed processed line", log_q, logger=logger)
-
-        m_time = mtime.strftime(fmt)
-        c_time = ctime.strftime(fmt) if ctime else None
 
         z = escf_py(path)
         y = ap_encode(path)
@@ -389,9 +381,10 @@ def pair_handle(action, event, path, created_seen, log_q, logger):
             # size = stat_info.st_size
             # key = (path, size, mod_time)
             # self.pending_files[key] = time.time()
+        else:
 
-        # a moved file wouldnt have a creation event or the creation event could have been missed
-        if path not in created_seen and src not in created_seen:
+            # a moved file wouldnt have a creation event or the creation event could have been missed
+
             emit_log("DEBUG", f"handle_file {action} did not have a creation event checking if ctime >= mtime for file: {path}", log_q, logger=logger)
             # change_time = stat_info.stat_info.st_ctime
             # gated on regular moves. otherwise ctime >= mtime and since watch start, they are files of interest so process anyway

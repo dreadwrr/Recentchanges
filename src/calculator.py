@@ -1294,13 +1294,15 @@ class SCalculator(QtWidgets.QWidget):
 
         if state:
             self.ui.squareButton.setText("2ˣ")
-            self.ui.logBaseButton.setText("n!")
+            self.ui.reciprocalButton.setText("n!")
+            # self.ui.logBaseButton.setText("n!")
             self.ui.logButton.setText("log₂")
             self.ui.lnButton.setText("eˣ")
             self.ui.tenPowerButton.setText("10ˣ")
         else:
             self.ui.squareButton.setText("x²")
-            self.ui.logBaseButton.setText("log(y)(x)")
+            # self.ui.logBaseButton.setText("log(y)(x)")
+            self.ui.reciprocalButton.setText("1/x")
             self.ui.logButton.setText("log")
             self.ui.lnButton.setText("ln")
             self.ui.tenPowerButton.setText("x10ˣ")
@@ -1314,11 +1316,8 @@ class SCalculator(QtWidgets.QWidget):
 
     # convention
     def logbase(self):
-        if self.ui.logBaseButton.text() == "n!":
-            self.handle_function_input("fact")
-        else:
-            self.commit_pending_operand("logbase")
-            self.expression.setText(self.display_expression())
+        self.commit_pending_operand("logbase")
+        self.expression.setText(self.display_expression())
 
     def root(self):
         self.commit_pending_operand("root")
@@ -1350,7 +1349,10 @@ class SCalculator(QtWidgets.QWidget):
         self.handle_function_input(text.replace("₂", "two"))
 
     def reciprocal(self):
-        self.handle_function_input(None, template="1/({arg})")
+        if self.ui.reciprocalButton.text() == "n!":
+            self.handle_function_input("fact")
+        else:
+            self.handle_function_input(None, template="1/({arg})")
 
     def cube_root(self):
         self.handle_function_input("cbrt", display_symbol="∛")

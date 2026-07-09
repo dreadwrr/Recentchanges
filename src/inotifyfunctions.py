@@ -436,7 +436,7 @@ def trim_tout(log_file, time_back=6, trim_to=9, min_span_hours=0, logger=logging
 
 def init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, temp_dir, gnupg_home, cfr, xRC, _time, checksum, user, moduleNAME, log_file, ll_level, supbrwLIST, platform="Windows"):
 
-    debug_mode = True  # open debug console if using qt
+    debug_mode = False  # open debug console if using qt
     inotify_log_file = "file_creation_log.txt"
 
     logger = logging.getLogger("INITRECENTCHANGES")
