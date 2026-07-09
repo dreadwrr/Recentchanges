@@ -1,6 +1,7 @@
 certifi==2026.2.25
 charset-normalizer==3.4.5
 idna==3.11
+mpmath==1.4.1
 mft==0.7.0
 numpy==2.4.3
 packaging==26.0
