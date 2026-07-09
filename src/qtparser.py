@@ -4,6 +4,7 @@ from src.findfile import main_entry as findfile_main
 from src.recentchangessearch import main as recentchanges_main
 from src.recentchangessearchparser import build_subparser
 from src.rntchanges import main as rntchanges_main
+from scripts.watchdog_win import main as watchdog_main
 
 
 def dispatch_internal(argv):
@@ -24,6 +25,7 @@ def dispatch_internal(argv):
             },
             "recentchangessearch.py": recentchanges_main,
             "findfile.py": findfile_main,
+            "watchdog_win.py": watchdog_main
         }
 
         entry = DISPATCH_MAP.get(script)
@@ -49,4 +51,6 @@ def dispatch_internal(argv):
                 sys.exit(entry(*recent_args))
             elif script == "findfile.py":
                 sys.exit(entry(args))
+            elif script == "watchdog_win.py":
+                sys.exit(entry(*args[1:]))
     sys.exit(rntchanges_main(argv))

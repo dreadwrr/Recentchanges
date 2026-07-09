@@ -133,9 +133,18 @@ def _fk_process(pattern):
 
 def strup(script_dir, script, appdata_local, home_dir, inotify_creation_file, CACHE_F, cdir, pid_file, lockfile, log_file, ll_level, _time, escaped_user, moduleNAME, usrDIR, temp_dir, gnupg_home, supbrwLIST, debug_mode, logger, platform):
 
+    app = str(appdata_local / "src" / "set_recent_helper.py")
+
     script_path = os.path.join(script_dir, script)
-    cmd = [
-        sys.executable,
+
+    is_pyinstall = False
+    dispatch = sys.executable
+    if getattr(sys, "frozen", False) or "__compiled__" in globals():
+        is_pyinstall = True
+        dispatch = Path(sys.argv[0]).resolve()
+
+    args = [
+        "watchdog_win.py",
         script_path,
         str(appdata_local),
         str(home_dir),
@@ -155,6 +164,10 @@ def strup(script_dir, script, appdata_local, home_dir, inotify_creation_file, CA
         str(debug_mode).lower(),
         *supbrwLIST
     ]
+
+    if not is_pyinstall:
+        args = ["-u", app] + args
+
     try:
         script_dir = os.path.dirname(script_path)
 
@@ -169,6 +182,7 @@ def strup(script_dir, script, appdata_local, home_dir, inotify_creation_file, CA
         else:
             kwargs["start_new_session"] = True
 
+        cmd = [dispatch] + args
         subprocess.Popen(cmd, **kwargs)
 
         logger.debug("strup completed successfully")
