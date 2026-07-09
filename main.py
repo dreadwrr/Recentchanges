@@ -3847,7 +3847,9 @@ def start_main_window():
                 alarm_set_soundFILE, downloads, email, usr, cachermPATTERNS,
                 tempdir
             )
-            window.setWindowIcon(QIcon(icon_path))
+            icon = QIcon(icon_path)
+            app.setWindowIcon(icon)
+            window.setWindowIcon(icon)
             window.show()
             exit_code = app.exec()
 
