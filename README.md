@@ -5,6 +5,7 @@ where the time is current local system time <br><br>
 Last updated: 07/09/2026 <br>
 Windows 10 11 <br>
 
+Support python watchdog package and mpmath with scientific calculator
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 File search application with Hybrid analysis and MFT search <br><br>
