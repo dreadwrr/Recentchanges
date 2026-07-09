@@ -770,7 +770,7 @@ class SCalculator(QtWidgets.QWidget):
         elif clicked_btn == self.ui.lnButton:
             self.ln_button()  # eˣ or ln
         elif clicked_btn == self.ui.logBaseButton:
-            self.logbase()  # x! or log(x)(y)
+            self.logbase()
         elif clicked_btn == self.ui.logButton:
             self.log(self.ui.logButton.text())  # log₂ or log
         elif clicked_btn == self.ui.piButton:
@@ -786,7 +786,7 @@ class SCalculator(QtWidgets.QWidget):
         elif clicked_btn == self.ui.squareButton:
             self.square()  # 2ˣ or x²
         elif clicked_btn == self.ui.reciprocalButton:
-            self.reciprocal()
+            self.reciprocal()  # n! or 1/x
         elif clicked_btn == self.ui.rootButton:
             self.root()
         elif clicked_btn == self.ui.tenPowerButton:
