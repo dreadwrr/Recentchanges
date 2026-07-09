@@ -25,7 +25,7 @@ from src.rntchangesfunctions import name_of
 from src.rntchangesfunctions import to_bool
 from src.rntchangesfunctions import removefile
 import src.watchdog_functions as wf
-# 07/05/2026
+# 07/08/2026
 # This watchdog script was made from an inotify script that was a result of needing to watch basedir for created files that
 # could have preserved metadata and may not show in regular searches. As well as cache files over 1 MB for the 
 # ctimecache.gpg.
@@ -34,7 +34,7 @@ import src.watchdog_functions as wf
 # recently recreated files
 # 
 # If a creation event is missing or lost it is logged. The intention is to only capture created files and by including
-# too much can be inaccurate. for example a move event is not necessarily a created file and introduces noiose.
+# too much can be inaccurate. for example a move event is not necessarily a created file and introduces noise.
 #
 # A debug mode can be set in inotifyfunctions to open debug terminal and wf.DEBUG points to print feedback
 #
@@ -97,7 +97,8 @@ class CreatedHandler(FileSystemEventHandler):
 
         # eg os.path.join(localappdata, f"{moduleNAME}_MDY_*") folders that get files moved some time after this script is started by qt main app
         # C:\\Users\\csaig\\AppData\\Local\\save-changesnew\\rntfiles_MDY_07-05-26-TIME_20_30_40\\rntfilesxSystemDiffFromLastSearch5.txt
-        pattern = rf"{moduleNAME}x_MDY_[^\\]*\\{moduleNAME}x.+$"
+
+        pattern = rf"{moduleNAME}_MDY_[^\\]*\\{moduleNAME}x.+$"
         self.webb.append(pattern)
 
         # eg the db is extracted to C:\\users\\{{user}}\\appdata\\local\\temp\\*\\dbopt.db
@@ -232,7 +233,7 @@ class CreatedHandler(FileSystemEventHandler):
                         else:
                             emit_log("DEBUG", f"timed out waiting for stable size, proceeding anyway (checksum will self-guard): {path}", log_q, logger=self.logger)
 
-                res = wf.get_specs(event, entry, path, self.output_file, self.CACHE_F, self.lockfile, self.pending_files, log_q, self.logger)
+                res = wf.get_specs(entry, path, self.output_file, self.CACHE_F, self.lockfile, log_q, self.logger)
                 if res:
                     emit_log("ERROR", f"Unknown status: {res} returned for file: {path}", log_q, logger=self.logger)
 
@@ -330,8 +331,9 @@ class WatchdogService:
 
         if self.handler.executor:
             self.handler.executor.shutdown(wait=True)
-            self.handler.log_queue.put(wf.SENTINEL)
-            self.handler.log_thread.join(timeout=1)
+            if self.handler.log_queue is not None:
+                self.handler.log_queue.put(wf.SENTINEL)
+                self.handler.log_thread.join(timeout=1)
 
 
 class TrayApp:
@@ -366,10 +368,12 @@ class TrayApp:
         self.tray.setContextMenu(self.menu)
         self.tray.show()
     
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.stop_watch)
+
         # optional delayed auto-start
         QTimer.singleShot(0, self.start_watch)
-        self.timer = threading.Timer(_time, self.stop_watch)
-        self.timer.start()
 
     def write_pid(self):
         with open(self.pid_file, "w") as f:
@@ -406,9 +410,9 @@ class TrayApp:
         if not self.running:
             self.service.start()
             self.running = True
-        self.timer.cancel()
-        self.timer = threading.Timer(self._time, self.stop_watch)
-        self.timer.start()
+            self.timer.stop()
+            self.timer.start(int(self._time * 1000))
+
 
     def stop_watch(self):
         if self.running:
@@ -418,7 +422,7 @@ class TrayApp:
 
     def exit_app(self):
         self.stop_watch()
-        self.timer.cancel()
+        self.timer.stop()
         # for t in threading.enumerate():
         #     print(t.name, t.daemon, t.is_alive())
         QApplication.quit()
@@ -479,4 +483,4 @@ def main(appdata_local, home_dir, output_file, CACHE_F, cdir, pid_file, lockfile
 
 if __name__ == "__main__":
 
-    sys.exit(main(*sys.argv[1:]))
+    main(*sys.argv[1:])
