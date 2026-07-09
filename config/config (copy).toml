@@ -65,16 +65,17 @@ extension = [
  ".iso", ".md5", ".sha1", ".torrent", ".dat"
 ]
 
-# run inotifywait for one hour to look for new files where ctime > mtime in /changes. this is for downloads or copies with preserved metadata
-# hashes created files and inserts into the cache ctimecache.gpg.
+# run watchdog for one hour to look for new files in basedir. if automation fails it doesnt effect the results as the purpose is
+# to make file_creation_log and cache files over 1MB for ctimecache.gpg.
+# reduces process overhead as larger created files or downloads the results are already there
 xRC = true              # false - default. if false the files will still show up
                          # true
-_time = 3600
 
-# Hours back to start file_creation_log.txt trim.
+_time = 3600    # default xRC searches for 1 hour before closing. default is to clear file_creation_log
+
+# Hours back to start file_creation_log.txt trim. then trim back to low water
 high_water = 9
 
-# trim back to hours on high water
 low_water = 6
 
 # clear the log instead of high water if above minimum span hours
@@ -91,10 +92,12 @@ archivesrh = 5
                 # scientific
 mode = "regular"
 
-# decimal precision
+# decimal precision for scientific mode. working precision is always 30 digits higher.
+                # 20 minimum
+                # 150 max
 decimals = 51
 
-# leading zeros needed to use exponent
+# leading zeros needed to use exponent notation
 scientific_threshold = 6
 
                 # default or ""
