@@ -5,7 +5,7 @@ where the time is current local system time <br><br>
 Last updated: 07/07/2026 <br>
 Windows 10 11 <br>
 
-Have python watchdog script completed and doing somme adjusting but is looking good. Also expanding on the office look <br>
+Have python watchdog script completed and doing smme adjusting but is looking good. Expanding on the office look
 recent changes will be getting a scientific calculator. I have posted the update to the repo but will give it another <br>
 day to test and see if there is anything else that should be added <br><br>
 
