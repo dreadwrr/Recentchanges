@@ -68,7 +68,7 @@ extension = [
 # run watchdog for one hour to look for new files in basedir. if automation fails it doesnt effect the results as the purpose is
 # to make file_creation_log and cache files over 1MB for ctimecache.gpg.
 # reduces process overhead as larger created files or downloads the results are already there
-xRC = true              # false - default. if false the files will still show up
+xRC = false              # false - default. if false the files will still show up
                          # true
 
 _time = 3600    # default xRC searches for 1 hour before closing. default is to clear file_creation_log
