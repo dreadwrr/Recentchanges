@@ -3733,12 +3733,13 @@ def start_main_window():
 
             app = QApplication(sys.argv)
 
-            import qdarktheme
-            # qdarktheme.setup_theme("auto")
-            palette = qdarktheme.load_palette(theme="dark")
-            app.setPalette(palette)
-            # stylesheet = qdarktheme.load_stylesheet(theme="dark")
-            # app.setStyleSheet(stylesheet)
+            # experiment with default theming kind of basic?
+            # import qdarktheme
+            # # qdarktheme.setup_theme("auto")
+            # palette = qdarktheme.load_palette(theme="dark")
+            # app.setPalette(palette)
+            # # stylesheet = qdarktheme.load_stylesheet(theme="dark")
+            # # app.setStyleSheet(stylesheet)
 
             is_key, err = iskey(email)
             if is_key is False:
