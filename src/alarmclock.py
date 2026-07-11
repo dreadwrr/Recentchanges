@@ -1,7 +1,7 @@
 import os
 import platform
 import subprocess
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtCore import QTimer, QTime, QElapsedTimer, Signal, QUrl, Qt
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput  # QSoundEffect
 from PySide6.QtWidgets import QWidget, QLCDNumber, QInputDialog
@@ -688,19 +688,26 @@ class AlarmClock(QWidget):
 
     def set_format(self, theme):
 
+        palette = self.ui.lcdNumber.palette()
+        # old_color = palette.color(palette.ColorRole.WindowText)  # debug to find out the default color which is white
+        # print(old_color)
+
         if platform.system() == "Windows":
-            # self.ui.lcdNumber.setPalette(self.style().standardPalette())
+
             if not theme:
                 if theme is not None:
                     self.ui.lcdNumber.setStyleSheet("")
+                    palette.setColor(palette.ColorRole.WindowText, QColor("#ffffff"))  # from debug above set it back to white
                 return
         else:
+
             self.ui.lcdNumber.setStyleSheet("")
-            self.ui.lcdNumber.setPalette(self.style().standardPalette())
+            self.ui.lcdNumber.setStyleSheet("border: 1px solid #808080;")  # self.ui.lcdNumber.setStyleSheet("border: 1px solid transparent;")  # self.ui.lcdNumber.setStyleSheet("")
+            # if theme or theme == "":
+            # self.ui.lcdNumber.setPalette(self.style().standardPalette())
             if not theme:
                 return
 
-        palette = self.ui.lcdNumber.palette()
         if theme == "redblack":
             self.ui.lcdNumber.setStyleSheet("background-color: black; border: 1px solid #330000;")
         if theme == "red" or theme == "redblack":
