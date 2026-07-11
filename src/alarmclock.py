@@ -1,7 +1,7 @@
 import os
 import platform
 import subprocess
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtGui import QColor  # , QPalette
 from PySide6.QtCore import QTimer, QTime, QElapsedTimer, Signal, QUrl, Qt
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput  # QSoundEffect
 from PySide6.QtWidgets import QWidget, QLCDNumber, QInputDialog
