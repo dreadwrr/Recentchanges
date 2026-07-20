@@ -16,9 +16,9 @@ Can be used with system python or one step pyinstall build. A windows setup vers
 GPG included or can use gpg4win. Can use system 7-zip winrar. default python zipfile. <br>
 
 <p>
-Maintains an office look with scientific calculator that uses mpmath package <br>
-Hash python watchdog script to search for created files <br>
-Check for hash collisions during search <br><br>
+Has an office look with scientific calculator that uses mpmath package <br>
+Features python watchdog script to search for created files <br><br>
+Check for hash collisions during search <br>
 Save encrypted notes <br>
 Custom alarm clock that plays .mp3, .wav and .ogg files or beeps <br>
 Select from a number of fonts or install your own. also 5 themes unix, wb (white on black), solar, monochrome or modern  <br>
