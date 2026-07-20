@@ -5,7 +5,7 @@ where the time is current local system time <br><br>
 Last updated: 07/20/2026 <br>
 Windows 10 11 <br>
 
-- Supports blake2b hashes
+- Supports blake2b checksum
 - Added entropy mime and target change to hybrid analysis and profile scans
 - Verified python watchdog script
 
