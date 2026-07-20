@@ -1,11 +1,12 @@
-Note to quickly find modified and new files on the system you can use: <br>
+To quickly find modified and new files on the system you can use: <br>
 recentchanges\\bin\\parsec.exe C: --cutoff "2026-06-15 07:13:18" \# or "2026-06-15T07:13:18"<br>
 where the time is current local system time <br><br>
 
+Version: 6.5.0
 Last updated: 07/20/2026 <br>
 Windows 10 11 <br>
 
-- Supports blake2b checksum
+- Added Support for blake2b checksum
 - Added entropy mime and target change to hybrid analysis and profile scans
 - Verified python watchdog script
 
@@ -16,8 +17,8 @@ Can be used with system python or one step pyinstall build. A windows setup vers
 GPG included or can use gpg4win. Can use system 7-zip winrar. default python zipfile. <br>
 
 <p>
-Has scientific calculator <br>
-Python watchdog script <br>
+Features scientific calculator with mpmath package <br>
+xrc with Python Watchdog script <br>
 Check for hash collisions during search <br>
 Save encrypted notes <br>
 Custom alarm clock that plays .mp3, .wav and .ogg files or beeps <br>
