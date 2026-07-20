@@ -10,7 +10,7 @@ pillow==12.1.1
 psutil==7.2.2
 PySide6==6.10.2
 python-dateutil==2.9.0.post0
-python-magic-bin==0.4.14
+python-magic-standalone==0.4.28
 pywin32==311
 requests==2.32.5
 six==1.17.0

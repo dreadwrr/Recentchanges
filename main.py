@@ -44,7 +44,6 @@ from src.gpgcrypto import encr
 from src.gpgkeymanagement import genkey
 from src.gpgkeymanagement import iskey
 from src.imageraster import raised_image
-from src.inotifyfunctions import old_pid_check
 from src.inotifyfunctions import process_by_target
 from src.inotifyfunctions import trim_tout
 from src.logs import change_logger
@@ -250,7 +249,7 @@ class MainWindow(QMainWindow):
         # QTimer.singleShot(5000, self.display_db)
 
         # Vars
-        self.app_version = "6.1.2"
+        self.app_version = "6.2.0"
         self.pwd = os.getcwd()
         self.home_dir = home_dir
         config_local = appdata_local / "config"
@@ -817,7 +816,7 @@ class MainWindow(QMainWindow):
 
     def manage_file_creation_log(self):
         pid = process_by_target(self.search_pattern)
-        old_pid_check(self.watchdog_pid_file, pid, "windows")
+
         if not pid:
             trim_tout(self.inotify_creation_file, self.low_water, self.high_water, self.min_span)
 
@@ -2147,10 +2146,10 @@ class MainWindow(QMainWindow):
         postop = self.ui.diffchka.checkState() == Qt.CheckState.Checked
         showDiff = self.ui.diffchkc.isChecked()
 
-        if postop:
-            doctrine = os.path.join(self.usrDIR, "doctrine.tsv")
-            if os.path.exists(doctrine):
-                self.ui.hudt.appendPlainText("A file doctrine already exists skipping")
+        # if postop:
+        #     doctrine = os.path.join(self.usrDIR, "doctrine.tsv")
+        #     if os.path.exists(doctrine):
+        #         self.ui.hudt.appendPlainText("A file doctrine already exists skipping")
 
         self.proc = ProcessHandler()
         self.open_proc(360000)
@@ -2479,7 +2478,7 @@ class MainWindow(QMainWindow):
         self.ui.hudt.append_colored_output("\033[1;32mSystem index scan..\033[0m")
 
         drive_type = self.j_settings.get(basedir, {}).get("drive_type")
-        timeout = 300000
+        timeout = 600000
         if drive_type and drive_type == "HDD":
             timeout = timeout * 3
         self.proc = ProcessHandler()
@@ -2515,7 +2514,7 @@ class MainWindow(QMainWindow):
     def run_build_idx(self, basedir, cache_s, stsmsg, tables, idx_drive=False, drive_value=None):
 
         drive_type = self.j_settings.get(basedir, {}).get("drive_type")
-        timeout = 300000
+        timeout = 600000
         if drive_type and drive_type == "HDD":
             timeout = timeout * 3
         self.proc = ProcessHandler()
@@ -3015,7 +3014,7 @@ class MainWindow(QMainWindow):
                 if tables:
                     tables = [
                         t for t in tables
-                        if t not in {"extn", "analytics", "scans", "scan_entries"}
+                        if t not in {"extn", "analytics", "scans", "mime_types"}  # "scan_entries",
                     ]
                     res = True
                     self.db = True
@@ -3819,6 +3818,7 @@ def start_main_window():
             print("Qt database in ", tempdir)
 
             icon_path = str(iconPATH)
+            # print("CC", icon_path)
 
             def excepthook(exc_type, exc_value, exc_traceback):
                 sys.__excepthook__(exc_type, exc_value, exc_traceback)
@@ -3847,9 +3847,8 @@ def start_main_window():
                 alarm_set_soundFILE, downloads, email, usr, cachermPATTERNS,
                 tempdir
             )
-            icon = QIcon(icon_path)
-            app.setWindowIcon(icon)
-            window.setWindowIcon(icon)
+
+            window.setWindowIcon(QIcon(icon_path))
             window.show()
             exit_code = app.exec()
 
