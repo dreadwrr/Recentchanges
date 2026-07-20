@@ -1,5 +1,5 @@
 
-version 5.0
+version 6.5.0
 
 recentchanges aka Developer buddy
 
@@ -9,7 +9,7 @@ Provide ease of pattern finding ie what files to block we can do this a number o
 2) Is a system file inherent to the specifc platform
 3) intangibles ie trashed items that may pop up infrequently and are not known about
 
-Modes available Search Query See bottom after usage how to use modes
+Modes available
 
 
 recentchanges s         where s is time in seconds	output AppData
@@ -27,9 +27,9 @@ recentchanges search 30		search for files 30 seconds or newer
 
 Search for files newer than a file or directory
 
-recentchanges search /home/guest/myfile.txt    search for files newer than myfile
+recentchanges search C:\\users\\user\\myfile.txt    search for files newer than myfile
 recentchanges search myfile.txt
-recentchanges search /home/guest/My\ Directory\ two/with\ spaces/   ... newer than directory
+recentchanges search 'C:\\My Directory\\with spaces\\'   ... newer than directory
 
 
 Query
@@ -50,4 +50,3 @@ If having problems with keys.
 
 or option 3.
 use recentchanges reset. to delete the key pair and gpgs and reset
-
