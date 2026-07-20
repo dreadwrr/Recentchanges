@@ -245,6 +245,11 @@ alarm_set_soundFILE = ""
                         # slower useful if you want to check deeper level of stats
 checkSUM = true
 
+# default is md5 
+                        # md5
+                        # blake2
+checkMETHOD = "md5"
+
  # Include more info a file was changed but has the same checksum and filesize subtle edit  ie cache items or string was changed
                         # also check for hash collisions
 cdiag = true
