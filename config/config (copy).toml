@@ -225,6 +225,7 @@ alarm_24hr = true
                                 # ""
                                 # redblack
                                 # red
+                                # green
                                 # blue
                                 # black
 alarmCOLOR = ""
