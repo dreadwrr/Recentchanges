@@ -1,11 +1,13 @@
 import os
 import platform
 import subprocess
-from PySide6.QtGui import QColor  # , QPalette
-from PySide6.QtCore import QTimer, QTime, QElapsedTimer, Signal, QUrl, Qt
-from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput  # QSoundEffect
+# from PySide6.QtGui import QColor  # , QPalette
+from PySide6.QtCore import QTimer, QTime, QElapsedTimer, Signal, QUrl  # , Qt
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput  # , QSoundEffect
 from PySide6.QtWidgets import QWidget, QLCDNumber, QInputDialog
 from src.ui_alarmclock import Ui_AlarmClock
+# 07/21/2026
+
 
 MODES = ["ALARM", "CRONO", "TIMER"]
 
@@ -687,43 +689,87 @@ class AlarmClock(QWidget):
         return False
 
     def set_format(self, theme):
+        lcd = self.ui.lcdNumber
+        apm = self.ui.apmlabel
 
-        palette = self.ui.lcdNumber.palette()
-        # old_color = palette.color(palette.ColorRole.WindowText)  # debug to find out the default color which is white
-        # print(old_color)
+        theme = theme or "white"
 
-        if platform.system() == "Windows":
+        colors = {
+            "white": "#ffffff",
+            "red": "#800000",
+            "redblack": "#800000",
+            "blue": "#000080",
+            "black": "#000000",
+            "green": "#00ff00",
+        }
 
-            if not theme:
-                if theme is not None:
-                    self.ui.lcdNumber.setStyleSheet("")
-                    palette.setColor(palette.ColorRole.WindowText, QColor("#ffffff"))  # from debug above set it back to white
-                return
-        else:
-
-            self.ui.lcdNumber.setStyleSheet("")
-            self.ui.lcdNumber.setStyleSheet("border: 1px solid #808080;")  # self.ui.lcdNumber.setStyleSheet("border: 1px solid transparent;")  # self.ui.lcdNumber.setStyleSheet("")
-            # if theme or theme == "":
-            # self.ui.lcdNumber.setPalette(self.style().standardPalette())
-            if not theme:
-                return
-
-        if theme == "redblack":
-            self.ui.lcdNumber.setStyleSheet("background-color: black; border: 1px solid #330000;")
-        if theme == "red" or theme == "redblack":
-            palette.setColor(palette.ColorRole.WindowText, QColor("#800000"))  # palette.setColor(palette.ColorRole.WindowText, Qt.GlobalColor.red)
-            self.ui.apmlabel.setStyleSheet("color: #800000;")  # self.ui.apmlabel.setStyleSheet("color: red;")
-        elif theme == "blue":
-            palette.setColor(palette.ColorRole.WindowText, QColor("#000080"))  # Qt.GlobalColor.blue
-            self.ui.apmlabel.setStyleSheet("color: #000080;")
-        elif theme == "black":
-            palette.setColor(palette.ColorRole.WindowText, Qt.GlobalColor.black)
-            self.ui.apmlabel.setStyleSheet("color: black;")
-        else:
-            print("Unrecognized theme out of options redblack, red, blue, black. recieved", theme)
+        if theme not in colors:
+            print("Unknown theme:", theme)
             return
 
-        self.ui.lcdNumber.setPalette(palette)
+        color = colors[theme]
+
+        lcd.setStyleSheet(f"""
+            color: {color};
+            border: 1px solid palette(mid);
+        """)
+
+        apm.setStyleSheet(f"color: {color};")
+
+        if theme == "green":
+            # background-color: #1e1e1e;  # gray which doesnt stand out on darkmode **
+            # border: none;
+            lcd.setStyleSheet(f"""
+                color: {color};
+                background-color: black;
+                border: 1px solid {color};
+            """)
+        elif theme == "redblack":
+            lcd.setStyleSheet(f"""
+                color: {color};
+                background-color: black;
+                border: 1px solid {color};
+            """)
+
+    # original before condensed
+    # def set_format(self, theme):
+
+    #     palette = self.ui.lcdNumber.palette()
+    #     # old_color = palette.color(palette.ColorRole.WindowText)  # debug to find out the default color which is white
+    #     # print(old_color)
+
+    #     if platform.system() == "Windows":
+
+    #       if not theme:
+    #         if theme is not None:
+    #             self.ui.lcdNumber.setStyleSheet("")
+    #             palette.setColor(palette.ColorRole.WindowText, QColor("#ffffff"))  # from debug above set it back to white
+    #         return
+    #     else:
+
+    #     self.ui.lcdNumber.setStyleSheet("")
+    #     self.ui.lcdNumber.setStyleSheet("border: 1px solid #808080;")  # self.ui.lcdNumber.setStyleSheet("border: 1px solid transparent;")  # self.ui.lcdNumber.setStyleSheet("")
+    #     # if theme or theme == "":
+    #     # self.ui.lcdNumber.setPalette(self.style().standardPalette())
+    #     if not theme:
+    #         return
+
+    #     if theme == "redblack":
+    #       self.ui.lcdNumber.setStyleSheet("background-color: black; border: 1px solid #330000;")
+    #     if theme == "red" or theme == "redblack":
+    #       palette.setColor(palette.ColorRole.WindowText, QColor("#800000"))  # palette.setColor(palette.ColorRole.WindowText, Qt.GlobalColor.red)
+    #       self.ui.apmlabel.setStyleSheet("color: #800000;")  # self.ui.apmlabel.setStyleSheet("color: red;")
+    #     elif theme == "blue":
+    #       palette.setColor(palette.ColorRole.WindowText, QColor("#000080"))  # Qt.GlobalColor.blue
+    #       self.ui.apmlabel.setStyleSheet("color: #000080;")
+    #     elif theme == "black":
+    #       palette.setColor(palette.ColorRole.WindowText, Qt.GlobalColor.black)
+    #       self.ui.apmlabel.setStyleSheet("color: black;")
+    #     else:
+    #       print("Unrecognized theme out of options redblack, red, blue, black. recieved", theme)
+    #       return
+
+    #     self.ui.lcdNumber.setPalette(palette)
 
     def set_clock_format(self, _24hformat):
 
