@@ -5,14 +5,15 @@ where the time is current local system time <br><br>
 Last updated: 07/20/2026 <br>
 Windows 10 11 <br>
 
-- All new office look with scientific calculator that uses mpmath package <br>
-- Implemented python watchdog package to look for created files with xRC <br>
+- Supports blake2b hashes
+- Added entropy mime and target change to hybrid analysis and profile scans
+- Verified python watchdog script
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 File search application with Hybrid analysis and MFT search <br><br>
 Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br>
 
-GPG included or can use gpg4win. Can use system 7-zip winrar. default python zipfile. <br> <br><br>
+GPG included or can use gpg4win. Can use system 7-zip winrar. default python zipfile. <br>
 
 <p>
 Maintains an office look with scientific calculator that uses mpmath package <br>
