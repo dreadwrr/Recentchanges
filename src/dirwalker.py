@@ -1,4 +1,4 @@
-#   build first to find the files then distribute round-robin to multiprocessing            06/19/2026
+#   build first to find the files then distribute round-robin to multiprocessing            07/19/2026
 # to hash. This was found to be the fastest as other methods have too much overhead
 
 # scan the important files for modified with same mtime or spoofed timestamp
@@ -54,6 +54,7 @@ from .logs import logging_worker
 from .logs import logs_to_queue
 from .logs import setup_logger
 from .logs import write_logs_to_logger
+from .pyfunctions import convert_mime_to_int
 from .pyfunctions import cprint
 from .pyfunctions import epoch_to_str
 from .pysql import clear_conn
@@ -103,7 +104,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
     if basedir == "C:\\":
 
         # sensitivity adjust
-        # left out for speed so dont have to glob. these are intermettitent runtime files so doesnt effect anything
+        # left out for speed so dont have to glob. these are intermittent runtime files so doesnt effect anything
         # search_archive = os.path.join(appdata_local, f"{moduleNAME}_MDY_*")  # windows
         # search_archive = os.path.join("/tmp", f"{moduleNAME}_MDY_*")  # linux
         # excluded = glob.glob(search_archive)
@@ -186,7 +187,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
 
         start = time.time()
 
-        with ProcessPoolExecutor(max_workers=num_chunks) as executor:
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
 
             futures = [
                 executor.submit(
@@ -211,7 +212,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
                     print(f"Progress: {prog_v:.2f}%", flush=True)
                 except BrokenProcessPool as e:
                     print("find created failed in mc")
-                    logroot.error("unable to build IDX. %s", e, exc_info=True)
+                    logroot.error("unable to scan created in find_created. %s", e, exc_info=True)
                     rlt = 1
                     break
                 except Exception as e:
@@ -251,7 +252,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
                 # del_keys = [(key,) for key in key_rm]
                 if cfr_insert:         # add new reparse points after deltas
                     cfr_data.update(cfr_insert)
-                    # if doing a seperate db update for reparse
+                    # if doing a separate db update for reparse
                     #     key_ins =  []
                     #     key_ins = flatten_dict(cfr_insert)
                 if cfr_data:  # update the cache with delta
@@ -260,6 +261,8 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
                         cfr_src[root] = data
 
                     data_to_write = dict_to_list_sys(cfr_src)
+
+                    # look into optimizating the double loop <---
 
                     for row in data_to_write:
                         for k, v in row.items():
@@ -376,6 +379,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
     filterout_list = config_data.filterout_list
     driveTYPE = config_data.driveTYPE
     ll_level = config_data.ll_level
+    checkMETHOD = config['diagnostics']['checkMETHOD']
     extension = config['shield']['proteusEXTN']
     configured_paths = config['shield']['proteusPATH']
     is_exec = config['shield']['exec']
@@ -535,7 +539,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
             tlog = threading.Thread(target=logging_worker, args=(log_q, total, prog_v, endval, show_progress, rootlogger), daemon=True)
             tlog.start()
 
-            parsedsys, logs, _ = build_index(all_files, i, num_chunks, show_progress, prog_v, endval)
+            parsedsys, logs, _ = build_index(all_files, i, num_chunks, show_progress, checkMETHOD, prog_v, endval)
             if logs:
                 logs_to_queue(logs, log_q)
         except Exception as e:
@@ -577,7 +581,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
             ) as executor:
                 futures = [
                     executor.submit(
-                        build_index, chunk, i, num_chunks, show_progress, prog_v, endval
+                        build_index, chunk, i, num_chunks, show_progress, checkMETHOD, prog_v, endval
                     )
                     for i, chunk in enumerate(chunks)
                 ]
@@ -680,6 +684,7 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
     ll_level = config_data.ll_level
 
     config = config_data.config
+    checkMETHOD = config['diagnostics']['checkMETHOD']
     is_sym = config['shield']['sym']
 
     sys_tables, cache_table, _ = get_idx_tables(basedir, cache_s)
@@ -687,7 +692,7 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
     if iqt:
         print(f"Progress: {strt}%")
 
-    recent_sys = db_sys_changes(dbopt, sys_tables)  # retrieve profile from db
+    recent_sys, mime_hashmap, id_to_mime = db_sys_changes(dbopt, sys_tables)  # retrieve profile from db
 
     if recent_sys is None:  # error
         print("\nThere was no return retrieving profile from db_sys_changes in scan_system indicating a problem. if having problems delete recent.gpg")
@@ -701,8 +706,10 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
     print("Finding differences running checksum.", flush=True)
 
     all_sys = []  # changed file info\meta
-    link_diff = []  # symlink target changes
-    nfs_records = []
+    link_change = []  # symlink target changes
+    ent_change = []  # entropy >= .5
+    mime_change = []  # mime type changes
+    nfs_records = []  # files that no longer exist
     x = 0
     y = 0
 
@@ -711,13 +718,14 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
 
     total = len(recent_sys)
     batch_size = 500
-
     deltav = endp - strt
     endval = deltav * .9 + strt
 
     show_progress = False
     if iqt:
         show_progress = True
+
+    # get the instanteous change for checksum entropy mime and nsf for the files
 
     if total < batch_size or driveTYPE.lower() == "hdd":
 
@@ -731,7 +739,7 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
             tlog = threading.Thread(target=logging_worker, args=(log_q, total, strt, endval, show_progress, logger), daemon=True)
             tlog.start()
 
-            all_sys, link_diff, nfs_records, log_entries, x, y, _ = scan_index(recent_sys, is_sym, i, num_chunks, show_progress, strt, endval)
+            all_sys, link_change, ent_change, mime_change, nfs_records, log_entries, x, y, _ = scan_index(recent_sys, is_sym, i, num_chunks, show_progress, checkMETHOD, strt, endval)
             if log_entries:
                 logs_to_queue(log_entries, log_q)
 
@@ -768,18 +776,22 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
             ) as executor:
 
                 futures = [
-                    executor.submit(scan_index, chunk, is_sym, i, num_chunks, show_progress)
+                    executor.submit(scan_index, chunk, id_to_mime, is_sym, i, num_chunks, show_progress, checkMETHOD)
                     for i, chunk in enumerate(chunks)
                 ]
 
                 for future in as_completed(futures):
 
                     try:
-                        sys_data, link_data, results, log_entries, x_c, y_c, _ = future.result()
+                        sys_data, link_data, ent_data, mime_data, results, log_entries, x_c, y_c, _ = future.result()
                         if sys_data:
                             all_sys.extend(sys_data)
                         if link_data:
-                            link_diff.extend(link_data)
+                            link_change.extend(link_data)
+                        if ent_data:
+                            ent_change.extend(ent_data)
+                        if mime_data:
+                            mime_change.extend(mime_data)
                         if results:
                             nfs_records.extend(results)
                         if log_entries:
@@ -822,8 +834,18 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
 
         if all_sys:
             all_sys.sort(key=lambda x: x[0])
+            all_sys, new_mime_rows, _ = convert_mime_to_int(all_sys, mime_hashmap, id_to_mime)
+        # cant sort this here as has row pairs. sorted in output_diff.
+        # if link_change:
+        #     link_change.sort(key=lambda x: x[0])
+        if ent_change:
+            ent_change.sort(key=lambda x: x[0])
+        if mime_change:
+            mime_change.sort(key=lambda x: x[0])
 
-        prev_scans, dir_diff, new_diff = differences_db(dbopt, basedir, all_sys, cache_table, systimeche, showDiff, scan_start)
+        # get previous scans
+
+        prev_scans, link_diff, ent_diff, mime_diff, dir_diff, new_diff = differences_db(dbopt, basedir, all_sys, sys_tables, cache_table, systimeche, showDiff, scan_start)
         prev_scans = prev_scans or {}
         for scantime, rows in prev_scans.items():
             prev_scans[scantime] = [tuple(row.values())[3:] for row in rows]
@@ -837,10 +859,10 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
                 cmsg = f"\nThe sys index had over 30% miss rate recommend rebuild index: {p:.2f}%"
 
         if all_sys:
-            prev_scans[scan_start] = [tuple(row) for row in all_sys]
+            prev_scans[scan_start] = [tuple(row) for row in all_sys]  # add current scan to previous
             # Insert changes
 
-            if not save_db(dbopt, dbtarget, basedir, cache_s, email, user, None, None, all_sys, keys=None, idx_drive=False, compLVL=compLVL, dcr=dcr):
+            if not save_db(dbopt, dbtarget, basedir, cache_s, email, user, None, None, all_sys, new_mime_rows, keys=None, idx_drive=False, compLVL=compLVL, dcr=dcr):
                 rlt = 1
                 print(f"Failed to insert profile changes into {sys_tables[1]} table in scan_system")
             # change_perm(dbtarget, uid, gid, 0o644)
@@ -850,10 +872,12 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
 
         # output terminal and differences
 
-        are_symmetrics = link_diff or nfs_records or dir_diff or new_diff
+        are_symmetrics = link_diff or ent_diff or mime_diff or nfs_records or dir_diff or new_diff
         if all_sys or are_symmetrics:
 
-            output_diff(diff_file, prev_scans, all_sys, link_diff, nfs_records, dir_diff, new_diff, cmsg, are_symmetrics, showDiff, scan_start)
+            output_diff(diff_file, prev_scans, all_sys, mime_hashmap, id_to_mime, link_change,
+                        ent_change, mime_change, link_diff, ent_diff, mime_diff, nfs_records,
+                        dir_diff, new_diff, cmsg, are_symmetrics, showDiff, scan_start)
 
     else:
         print("Scan index failed scan_system dirwalker.py.")
@@ -919,7 +943,7 @@ def main_entry(argv):
         ]
         sys.exit(set_hardlinks(*calling_args))
 
-    if args.action == "scan":
+    elif args.action == "scan":
         calling_args = [
             args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.diff_file, args.cache_s,
             args.email, args.analytics, args.showDiff, args.compLVL, args.dcr, args.iqt, args.strt,

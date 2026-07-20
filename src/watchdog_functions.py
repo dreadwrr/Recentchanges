@@ -1,3 +1,5 @@
+import os
+import psutil
 from pathlib import Path
 from src.dirwalkerfunctions import get_stat
 from src.logs import emit_log
@@ -7,6 +9,8 @@ from src.fileops import set_stat
 from src.fsearchfunctions import file_owner
 from src.fsearchfunctions import get_file_id
 from src.fsearchfunctions import normalize_timestamp
+from src.inotifyfunctions import drop_pid
+from src.inotifyfunctions import process_kill
 from src.pyfunctions import epoch_to_date
 from src.pyfunctions import epoch_to_str
 SENTINEL = None
@@ -52,7 +56,7 @@ def file_lineout(payload, lockfile, logger):
     #     lock_file.close()
 
 
-def logging_(work_queue, lockfile, logger):
+def logger_process(work_queue, lockfile, logger):
 
     log = logger
 
@@ -94,12 +98,10 @@ def log_lineout(log_q, logger, path, status, message):
     return is_error
 
 
-def get_specs(entry, path, output_file, CACHE_F, lockfile, log_q, logger):
+def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, log_q, logger):
     fmt = "%Y-%m-%d %H:%M:%S"
 
     cam = last_modified = None
-
-    # filename = entry.name
 
     stat_info = get_stat(entry, log_q, logger=logger)
     if not stat_info:
@@ -126,7 +128,10 @@ def get_specs(entry, path, output_file, CACHE_F, lockfile, log_q, logger):
     if status in ("Nosuchfile", "Error"):
         return log_lineout(log_q, logger, path, status, "get_specs failed to get inode, hardlink and mode")
 
-    if sym != "y" and size:
+    if action == "created" and not size:
+        return
+
+    if sym != "y":
 
         resolve_owner_data = file_owner(path, log_q, logger=logger)
         if resolve_owner_data in ("Nosuchfile", "Error"):
@@ -139,11 +144,11 @@ def get_specs(entry, path, output_file, CACHE_F, lockfile, log_q, logger):
         a_time = epoch_to_str(a_epoch)
         is_error = None
         status = is_error
-        file_info = (mode, inode, hardlink, owner, domain, mtime, m_epoch_ns, m_time, c_time, a_time, size, status)  # for logging if inode changed in set_stat
 
+        file_info = (mode, inode, hardlink, owner, domain, mtime, m_epoch_ns, m_time, c_time, a_time, size, status)  # for logging if inode changed in set_stat
         # or can be used for debug output line = ', '.join(map(str, file_info)) and would have to be updated after set_stat
 
-        checks, file_dt, file_us, file_st, status = calculate_checksum(path, mtime, mtime_us, inode, size, retry=2, cacheable=True, log_q=log_q, logger=logger)
+        checks, entropy, mime, file_dt, file_us, file_st, status = calculate_checksum(path, mtime, mtime_us, inode, size, algo=algo, retry=2, cacheable=True, log_q=log_q, logger=logger)
 
         if checks is not None:  # if status in ("Returned", "Retried"):
             if status == "Retried":
@@ -189,9 +194,9 @@ def get_specs(entry, path, output_file, CACHE_F, lockfile, log_q, logger):
         # adtcmd="$check_sum $fs $sl $wnr $grp $pmn"  # pblk
 
         data = [
-            m_time, f'"{path}"', c_time, inode, a_time,
-            checks, size, sym, owner, domain, mode,
-            cam, last_modified, hardlink, mtime_us
+            m_time, f'"{path}"', c_time, inode, a_time, checks,
+            entropy, mime, size, sym, owner, domain, mode, cam,
+            last_modified, hardlink, mtime_us
         ]
 
         emit_write(output_file, CACHE_F, size, data, out_str, lockfile, log_q, logger)
@@ -214,41 +219,173 @@ def is_temp_file(path: Path, temp_suffixes) -> bool:
     return path.suffix.lower() in temp_suffixes
 
 
-def pair_handle(action, event, path, created_seen, log_q, logger):
-
+def pair_handle(action, event, entry, path, start_time, created_seen, log_q, logger):
+    """ returns false meaning process the event """
     src = str(Path(event.src_path).resolve())
-    # stat_info = get_stat(entry, log_q, logger=self.logger)
-    # if not stat_info:
-    #     return None
+    stat_info = get_stat(entry, log_q, logger=logger)
+    if not stat_info:
+        return None
 
-    # mod_time = stat_info.st_mtime
+    mod_time = stat_info.st_mtime
+
+    # firefox and others normal for downloaded file. creation event makes final file src 0 bytes -> writes a partial -> move event dest atomic with full file
+    if path in created_seen:
+
+        del created_seen[path]
+
+        # if using another index could store a key
+        # size = stat_info.st_size
+        # key = (path, size, mod_time)
+        # pending_files[key] = time.time()
 
     # unconventional or maybe some other app? creation event write partial in place -> move event dest but dest isnt in created_seen src is.
-    if src in created_seen:
-        # log unusual event
-        emit_log("DEBUG", f"handle_file {action} unusual src was in created_seen on move after created file. src: {src} dest or file: {path}", log_q, logger=logger)
+    elif src in created_seen:
+
         del created_seen[src]
 
-        return False
+        # log unusual event
+        emit_log("DEBUG", f"handle_file {action} unusual src was in created_seen on move after created file. src: {src} dest or file: {path}", log_q, logger=logger)
 
     else:
-        # firefox and others normal for downloaded file. creation event makes final file src 0 bytes -> writes a partial -> move event dest atomic with full file
-        if path in created_seen:
-            del created_seen[path]
 
-            # size = stat_info.st_size
-            # key = (path, size, mod_time)
-            # self.pending_files[key] = time.time()
+        # a moved file wouldnt have a creation event or the creation event could have been missed
+
+        emit_log("DEBUG", f"handle_file {action} did not have a creation event checking if ctime >= mtime for file: {path}", log_q, logger=logger)
+        change_time = stat_info.st_ctime
+
+        # gated on regular moves. ctime >= mtime and since watch start are files of interest so process anyway
+        # on linux this increases noise but is better to include than exclude and can adjust where necessary
+        # does it look like a creation event?
+        if change_time >= mod_time or change_time >= start_time:
+            # process
+            return False
+
+        # its a regular move dont process
         else:
-
-            # a moved file wouldnt have a creation event or the creation event could have been missed
-
-            emit_log("DEBUG", f"handle_file {action} did not have a creation event checking if ctime >= mtime for file: {path}", log_q, logger=logger)
-            # change_time = stat_info.stat_info.st_ctime
-            # gated on regular moves. otherwise ctime >= mtime and since watch start, they are files of interest so process anyway
-            # on linux this increases noise but is better to include than exclude and can adjust where necessary
-            # if change_time < mod_time or change_time < self.start_time:
-            #     emit_log("DEBUG", f"handle_file {action} it was a regular move. skipping.. file: {path}", log_q, logger=self.logger)
-            #     return
-
+            emit_log("DEBUG", f"handle_file {action} it was a regular move. skipping.. file: {path}", log_q, logger=logger)
         return True
+
+    # process
+    return False
+
+
+def old_pid_check(pid_file, new_pid, logger, platform):
+    """ if there is an old pid file try to kill. """
+    res = False
+
+    if os.path.isfile(pid_file):
+        with open(pid_file) as f:
+            parts = f.read().rstrip("\n").split("|", 1)
+
+        if parts and len(parts) == 2:
+            stored_pid, stored_start = parts
+            stored_pid = int(stored_pid)
+            stored_start = float(stored_start)
+            differs = new_pid and new_pid != stored_pid
+
+            if differs or not new_pid:
+                logger.debug(f"{pid_file} stale pid found attempted cleanup new {new_pid} vs old {stored_pid}")
+                try:
+                    proc = psutil.Process(stored_pid)
+                    current_start = proc.create_time()
+                except psutil.NoSuchProcess:
+                    current_start = None
+
+                if current_start is not None:
+                    normalized = abs(current_start - stored_start) < 1e-3
+                    if normalized:
+                        if platform == "linux":
+                            # process_kill(pid)
+                            res = drop_pid(stored_pid, platform, pid_file=pid_file)
+                            # if not res:
+                            #   kill by pattern
+                            #   fk_success = _fk_process(r'inotifywait.*-e create -e moved_to --format %e\|%w%f%0')  # fk_success = _fk_process('inotifywait -m -r -e create -e moved_to --format %e|%w%f%0')  # original
+                        elif platform == "windows":
+                            res = process_kill(stored_pid, pid_file=pid_file)
+                        if res:
+                            return True  # In the rare case it wasnt previously shutdown prevented having two before starting this watchdog process
+                        # else:
+                        # alternative
+                        # try:
+                        #     os.killpg(int(stored_pid), signal.SIGTERM)
+                        #     return True
+                        # except OSError:
+                        #     print(f"failed to close old pid {stored_pid} {stored_start}")
+                    else:
+                        logger.debug(f"{pid_file} pid {stored_pid} reused by a different process, removing stale pidfile")
+                else:
+                    logger.debug("couldnt get process time from psutil oldpid skipping check")
+        else:
+            logger.error(f"incorrect format in {pid_file} couldnt parse in oldpid")
+
+        os.remove(pid_file)  # normal clear the old pid file
+
+    return res
+
+
+# original
+# def pair_handle(action, event, path, created_seen, log_q, logger):
+
+    # src = str(Path(event.src_path).resolve())
+    # # stat_info = get_stat(entry, log_q, logger=self.logger)
+    # # if not stat_info:
+    # #     return None
+
+    # # mod_time = stat_info.st_mtime
+
+    # # unconventional or maybe some other app? creation event write partial in place -> move event dest but dest isnt in created_seen src is.
+    # if src in created_seen:
+    #   # log unusual event
+    #   emit_log("DEBUG", f"handle_file {action} unusual src was in created_seen on move after created file. src: {src} dest or file: {path}", log_q, logger=logger)
+    #   del created_seen[src]
+
+    #   return False
+
+    # else:
+    #   # firefox and others normal for downloaded file. creation event makes final file src 0 bytes -> writes a partial -> move event dest atomic with full file
+    #   if path in created_seen:
+    #       del created_seen[path]
+
+    #       # size = stat_info.st_size
+    #       # key = (path, size, mod_time)
+    #       # self.pending_files[key] = time.time()
+    #   else:
+
+    #       # a moved file wouldnt have a creation event or the creation event could have been missed
+
+    #       emit_log("DEBUG", f"handle_file {action} did not have a creation event checking if ctime >= mtime for file: {path}", log_q, logger=logger)
+    #       # change_time = stat_info.stat_info.st_ctime
+    #       # gated on regular moves. otherwise ctime >= mtime and since watch start, they are files of interest so process anyway
+    #       # on linux this increases noise but is better to include than exclude and can adjust where necessary
+    #       # if change_time < mod_time or change_time < self.start_time:
+    #       #      emit_log("DEBUG", f"handle_file {action} it was a regular move. skipping.. file: {path}", log_q, logger=self.logger)
+    #       #      return
+
+    #   return True
+
+
+# def get_pid(pid_file):
+#     """ not used as could accidently kill the wrong process """
+#     pid = None
+#     if os.path.isfile(pid_file):
+#         try:
+#             with open(pid_file, "r") as f:
+#                 pid = int(f.read().strip())
+#         except (ValueError, OSError):
+#             return None
+#     return pid
+
+
+#     pid = get_pid(watchdog_pid_file)
+#     if pid:
+#         differs = new_pid and new_pid != pid
+#         if differs or not new_pid:
+#             logger.debug(f"{watchdog_pid_file} stale pid found attempted cleanup new {new_pid} vs old {pid}")
+#             if platform == "linux":
+#                 # process_kill(pid)
+#                 drop_pid(pid, platform, watchdog_pid_file)
+#                 # if not res:
+#                 #   kill by pattern
+#                 #   fk_success = _fk_process(r'inotifywait.*-e create -e moved_to --format %e\|%w%f%0')  # fk_success = _fk_process('inotifywait -m -r -e create -e moved_to --format %e|%w%f%0')  # original
+#             else:
+#                 process_kill(pid, watchdog_pid_file)

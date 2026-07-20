@@ -13,10 +13,10 @@ from .logs import init_process_worker
 from .logs import logs_to_queue
 from .logs import logging_worker
 # import queue
-# Get metadata hash of files and return array 03/30/2026
+# Get metadata hash of files and return array 07/20/2026
 
 
-def process_line_worker(search_fn, chunk, checksum, file_type, search_start_dt, cache_f, show_progress=False, logger=None, strt=20, endp=60):
+def process_line_worker(search_fn, chunk, checksum, file_type, search_start_dt, cache_f, show_progress=False, algo="md5", logger=None, strt=20, endp=60):
 
     results = []
     log_entries = []
@@ -37,7 +37,7 @@ def process_line_worker(search_fn, chunk, checksum, file_type, search_start_dt, 
     for i, line in enumerate(chunk):
         try:
 
-            result, log_ = search_fn(line, checksum, file_type, search_start_dt, cache_f, logger)
+            result, log_ = search_fn(line, checksum, file_type, search_start_dt, cache_f, algo, logger)
 
             if result is not None:
                 results.append(result)
@@ -79,6 +79,7 @@ def process_lines(search_fn, lines, file_type, search_start_dt, process_label, u
 
     drive_type = user_setting['driveTYPE']
     checksum = user_setting['checksum']
+    algo = user_setting['checkMETHOD']
 
     ck_results = []
 
@@ -94,7 +95,7 @@ def process_lines(search_fn, lines, file_type, search_start_dt, process_label, u
     if len_lines < 80 or drive_type.lower() == "hdd":
         try:
             init_process_worker(None)
-            ck_results, _, _ = process_line_worker(search_fn, lines, checksum, file_type, search_start_dt, cache_f, show_progress, logger, strt, endp)
+            ck_results, _, _ = process_line_worker(search_fn, lines, checksum, file_type, search_start_dt, cache_f, show_progress, algo, logger, strt, endp)
         except Exception as e:
             emsg = f"Worker error occurred: {type(e).__name__} : {e}"
             print(emsg)
@@ -121,7 +122,7 @@ def process_lines(search_fn, lines, file_type, search_start_dt, process_label, u
             ) as executor:
                 futures = [
                     executor.submit(
-                        process_line_worker, search_fn, chunk, checksum, file_type, search_start_dt, cache_f, show_progress
+                        process_line_worker, search_fn, chunk, checksum, file_type, search_start_dt, cache_f, show_progress, algo
 
                     )
                     for idx, chunk in enumerate(chunks)

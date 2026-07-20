@@ -1,5 +1,5 @@
 #! python3
-#   Windows 10 / 11                                                                06/19/2026
+#   Windows 10 / 11                                                                7/20/2026
 #   recentchanges. Developer buddy      recentchanges/ recentchanges search
 #   Provide ease of pattern finding ie what files to block we can do this a number of ways
 #   1) if a file was there (many as in more than a few) and another search lists them as deleted its either a sys file or not but unwanted nontheless
@@ -35,7 +35,6 @@ from .configfunctions import check_config
 from .configfunctions import find_install
 from .configfunctions import find_user_folder
 from .configfunctions import get_config
-from .config import dump_toml
 from .filterhits import update_filter_csv
 from .fsearchfunctions import set_excl_dirs
 from .gpgcrypto import check_for_gpg
@@ -120,6 +119,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
     cachermPATTERNS = config['backend']['cachermPATTERNS']
     cachermPATTERNS = cache_clear_patterns(usr, cachermPATTERNS)
     checksum = config['diagnostics']['checkSUM']
+    checkMETHOD = config['diagnostics']['checkMETHOD']
     cdiag = config['diagnostics']['cdiag']
     suppress_browser = config['diagnostics']['supbrw']
     supbrwLIST = config['diagnostics']['supbrwLIST']
@@ -211,6 +211,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
         'feedback': feedback,
         'analytics': analytics,
         'checksum': checksum,
+        'checkMETHOD': checkMETHOD,
         'ps': ps,
         'cdiag': cdiag,
         'compLVL': compLVL
@@ -224,7 +225,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
     tmpoutput = []  # holding
     # Searches
     recent = []  # main results
-    tout = []  # ctime results
+    # tout = []  # ctime results # formerly seperate ctime search
     sortcomplete = []  # combined
     tmpopt = []  # combined filtered
 
@@ -303,8 +304,8 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
         # if xRC
         home_dir = ""
 
-        init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, tempwork, gnupg_home, cfr, xRC, _time, checksum,
-                           usr, moduleNAME, log_file, ll_level, supbrwLIST, platform="Windows")
+        created = init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, tempwork, gnupg_home, cfr, xRC, _time, checksum,
+                                     usr, moduleNAME, log_file, ll_level, supbrwLIST, algo=checkMETHOD, platform="Windows")
 
         # other options could build directory map from mft use fsutil and check usn jrnl for created filed but is too complex and also takes up size for another dbs
 
@@ -427,24 +428,22 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
         # end Main search
 
-        if recent is None or tout is None:
+        if recent is None:
             return 1
 
-        if cfr and (recent or tout):
+        if cfr and recent:
             encr_cache(cfr, cache_f, email, compLVL)
 
         if not recent:
-            if not tout:
-                cprint.cyan("No new files found")
-                if iqt:
-                    print("Progress: 100.00%")
-                return 0
-            # for entry in tout:
+
+            cprint.cyan("No new files found")
+            if iqt:
+                print("Progress: 100.00%")
+            return 0
+            # for entry in recent:
             #     tss = entry[0].strftime(fmt)
             #     fp = entry[1]
             #     print(f'{tss} {fp}')
-            recent = tout[:]
-            tout = []
 
         complete = complete_1 + complete_2  # nsf append to rout in pstsrg before stat insert
         proval = 60  # current progress
@@ -456,14 +455,6 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
         srttime = sortcomplete[0][0]  # store the start time
         merged = sortcomplete[:]
-
-        for entry in tout:
-            if not entry:
-                continue
-            tout_dt = entry[0]
-            if tout_dt >= srttime:
-                merged.append(entry)
-        merged.sort(key=lambda x: x[0])
 
         seen = {}
 
@@ -531,7 +522,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
         filtered_lines = []
         for entry in sortcomplete:
-            if len(entry) >= 16:
+            if len(entry) >= 18:
                 ts_str = entry[0]
                 filepath = entry[1]  # no escaped [16] needed
                 filtered_lines.append((ts_str, filepath))
@@ -656,7 +647,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
             # Backend
 
             dbopt, data = pst_srg(
-                dbopt, dbtarget, sortcomplete, complete, rout, cachermPATTERNS, user_setting, logging_values,
+                dbopt, dbtarget, sortcomplete, complete, rout, created, cachermPATTERNS, user_setting, logging_values,
                 total_time, total_files, dcr=dcr, iqt=iqt, strt=proval, endp=endval
             )
             # dbopt return from pst_srg is either path, encr_error, new_profile or None
@@ -693,29 +684,65 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
             # File doctrine
             if postop:
                 outpath = os.path.join(usrDIR, tsv_doc)
-                if not os.path.isfile(outpath):
-                    if build_tsv(sortcomplete, tmpopt, logf, rout, escaped_user, outpath, method, fmt):
-                        cprint.green(f"File doctrine.tsv created {usrDIR}\\{tsv_doc}")
-                elif not iqt:
-                    # update_toml_values({'diagnostics': {'postop': False}}, toml_file)  # if one was already made disable the setting
-                    config['diagnostics']['postop'] = False
-                    dump_toml(None, config, toml_file)
+                # if not os.path.isfile(outpath):
+                if build_tsv(sortcomplete, tmpopt, logf, rout, created, escaped_user, outpath, method, fmt):
+                    cprint.green(f"File doctrine.tsv created {usrDIR}\\{tsv_doc}")
+                # elif not iqt:
+                    # # update_toml_values({'diagnostics': {'postop': False}}, toml_file)  # if one was already made disable the setting
+                    # config['diagnostics']['postop'] = False
+                    # dump_toml(None, config, toml_file)
 
             # Terminal output process scr/cer
-            if not csum and not suppress:
+
+            # csum could be and was returned from filter_output in processha but instead is returned from hanly incase scr or cerr
+            # files are stale by somehow being reused
+
+            # terminal output is filtered for browser suppressions or entirely suppressed except for critical events
+            # critical events are Suspect and COLLISION
+
+            # scr feedback
+            #
+            # this is the second filter_output call after cerr in processha
+            #
+            # if there was a critical event nothing gets output to terminal
+            #
+            # primary: Checksum color: blue
+            # other: any color: yellow
+            # scr is added to the end
+
+            if not csum:
                 if os.path.exists(scr):
                     filter_output(scr, escaped_user, 'Checksum', 'no', 'blue', 'yellow', 'scr', supbrwLIST, suppress_browser, suppress)
+
+            # cerr priority
+            #
+            # can start with Warning file, Warning symlink, Warning high, Suspect and COLLISION
+            #
+            # filter_output output earlier with call in processha
+            #
+            # primary: Warning color: yellow
+            # cricital: Suspect color: red
+            # elevated is added to the end
 
             if csum:
                 if os.path.isfile(cerr):
                     with open(cerr, 'r') as src, open(diff_file, 'a') as dst:
                         dst.write("\ncerr\n")
                         for line in src:
-                            if line.startswith("Warning File"):
+                            if line.startswith("Warning"):
                                 continue
                             dst.write(line)
                     removefile(cerr)
-                # end Terminal output
+
+            # summary
+            #
+            # Instead of having more than two colors. Colors are split between scr and cerr. The variety is from the different conditions of the file output
+            # from hanly. Adding too many specific conditions is unnecessary.
+            #
+            # the only sorting is cerr comes before scr. normal output will be blue or yellow from scr. If there is a critical event
+            # output will be yellow or red.
+
+            # end Terminal output
 
             # Cleanup
 

@@ -7,7 +7,7 @@ from . import logs
 from .logs import emit_log
 
 
-def build_index(chunk, i, num_chunks, show_progress=False, strt=0, endp=100):
+def build_index(chunk, i, num_chunks, show_progress=False, algo="md5", strt=0, endp=100):
 
     # rec_count = 0
     c = x = 0
@@ -60,7 +60,7 @@ def build_index(chunk, i, num_chunks, show_progress=False, strt=0, endp=100):
                 target = record[3]
                 found = record[4]
 
-                rlt, status = scandir_meta(file_path, st, sym, target, found, sys_data, logs.WORKER_LOG_Q)
+                rlt, status = scandir_meta(file_path, st, sym, target, found, sys_data, algo, logs.WORKER_LOG_Q)
 
                 if not rlt:
                     if rlt is False and status == "Nosuchfile":

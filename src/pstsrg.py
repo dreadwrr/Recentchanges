@@ -10,23 +10,26 @@ from .gpgcrypto import encr
 from .gpgcrypto import decr
 from .hanlyparallel import hanly_parallel
 from .pyfunctions import cnc
+from .pyfunctions import convert_mime_to_int
 from .pyfunctions import cprint
 from .pyfunctions import unescf_py
 from .pysql import clear_conn
 from .pysql import collision_check
 from .pysql import create_db
-from .pysql import get_unique_files
 from .pysql import get_lifetime_throughput
+from .pysql import get_mime_map
+from .pysql import get_unique_files
 from .pysql import insert
 from .pysql import insert_files_time
 from .pysql import insert_if_not_exists
+from .pysql import insert_mimes
 from .pysql import table_has_data
 from .qtdrivefunctions import get_idx_tables
 from .query import blank_count
 from .rntchangesfunctions import removefile
 
 
-def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, logging_values, total_time, total_files, dcr=False, iqt=False, strt=65, endp=90):
+def main(dbopt, dbtarget, xdata, complete, rout, created, cachermPATTERNS, user_setting, logging_values, total_time, total_files, dcr=False, iqt=False, strt=65, endp=90):
 
     # tempwork = logging_values[3]  # the script temp directory
     scr = logging_values[4]
@@ -42,6 +45,7 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
     model_type = user_setting['driveTYPE']
     analytics = user_setting['analytics']
     checksum = user_setting['checksum']
+    checkMETHOD = user_setting['checkMETHOD']
     cdiag = user_setting['cdiag']
     ps = user_setting['ps']
     compLVL = user_setting['compLVL']
@@ -138,8 +142,13 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
             goahead = False
             new_database = True
 
+        # 07/20/2026
+        mime_hashmap, id_to_mime = get_mime_map(c)
+        # map mime str to an int for database
+        parsed, new_mime_rows, _ = convert_mime_to_int(xdata, mime_hashmap, id_to_mime)
+
         # Log
-        if xdata:
+        if parsed:
 
             if goahead:  # Hybrid analysis. Skip first pass ect.
 
@@ -148,24 +157,23 @@ def main(dbopt, dbtarget, xdata, complete, rout, cachermPATTERNS, user_setting, 
                         print(f"Progress: {strt}", flush=True)
 
                     # get the time for multiprocessing and logger for benchmark. These are not stored and are for per run execution.
-                    csum, ha_total_time, logger_total_time = hanly_parallel(model_type, rout, scr, cerr, xdata, cachermPATTERNS, checksum, cdiag, dbopt, is_ps, user, logging_values, sys_tables, iqt, strt, endp)
+                    csum, ha_total_time, logger_total_time = hanly_parallel(model_type, rout, created, scr, cerr, parsed, id_to_mime, cachermPATTERNS, checksum, cdiag, dbopt, is_ps, user, logging_values, sys_tables, iqt, strt, endp)
 
                 except Exception as e:
                     print(f"hanlydb failed to process : {type(e).__name__} : {e} \n{traceback.format_exc().strip()}", file=sys.stderr)
 
-        parsed = xdata
-
-        if parsed:
             try:
 
                 insert(parsed, conn, c, "logs", "mtime_us")
+
+                insert_mimes(c, new_mime_rows)
 
                 count = blank_count(c)
 
                 if count % 10 == 0:
                     print(f'{count} searches in gpg database')
 
-                if checksum and cdiag:
+                if checksum and checkMETHOD != "blake2":
                     if collision_check(xdata, cerr, sys_tables, c, ps):
                         csum = True
 

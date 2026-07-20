@@ -3,7 +3,6 @@ import csv
 import ctypes
 import glob
 import importlib.util
-import magic
 import os
 import re
 import shutil
@@ -703,7 +702,7 @@ def tsv_sort_by(row, is_link=False):
 # time from the download or copy which could be from 2021 for example. Also by checking the database a copy
 # can also be detected by having the same checksum and a diffrent filename or inode. Sorted by above.
 #
-def build_tsv(sortcomplete, tmpopt, logf, rout, escaped_user, outpath, method, fmt):
+def build_tsv(sortcomplete, tmpopt, logf, rout, created, escaped_user, outpath, method, fmt):
 
     if method != "rnt":
         if logf is tmpopt:
@@ -713,6 +712,7 @@ def build_tsv(sortcomplete, tmpopt, logf, rout, escaped_user, outpath, method, f
 
     try:
         copy_paths = set()
+        created_paths = set()
 
         if rout:
             for line in rout:
@@ -725,16 +725,19 @@ def build_tsv(sortcomplete, tmpopt, logf, rout, escaped_user, outpath, method, f
                 if action == "Copy":
                     full_path = ' '.join(parts[5:])
                     copy_paths.add(full_path)
+                elif action == "Created":
+                    full_path = ' '.join(parts[5:])
+                    created_paths.add(full_path)
 
-        is_link = any(len(row) > 7 and row[7] == 'y' for row in sortcomplete)
-        header = "Datetime\tFile\tSize(kb)\tType\tSymlink" + ("\tTarget" if is_link else "") + "\tCreation\tcam\tAccessed\tOwner\tStatable\tCopy"
+        is_link = any(len(row) > 9 and row[9] == 'y' for row in sortcomplete)
+        header = "Datetime\tFile\tSize(kb)\tType\tSymlink" + ("\tTarget" if is_link else "") + "\tCreation\tcam\tAccessed\tOwner\tStatable\tCopy\tCreated"
 
         for entry in sortcomplete:
-            if len(entry) < 13:
+            if len(entry) < 15:
                 continue
 
             is_statable = st = None
-            mtyp = is_copy = ""
+            mtyp = is_copy = is_created = ""
 
             dt = entry[0]
             fpath = entry[1]
@@ -744,29 +747,31 @@ def build_tsv(sortcomplete, tmpopt, logf, rout, escaped_user, outpath, method, f
             is_statable = False
             try:
                 st = Path(fpath).stat()
-                mtyp = magic.from_file(fpath, mime=True)  # mimetypes.guess_type(fpath)[0] or "" less detailed
+                mtyp = entry[7]  # mtyp = magic.from_file(fpath, mime=True)  # mimetypes.guess_type(fpath)[0] or "" less detailed
                 is_statable = True
             except Exception:
                 pass
 
-            sym_frm = entry[7]
+            sym_frm = entry[9]
             sym = sym_frm if sym_frm is not None else ""
             stat_bool = "y" if is_statable else ""  # originally was "" as statable but could be confusing
 
-            onr = entry[8]
+            onr = entry[10]
             if is_statable:
                 sz = round(st.st_size / 1024, 2)
                 # md = epoch_to_date(st.st_mtime)  # epoch_to_str(st.st_mtime)
             else:
-                sz = entry[6]
+                sz = entry[8]
                 # md = dt
 
             ae = entry[4]
             creation_time = entry[2]
-            cam = entry[11]
-            target = entry[12] if entry[12] else ""
+            cam = entry[13]
+            target = entry[14] if entry[14] else ""
 
             if fpath in copy_paths:
+                is_copy = "y"
+            elif fpath in created_paths:
                 is_copy = "y"
 
             row = (
@@ -784,7 +789,8 @@ def build_tsv(sortcomplete, tmpopt, logf, rout, escaped_user, outpath, method, f
                 f"{ae or ''}\t"
                 f"{onr}\t"
                 f"{stat_bool}\t"
-                f"{is_copy}"
+                f"{is_copy}\t"
+                f"{is_created}\t"
             )
 
             tsv_files.append(row)

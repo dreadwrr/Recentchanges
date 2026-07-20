@@ -1,9 +1,10 @@
-import logging
-import os
 import sqlite3
 import traceback
+# 07/19/2026
 
 
+# 07/16/2026 added file shannon. column entropy beside checksum as requires no overhead
+# CHECK(entropy >= 0.0 AND entropy <= 8.0)'
 COLUMNS = [
     'timestamp TEXT',
     'filename TEXT',
@@ -11,6 +12,8 @@ COLUMNS = [
     'inode INTEGER',
     'accesstime TEXT',
     "checksum TEXT",
+    'entropy REAL',
+    'mime_id INTEGER',
     'filesize INTEGER',
     'symlink TEXT',
     'owner TEXT',
@@ -159,6 +162,14 @@ def create_db(database, sys_tables, action=None):
 
     tables = [
         '''
+        CREATE TABLE mime_types (
+            id INTEGER PRIMARY KEY,
+            mime TEXT UNIQUE NOT NULL,
+            mime_primary TEXT,
+            mime_subtype TEXT
+        )
+        ''',
+        '''
         CREATE TABLE IF NOT EXISTS stats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             action TEXT,
@@ -250,8 +261,9 @@ def insert(log, conn, c, table, last_column, add_column=None):  # Log
 
     columns = [
         'timestamp', 'filename', 'creationtime', 'inode', 'accesstime',
-        'checksum', 'filesize', 'symlink', 'owner', 'domain', 'mode',
-        'casmod', 'target', 'lastmodified', 'hardlinks', last_column
+        'checksum', 'entropy', 'mime_id', 'filesize', 'symlink',
+        'owner', 'domain', 'mode', 'casmod', 'target',
+        'lastmodified', 'hardlinks', last_column
     ]
     if add_column:
         columns.append(add_column)
@@ -331,6 +343,8 @@ def get_sys_changes(cursor, sys_a, sys_b):
         inode,
         accesstime,
         checksum,
+        entropy,
+        mime_id,
         filesize,
         symlink,
         owner,
@@ -355,6 +369,8 @@ def get_sys_changes(cursor, sys_a, sys_b):
         a.inode,
         a.accesstime,
         a.checksum,
+        a.entropy,
+        a.mime_id,
         a.filesize,
         a.symlink,
         a.owner,
@@ -568,11 +584,11 @@ def collision_check(xdata, cerr, sys_tables, c, ps):
 
     current_rows = set()
     for record in xdata:
-        if not record or len(record) < 7:
+        if not record or len(record) < 9:
             continue
         filename = record[1]
         file_hash = record[5]
-        file_size = record[6]
+        file_size = record[8]
         if not (filename and file_hash and file_size):
             continue
 
@@ -747,8 +763,9 @@ def detect_copy(filename, inode, checksum, sys_tables, cursor, ps):
 def get_recent_changes(filename, cursor, table, e_cols=None):
     columns = [
         "timestamp", "filename", "creationtime", "inode",
-        "accesstime", "checksum", "filesize", "symlink", "owner",
-        "domain", "mode", "casmod", "target"
+        "accesstime", "checksum", "entropy", "mime_id",
+        "filesize", "symlink", "owner", "domain",
+        "mode", "casmod", "target"
     ]
     if e_cols:
         if isinstance(e_cols, str):
@@ -773,8 +790,9 @@ def get_recent_sys(filename, cursor, sys_tables, e_cols=None):
 
     columns = [
         "timestamp", "filename", "creationtime", "inode",
-        "accesstime", "checksum", "filesize", "symlink", "owner",
-        "domain", "mode", "casmod", "target"
+        "accesstime", "checksum", "entropy", "mime_id",
+        "filesize", "symlink", "owner", "domain",
+        "mode", "casmod", "target"
     ]
     if e_cols:
         if isinstance(e_cols, str):
@@ -809,9 +827,9 @@ def increment_f(conn, c, sys_tables, records, logger=None):
     sql_insert = f"""
         INSERT OR IGNORE INTO {sys_b} (
             timestamp, filename, creationtime, inode, accesstime, checksum,
-            filesize, symlink, owner, domain, mode, casmod, target, lastmodified,
-            hardlinks, count, mtime_us
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            entropy, mime_id, filesize, symlink, owner, domain, mode,
+            casmod, target, lastmodified, hardlinks, count, mtime_us
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     try:
 
@@ -831,78 +849,33 @@ def increment_f(conn, c, sys_tables, records, logger=None):
     return False
 
 
-def find_symmetrics(dbopt, cache_table, systimeche):
+def get_mime_map(cur):
 
-    # dirs that had no files and now do
+    mime_to_info = {}
+    id_to_info = {}
+    cur.execute("SELECT id, mime, mime_primary, mime_subtype FROM mime_types")
 
-    cache_records = []
-    has_systime = False
-    conn = cur = None
-    try:
-        conn = sqlite3.connect(dbopt)
-        cur = conn.cursor()
-        if table_has_data(conn, systimeche):
-            has_systime = True
-            query = f"""
-                SELECT s.modified_time,
-                    s.filename,
-                    s.file_count
-                FROM {systimeche} AS s
-                WHERE s.file_count > 0
-                AND s.type IS NULL
-                AND EXISTS (
-                        SELECT 1
-                        FROM {cache_table} AS c
-                        WHERE c.filename = s.filename
-                        AND c.file_count = 0
-                        AND c.type IS NULL
-                )
-            """
-            cur.execute(query)
-            cache_records = cur.fetchall()
-        else:
-            query = f'''
-                SELECT modified_time,
-                    filename,
-                    file_count
-                FROM {cache_table}
-                WHERE file_count = 0
-                AND type IS NULL
-            '''
-            cur.execute(query)
-            records = cur.fetchall()
-            if records:
-                for record in records:
-                    dirname = record[1]
-                    if os.path.isdir(dirname):
-                        try:
-                            if any(entry.is_file() for entry in os.scandir(dirname)):
-                                cache_records.append(record)
-                        except (FileNotFoundError, PermissionError):
-                            pass
+    for row in cur:
+        info = {
+            "id": row[0],
+            "mime": row[1],
+            "primary": row[2],
+            "subtype": row[3],
+        }
 
-        # new directories
+        mime_to_info[row[1]] = info
+        id_to_info[row[0]] = info
 
-        sql = f"""
-        SELECT DISTINCT s.filename
-        FROM {systimeche} s
-        LEFT JOIN {cache_table} c ON s.filename = c.filename
-        WHERE c.filename IS NULL
-        """
-        cur.execute(sql)
-        new_records = [row[0] for row in cur.fetchall()]
+    return mime_to_info, id_to_info
 
-        return cache_records, new_records
-    except sqlite3.Error as e:
-        errmsg = f"table {cache_table}" if not has_systime else f"tables {cache_table} {systimeche}"
-        print(f"dirwalker.py problem retrieving data in find_symmetrics. database {dbopt} {errmsg} {type(e).__name__} error: {e}")
-        return None, None
-    except Exception as e:
-        print(f"General error in find_symmetrics {type(e).__name__} error: {e} \n{traceback.format_exc()}")
-        logging.error(f'find_symmetrics profile cache:{cache_table} cache table: {systimeche}  {type(e).__name__} error: {e}\n', exc_info=True)
-        return None, None
-    finally:
-        clear_conn(conn, cur)
+
+def insert_mimes(cur, new_mime_rows):
+    if not new_mime_rows:
+        return
+    cur.executemany(
+        "INSERT INTO mime_types (id, mime, mime_primary, mime_subtype) VALUES (?, ?, ?, ?)",
+        new_mime_rows
+    )
 
 
 def get_unique_files(c):

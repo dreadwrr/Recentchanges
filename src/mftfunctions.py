@@ -216,25 +216,29 @@ def mftec_version(exe_path, tempdir):  # Qt
 
         # Run MFTECmd and redirect the output to version.txt
         # .\bin\MFTECmd.exe
-        subprocess.run(rf'"{exe_path}" > {version_file}', shell=True)
+        cp = subprocess.run(rf'"{exe_path}" > {version_file}', capture_output=True, text=True, shell=True)
+
+        if cp.returncode != 0:
+            print(f"mftec_version failed: {cp.stderr}")  # except FileNotFoundError: # exe_path not found
+            return None
 
         if not version_file.is_file():
+            print(f"mftec_version there was no output to {version_file}")
             return None
 
         with version_file.open("r", encoding="utf-8") as f:
             for line in f:
                 if c_args in line:
                     result = "mftec_cutoff"
+                    break
+
         removefile(version_file)
+        return result
 
-    except FileNotFoundError:
-        result = None
-        print(f"{exe_path} not found")
     except Exception as e:
-        result = None
-        print(f"mftec_ver exception {type(e).__name__} {e} \n {traceback.format_exc()}")
 
-    return result
+        print(f"mftec_ver exception {type(e).__name__} {e} \n {traceback.format_exc()}")
+        return None
 
 
 # to possiblly increase efficiency but overhead is not an issue. maybe if an error shows up

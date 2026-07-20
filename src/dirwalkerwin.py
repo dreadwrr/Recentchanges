@@ -36,7 +36,7 @@ def get_config_data(appdata_local, usr):
         return None
     config = load_toml(toml_file)
     if not config:
-        None
+        return None
     exclDIRS = user_path(config['search']['exclDIRS'], usr)
     nogo = user_path(config['shield']['nogo'], usr)
     filterout_list = user_path(config['shield']['filterout'], usr)

@@ -222,15 +222,70 @@ def sys_record_flds(record, sys_records, prev_count):
         record[3],  # inode
         record[4],  # accesstime
         record[5],  # checksum
-        record[6],  # filesize
-        record[7],  # symlink
-        record[8],  # owner
-        record[9],  # group
-        record[10],  # permissions
-        record[11],  # casmod
-        record[12],  # target
-        record[13],  # lastmodified
-        record[14],  # hardlinks
+        record[6],  # entropy
+        record[7],  # mime_id
+        record[8],  # filesize
+        record[9],  # symlink
+        record[10],  # owner
+        record[11],  # group
+        record[12],  # permissions
+        record[13],  # casmod
+        record[14],  # target
+        record[15],  # lastmodified
+        record[16],  # hardlinks
         prev_count + 1,  # count
-        record[15]  # mtime_us
+        record[17]  # mtime_us
     ))
+
+
+def insert_sys_entry(entry, record, recent_sys, sys_records):
+
+    prev_count = recent_sys[-1]
+    sys_record_flds(record, sys_records, prev_count)
+
+
+def convert_mime_to_int(xdata: tuple, mime_hashmap: dict, id_to_mime: dict) -> tuple[list, list, int]:
+    """ convert tuple from mime str to int from hashmap
+        update mime hashmap and id_to_mime hashmap and
+        generate insertion list of unseen mime types
+        for db """
+    parsed_revised = []  # convert the mime field which is a str to an id
+    new_mime_rows = []  # for updating mime_types tbl and maintaining the index of mimes
+
+    next_mime_id = max(id_to_mime.keys(), default=0) + 1
+
+    for row in xdata:
+        mime = row[7]
+
+        if mime and "/" in mime:
+            if mime in mime_hashmap:
+                mime_id = mime_hashmap[mime]["id"]
+            else:
+                mime_id = next_mime_id
+
+                primary, subtype = mime.split("/", 1)
+
+                info = {
+                    "id": next_mime_id,
+                    "mime": mime,
+                    "mime_primary": primary,
+                    "mime_subtype": subtype
+
+                }
+
+                mime_hashmap[mime] = info
+                id_to_mime[next_mime_id] = info
+
+                new_mime_rows.append(
+                    (mime_id, mime, primary, subtype)
+                )
+
+                next_mime_id += 1
+
+            parsed_revised.append(
+                row[:7] + (mime_id,) + row[8:]
+            )
+        else:
+            parsed_revised.append(row)
+
+    return parsed_revised, new_mime_rows, next_mime_id

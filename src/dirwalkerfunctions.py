@@ -15,7 +15,7 @@ from .fsearchfunctions import get_file_id
 from .gpgcrypto import decrm
 from .logs import emit_log
 from .pyfunctions import epoch_to_str
-# 06/19/2026
+# 07/19/2026
 
 fmt = "%Y-%m-%d %H:%M:%S"
 EXEC_EXTN = (".exe", ".msi", ".bat", ".com")
@@ -51,7 +51,6 @@ def decr_cache(cache_s, user=None):
         if modified_ep is None:
             continue
 
-        modified_ep_s = row.get('modified_ep') or ''
         cfr_src[root] = {
             'modified_time': str(row.get('modified_time', '')),
             'modified_ep': modified_ep,
@@ -180,7 +179,7 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
         raise TypeError("exclDIRS_fullpath is not a list")
     logger = logger if logger else logging
     if search_start_dt and not isinstance(search_start_dt, datetime):
-        print("search_start_dt is not a valid date time object exitting")
+        print("search_start_dt is not a valid date time object exiting")
         return None, 0
 
     # if mode is None use process scan find created files by time for recentchangessearch
@@ -208,7 +207,7 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
     filename = filename.lower() if filename else None
     extension = extension.lower() if extension else None
 
-    cutoff = None
+    cutoff = 0
     if search_start_dt:
         cutoff = search_start_dt.timestamp()
 
@@ -222,6 +221,8 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
             matcher = match_extn
         elif search_type == MODE_FILENAME_EXT:
             matcher = match_name_extn
+        else:
+            raise ValueError("Mode not found.")
 
     if not exclDIRS_fullpath:
         exclDIRS_fullpath = [os.path.join(base_dir, d.lstrip("\\")) for d in exclDIRS]
@@ -234,6 +235,9 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
         return None, 0
 
     ino = hardlink = owner = domain = mode = None
+
+    f = 0
+    dir_path = ""
 
     try:
 
@@ -389,10 +393,11 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
 
             return max_depth
 
-        f = 0
         prog_v = 0
         scale = current_step = 0
-        steps = step_len = 0
+
+        steps = []
+        step_len = 0
 
         if iqt:
             scale = (endp - strt) / root_count
@@ -427,7 +432,7 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
                 continue
         if buffer:
             print("\n".join(buffer))
-        if iqt and current_step <= len(steps) - 1:
+        if iqt and current_step <= step_len - 1:
             print(f"Progress: {endp:.2f}%", flush=True)
 
         return all_entries, max_depth
@@ -635,11 +640,11 @@ def collect_files(basedir, exclDIRS_fullpath, filter_tup, exec_tup, extn_tup, pa
 # for Build IDX meta - either to specifications or XzmProfile template
 # take initial stat. run the checksum then stat again to confirm hash.
 
-def scandir_meta(file_path, st, symlink, link_target, found, sys_data, log_q=None):
+def scandir_meta(file_path, st, symlink, link_target, found, sys_data, algo="md5", log_q=None):
 
     count = 1  # init version #
     status = None
-    checks = size = cam = lastmodified = None
+    checks = entropy = mime = size = cam = lastmodified = None
 
     try:
 
@@ -654,9 +659,9 @@ def scandir_meta(file_path, st, symlink, link_target, found, sys_data, log_q=Non
 
         mtime_us = m_epoch_ns // 1_000
 
-        if found and sym != "y":
+        if found and sym != "y" and size:
 
-            checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, m_dt, mtime_us, inode, size, retry=2, cacheable=False, log_q=log_q)
+            checks, entropy, mime, file_dt, file_us, file_st, status = calculate_checksum(file_path, m_dt, mtime_us, inode, size, algo=algo, retry=2, cacheable=False, log_q=log_q)
 
             if checks is not None:  # if status in ("Returned", "Retried"):
                 if status == "Retried":
@@ -673,7 +678,7 @@ def scandir_meta(file_path, st, symlink, link_target, found, sys_data, log_q=Non
                     return False, status
 
         # status in ("Returned", "Retried", "Changed"):
-        sys_data.append((m_time, file_path, c_time, inode, a_time, checks, size, sym, owner, domain, mode, cam, target, lastmodified, hardlink, count, mtime_us))
+        sys_data.append((m_time, file_path, c_time, inode, a_time, checks, entropy, mime, size, sym, owner, domain, mode, cam, target, lastmodified, hardlink, count, mtime_us))
         return True, status
 
     except PermissionError as e:
@@ -695,16 +700,19 @@ def scandir_meta(file_path, st, symlink, link_target, found, sys_data, log_q=Non
 # previous_symlink before
 # and symlink\\sym after
 #
-def meta_sys(file_path, previous_md5, previous_symlink, previous_target, previous_count, is_sym, sys_data, link_data, log_q=None):
+def meta_sys(file_path, previous_md5, previous_entropy, previous_mime_id, previous_symlink, previous_target, previous_count, is_sym, sys_data, link_data, ent_data, mime_data, id_to_mime, algo="md5", log_q=None):
 
     status = None
-    checks = size = hardlink = None
+    checks = entropy = mime = size = hardlink = None
 
     target = None
 
-    cam = None  # record[9]
+    cam = None  # record[11]
     lastmodified = None  # record[11]
     count = previous_count + 1
+
+    file_to_symlink = False
+    symlink_to_file = False
 
     try:
 
@@ -725,13 +733,11 @@ def meta_sys(file_path, previous_md5, previous_symlink, previous_target, previou
         elif status == "Error":
             return None, status
 
-        if previous_symlink == "y" and sym != "y":
-            emit_log("ERROR", f"meta_sys Warning symlink changed to file: {file_path}", log_q)
         mtime_us = m_epoch_ns // 1_000
 
-        if sym != "y":
+        if sym != "y" and size:
 
-            checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, m_dt, mtime_us, inode, size, retry=2, cacheable=False, log_q=log_q)
+            checks, entropy, mime, file_dt, file_us, file_st, status = calculate_checksum(file_path, m_dt, mtime_us, inode, size, algo=algo, retry=2, cacheable=False, log_q=log_q)
             if checks is not None:  # if status in ("Returned", "Retried"):
                 if status == "Retried":
                     checks, mtime, st, mtime_us, c_time, inode, size = set_stat(file_info, checks, file_dt, file_st, file_us, inode, log_q)
@@ -744,18 +750,47 @@ def meta_sys(file_path, previous_md5, previous_symlink, previous_target, previou
 
                 # status in ("Returned", "Retried"):
                 if checks != previous_md5:
-                    sys_data.append((m_time, file_path, c_time, inode, a_time, checks, size, sym, owner, domain, mode, cam, target, lastmodified, hardlink, count, mtime_us))
+
+                    all_sys = (m_time, file_path, c_time, inode, a_time, checks, entropy, mime, size, sym, owner, domain, mode, cam, target, lastmodified, hardlink, count, mtime_us)
+
+                    if mime and previous_mime_id:
+                        previous_mime = id_to_mime.get(previous_mime_id, {}).get("mime")
+                        if previous_mime and mime != previous_mime:
+
+                            mime_data.append((*all_sys, previous_mime_id))
+
+                    if entropy is not None and previous_entropy is not None:
+                        entropy_delta = abs(entropy - previous_entropy)
+                        if entropy_delta >= 0.50:
+
+                            ent_data.append((*all_sys, previous_entropy, entropy_delta))
+
+                    if previous_symlink == "y":
+                        symlink_to_file = True
+
+                        link_data.append((*all_sys, False, symlink_to_file))  # emit_log("ERROR", f"meta_sys Warning symlink changed to file: {file_path}", log_q)
+                        link_data.append((previous_target, target))
+
+                    sys_data.append(all_sys)
 
             else:  # status == "Nosuchfile" or status == "Changed"
                 return False, status
 
-        else:
-            if is_sym and previous_symlink == "y":
-                if target != previous_target:
-                    link_data.append((m_time, file_path, c_time, inode, a_time, checks, size, sym, owner, domain, mode, cam, target, lastmodified, hardlink, count, mtime_us))
+        elif sym == "y" and is_sym:
+            if previous_symlink == "y":
+
+                # ensure valid targets
+                if target and previous_target and target != previous_target:
+                    all_sys = (m_time, file_path, c_time, inode, a_time, checks, entropy, mime, size, sym, owner, domain, mode, cam, target, lastmodified, hardlink, count, mtime_us)
+
+                    link_data.append((*all_sys, False, False))
                     link_data.append((previous_target, target))
-            elif not previous_symlink:
-                emit_log("ERROR", f"meta_sys Warning file changed to symlink: {file_path}", log_q)
+            else:
+                file_to_symlink = True
+                all_sys = (m_time, file_path, c_time, inode, a_time, checks, entropy, mime, size, sym, owner, domain, mode, cam, target, lastmodified, hardlink, count, mtime_us)
+
+                link_data.append((*all_sys, file_to_symlink, False))  # emit_log("ERROR", f"meta_sys Warning file changed to symlink: {file_path}", log_q)
+                link_data.append((previous_target, target))
 
         return True, status
 
@@ -808,37 +843,48 @@ def check_specified_paths(basedir, configured_paths, list_name, suppress=False):
     return tuple(paths), exists
 
 
-def output_diff(diff_file, prev_scans, all_sys, link_diff, nfs_records, dir_diff, new_diff, cmsg, are_symmetrics, showDiff, scan_start):
+def output_diff(diff_file, prev_scans, all_sys, mime_hashmap, id_to_mime, link_change, ent_change, mime_change, link_diff, ent_diff, mime_diff, nfs_records, dir_diff, new_diff, cmsg, are_symmetrics, showDiff, scan_start):
     """ handle output of differences to terminal and to diff file. as this is a dynamic append it tries to handle situations where the scan
-         failed but still pulls previous scans and dir_diff and new_diff. If the scan succeeded you also have link_diff and nfs_records.
+        failed but still pulls previous scans and dir_diff and new_diff. If the scan succeeded you also have link_change ent_change
+        mime_change and nfs_records.
 
-         this function makes it so all changes since the profile was made are inserted at the bottom of a diff file entirely. This is secure
-         as the data is stored in scans and scan_entries tables. that data is pulled then the current scan is appended to the dict of lists
-         prev_scans which first has the values converted into tuples.
+        this function makes it so all changes since the profile was made are inserted at the bottom of a diff file entirely. This is secure
+        as the data is stored in scans and scan_entries tables. that data is pulled then the current scan is appended to the dict of lists
+        prev_scans which first has the values converted into tuples.
 
-         the end result is a history of scans along with symmetric differences at the end
+        the end result is a history of scans along with symmetric differences at the end
 
-         symmetric differences
-         for all_sys
-         link_diff symlinks whois target has changed
-         nfs_records files that no longer exist from the profile
-         for the profile
-         dir_diff directories that had no files when the profile was created but now do
-         new_diff new directories made since the profile was created
+        for all_sys
+        all_sys change by checksum
+        link_change symlinks whois target has changed
+        ent_change change in entropy >= 0.5
+        mime_change change in file type
+        nfs_records files that no longer exist from the profile
 
-         cmsg is the hit rate and if its over 30% print to terminal and write to file """
+        symmetric differences for the profile
+        queries of difference from when the profile was first made:
+        link_diff
+        ent_diff
+        mime_diff
+        dir_diff directories that had no files when the profile was created but now do
+        new_diff new directories made since the profile was created
+
+        cmsg is the hit rate and if its over 30% print to terminal and write to file """
 
     hdr1 = 'System index scan'
     mode = 'a' if os.path.isfile(diff_file) else 'w'
     write_type = "appended" if mode == 'a' else "written"
-    hdr2 = "The following files from sys index have changes by checksum\n"
-    fstr = "timestamp,filename,creationtime,inode,accesstime,checksum,filesize,symlink,user,group,mode,casmod,target,lastmodified,hardlinks,count,mtimeus"
+    hdr2 = "The following files from sys index have changed by checksum\n"
+    hdr3 = "Symmetric differences of profile"
+    fstr = "timestamp,filename,creationtime,inode,accesstime,checksum,entropy,mimeid,filesize,symlink,user,group,mode,casmod,target,lastmodified,hardlinks,count,mtimeus"
 
     # current_time = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M_%S")  # FLBRAND
 
     # check if there are previous scan results so they can be removed from the bottom
 
     found = False
+
+    lines = []
 
     if mode == "a":
 
@@ -855,11 +901,102 @@ def output_diff(diff_file, prev_scans, all_sys, link_diff, nfs_records, dir_diff
         with open(diff_file, 'w') as f:
             f.writelines(lines)
 
+    # prepapare changes
+    # all_sys are changes by checksum. to have changes by entropy type target those have to be made and appended. Changed by checksum and these are changes since last or
+    # instanteous changes.
+
+    recent_changes = []
+
+    if ent_change:
+        warn = []
+        reg = []
+        recent_changes.append("")
+        recent_changes.append("change in entropy")
+        for ent in ent_change:
+            timestamp = ent[0]
+            file_name = ent[1]
+            entropy = ent[6]
+            previous_entropy = ent[-2]
+            delta = ent[-1]
+
+            tup_str = timestamp + " " + file_name
+            str_end = f"change from {previous_entropy:.2f} to {entropy:.2f} with a delta of {delta:.2f}"
+            if delta >= 1.00:
+                warn.append(tup_str + " Warning file high entropy" + str_end)
+            else:
+                reg.append(tup_str + " had a delta of .5 or more " + str_end)
+
+        for warning in warn:
+            recent_changes.append(warning)
+        for regular in reg:
+            recent_changes.append(regular)
+
+    if mime_change:
+        recent_changes.append("")
+        recent_changes.append("changed by file type")
+        for m in mime_change:
+            timestamp = m[0]
+            file_name = m[1]
+            mime = m[7]  # mime type
+
+            # mime_id = mime_hashmap.get(mime, {}).get("id")  # to match hanly output the mime str instead of id
+
+            previous_mime_id = m[-1]
+            previous_mime = id_to_mime.get(previous_mime_id, {}).get("mime")
+
+            if previous_mime:
+                recent_changes.append(timestamp + " " + file_name + " " + previous_mime + " → " + mime)
+
+    if link_change:
+
+        warn = []
+        reg = []
+
+        recent_changes.append("")
+        recent_changes.append("symlink change by target or type")
+
+        link_change_len = len(link_change)
+        for i in range(0, link_change_len, 2):
+            tup = link_change[i]  # file record
+
+            timestamp = tup[0]
+            file_name = tup[1]
+
+            file_to_symlink = tup[-2]
+            symlink_to_file = tup[-1]
+
+            tup_str = timestamp + " " + file_name + " "
+
+            if i+1 < link_change_len:
+                second_tup = link_change[i+1]  # old target new target
+
+                if file_to_symlink:
+                    tup_str = f"{timestamp} Warning file: {file_name} changed to symlink. target {second_tup[1]}"
+                    warn.append((timestamp, tup_str))
+                elif symlink_to_file:
+                    tup_str = f"{timestamp} Warning symlink: {file_name} changed to file. former target {second_tup[0]}"
+                    warn.append((timestamp, tup_str))
+                else:
+                    tup_str = tup_str + " → ".join(map(str, second_tup))
+                    reg.append((timestamp, tup_str))
+        if warn:
+            # warn.sort(key=lambda x: x[0])
+            for warning in warn:
+                recent_changes.append(warning[1])
+        if reg:
+            # reg.sort(key=lambda x: x[0])
+            for regular in reg:
+                recent_changes.append(regular[1])
+    # end prepare changes
+
     # write out the scan results for the profile
 
     with open(diff_file, mode) as f:
         if not found and mode == 'a':
             f.write('\n')
+
+        # write out changes since last or instanteous changes
+
         if prev_scans:
 
             for scan_date in prev_scans.keys():
@@ -872,60 +1009,67 @@ def output_diff(diff_file, prev_scans, all_sys, link_diff, nfs_records, dir_diff
                     record_str = ' '.join(map(str, record))
                     f.write(record_str + '\n')
 
+                if recent_changes:
+                    f.write('\n')
+                    for changes in recent_changes:
+                        f.write(changes + '\n')
+
                 parts = scan_date.split()
                 time_stamp = f'MDY_{parts[0]}-TIME_{parts[1]}'
                 f.write(time_stamp + '\n\n')
             if cmsg:
                 print(cmsg, file=f)
 
-        # symmetric differences content
-        # if the scan was successful:
-        # symlink target change
-        # show the files that no longer exist from the miss rate
-        # always listed:
-        # show directories that had 0 files at indexing but now have files
-        # show new directories since profile was created
+        # write out any symmetric differences or changes since first
 
         if showDiff and are_symmetrics:
 
-            # write out the symmetric differences
-
-            # write the header in case if the prev_scans was empty
             if not prev_scans:
-                print(hdr1, file=f)
+                print(hdr1, file=f)  # in case if the prev_scans was empty
+
+            print(hdr3, file=f)
 
             if link_diff:
-                link_header = "symlink(s) with changed target"
-                print(link_header, file=f)
-                for i in range(0, len(link_diff), 2):
-                    tup = link_diff[i]  # file record
-                    if i+1 < len(link_diff):
-                        second_tup = link_diff[i+1]  # old target new target
-                        tup_str = " ".join(map(str, tup)) + " " + ">".join(map(str, second_tup))
-                    else:
-                        tup_str = " ".join(map(str, tup))
-                    f.write(tup_str + "\n")
                 f.write('\n')
+                print("symlink(s) with changed target", file=f)
+                for link in link_diff:
+                    f.write(" ".join(map(str, link)) + "\n")
+            if ent_diff:
+                f.write('\n')
+                print("change in entropy", file=f)
+                for ent in ent_diff:
+                    f.write(" ".join(map(str, ent)) + "\n")
+            if mime_diff:
+                f.write('\n')
+                print("chang by file type", file=f)
+                for mime in mime_diff:
+                    f.write(" ".join(map(str, mime)) + "\n")
             if nfs_records:
                 header = "following profile files no longer exist"
+                f.write('\n')
                 print(header, file=f)
                 for tup in nfs_records:
                     tup_str = " ".join(map(str, tup))
                     f.write(tup_str + "\n")
-                f.write('\n')
             if dir_diff:
                 diff_header = "Directory had 0 files when profile created but now has files"
+                f.write('\n')
                 print(diff_header, file=f)
                 for tup in dir_diff:
                     f.write(" ".join(map(str, tup)) + "\n")
-                f.write('\n')
             if new_diff:
-                p = len(new_diff)
-                print(f'{p} new directories since profile was created', file=f)
+                f.write('\n')
+                print(f'{len(new_diff)} new directories since profile was created', file=f)
                 for d in new_diff:
                     f.write(d + "\n")
+
+            # find legend of encountered MIME types for reference
+
+            if mime_diff:
                 f.write('\n')
-            # end write out the symmetric differences
+                print("MIME types", file=f)
+                for mime_id, content in id_to_mime.items():
+                    print(mime_id, content["mime"], file=f)
 
     # terminal feedback
     if prev_scans:
@@ -937,6 +1081,10 @@ def output_diff(diff_file, prev_scans, all_sys, link_diff, nfs_records, dir_diff
         print(hdr2)
         for record in all_sys:
             print(record[0], record[1])
+
+        for changes in recent_changes:
+            print(changes)
+
         print(f"\nChanges {write_type} to difference file {diff_file}")
         if showDiff and are_symmetrics:
             print("Differences included")

@@ -1,4 +1,4 @@
-# Get metadata hash of files and return array                       03/11/2026
+# Get metadata hash of files and return array                       07/19/2026
 import calendar
 import os
 from datetime import datetime
@@ -11,10 +11,11 @@ from .fsearchfunctions import file_owner
 from .fsearchfunctions import parse_iso
 from . import logs
 from .logs import emit_log
+
 # Powershell Parallel SORTCOMPLETE search and ctime hashing
 
 
-def process_ps1(line, checksum, filetype, search_start_dt, cache_f, logger=None):
+def process_ps1(line, checksum, filetype, search_start_dt, cache_f, algo="md5", logger=None):
 
     fmt = "%Y-%m-%d %H:%M:%S"
     label = "Sortcomplete"
@@ -22,7 +23,7 @@ def process_ps1(line, checksum, filetype, search_start_dt, cache_f, logger=None)
 
     log_entries = []
 
-    checks = cam = last_modified = target = None
+    checks = entropy = mime = cam = last_modified = target = None
 
     if len(line) < 11:
         emit_log("DEBUG", f"process_ps1 record length less than required 11. skipping: {line}", logs.WORKER_LOG_Q, logger=logger)
@@ -67,7 +68,7 @@ def process_ps1(line, checksum, filetype, search_start_dt, cache_f, logger=None)
         if size > CSZE:
             cached = get_cached(cache_f, size, mtime_us, file_path)
             if cached is None:
-                checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, cacheable=True, log_q=logs.WORKER_LOG_Q, logger=logger)
+                checks, entropy, mime, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, algo=algo, retry=1, cacheable=True, log_q=logs.WORKER_LOG_Q, logger=logger)
                 if checks is not None:
                     if status == "Retried":
                         checks, mtime, st, mtime_us, c_time, inode, size = set_stat(line, checks, file_dt, file_st, file_us, inode, logs.WORKER_LOG_Q, logger=logger)
@@ -83,7 +84,7 @@ def process_ps1(line, checksum, filetype, search_start_dt, cache_f, logger=None)
                 checks = cached.get("checksum")
 
         else:
-            checks, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, retry=1, cacheable=False, log_q=logs.WORKER_LOG_Q, logger=logger)
+            checks, entropy, mime, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, algo=algo, retry=1, cacheable=False, log_q=logs.WORKER_LOG_Q, logger=logger)
             if checks is not None:
                 if status == "Retried":
                     checks, mtime, st, mtime_us, c_time, inode, size = set_stat(line, checks, file_dt, file_st, file_us, inode, logs.WORKER_LOG_Q, logger=logger)
@@ -127,6 +128,8 @@ def process_ps1(line, checksum, filetype, search_start_dt, cache_f, logger=None)
         inode,
         atime.strftime(fmt) if atime is not None else None,
         checks,
+        entropy,
+        mime,
         size,
         sym,
         owner,

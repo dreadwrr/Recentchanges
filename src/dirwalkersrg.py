@@ -8,18 +8,21 @@ from .fileops import hlink_count
 from .gpgcrypto import encr
 from .gpgcrypto import encr_sys_cache
 from .pyfunctions import cnc
+from .pyfunctions import convert_mime_to_int
 from .pysql import clear_conn
 from .pysql import clear_table
 from .pysql import create_sys_tables
 from .pysql import create_table_cache
+from .pysql import get_mime_map
 from .pysql import get_sys_changes
 from .pysql import increment_f
+from .pysql import insert_mimes
 from .pysql import insert_cache
 from .pysql import table_has_data
 from .pysql import update_cache
 from .qtdrivefunctions import get_idx_tables
 from .qtdrivefunctions import parse_systimeche
-# 06/19/2026
+# 07/19/2026
 
 
 def hardlinks(basedir, database, target, conn, cur, logger):
@@ -68,7 +71,7 @@ def hardlinks(basedir, database, target, conn, cur, logger):
 
 # insert changes into sys2 or sys2_n table. sys or sys_n table have originals.
 # ie for C:\\ sys2, sys for S:\\ sys2_s, sys_s,  sys_n for n drive
-def sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, keys=None, from_idx=False):
+def sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, new_mime_rows, keys=None, from_idx=False):
 
     systimeche, suffix = parse_systimeche(basedir, cache_s)
 
@@ -83,6 +86,9 @@ def sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, keys=Non
         cur = conn.cursor()
         # scan IDX
         if sys_records:
+
+            insert_mimes(cur, new_mime_rows)
+
             res = increment_f(conn, cur, sys_tables, sys_records, logger=logging)
 
         # build IDX
@@ -108,13 +114,20 @@ def sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, keys=Non
             if table_has_data(conn, cache_table):
                 clear_table(cache_table, conn, cur, True)
 
+            # 07/20/2026
+            mime_hashmap, id_to_mime = get_mime_map(cur)
+            # map mime str to an int for database
+            parsed_revised, new_mime_rows, next_mime_id = convert_mime_to_int(parsedsys, mime_hashmap, id_to_mime)
+
             cur.executemany(f"""
                 INSERT OR IGNORE INTO {drive_sys_table} (
-                    timestamp, filename, creationtime, inode, accesstime,
-                    checksum, filesize, symlink, owner, domain, mode,
+                    timestamp, filename, creationtime, inode, accesstime, checksum,
+                    entropy, mime_id, filesize, symlink, owner, domain, mode,
                     casmod, target, lastmodified, hardlinks, count, mtime_us
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, parsedsys)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, parsed_revised)
+
+            insert_mimes(cur, new_mime_rows)
 
             if parsedidx:
                 cur.executemany(f"""
@@ -133,10 +146,10 @@ def sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, keys=Non
                         idx_bytes, max_depth, type, target
                     FROM {cache_table}
                 """)
-                conn.commit()
-                # cur.close()
-                # conn.close()
-                # cur = conn = None
+            conn.commit()
+            # cur.close()
+            # conn.close()
+            # cur = conn = None
             res = True
 
         # Find downloads add index
@@ -195,8 +208,8 @@ def create_new_index(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, 
     return 1
 
 
-def save_db(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, parsedidx, sys_records, keys=None, idx_drive=False, compLVL=200, dcr=True):
-    if sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, keys, idx_drive):
+def save_db(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, parsedidx, sys_records, new_mime_rows, keys=None, idx_drive=False, compLVL=200, dcr=True):
+    if sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, new_mime_rows, keys, idx_drive):
 
         nc = cnc(dbopt, compLVL)
         if encr(dbopt, dbtarget, email, no_compression=nc, dcr=dcr):
@@ -224,76 +237,83 @@ def index_drive(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, parse
 
 
 def db_sys_changes(dbopt, sys_tables):
-    conn = None
-    cur = None
+    conn = cur = None
     try:
         conn = sqlite3.connect(dbopt)
         cur = conn.cursor()
         sys_a, sys_b = sys_tables
 
         if not table_has_data(conn, sys_a):
-            return False
+            return False, None, None
 
         recent_sys = get_sys_changes(cur, sys_a, sys_b)
-        return recent_sys
+
+        mime_hashmap, id_to_mime = get_mime_map(cur)
+
+        return recent_sys, mime_hashmap, id_to_mime
 
     except (sqlite3.Error, Exception) as e:
         print(f"Problem retrieving profile data for system index in db_sys_changes dirwalkersrg. database {dbopt} {type(e).__name__} error: {e}")
     finally:
         clear_conn(conn, cur)
-    return None
+    return None, None, None
 # end functions for find_created index_system and scan_system
 
 # scan idx functions
+
+# cursor.execute("SELECT MAX(id) FROM scans")
+# last_id = cursor.fetchone()[0] or 0
+# sql = f"INSERT INTO scans (scantime) VALUES (?)", (scan_start),
+
+# from meta_sys
+# m_time, file_path, c_time, inode, a_time, checks, entropy, mime_id, size, sym, owner, domain, mode, cam, target, lastmodified, hardlink, count, mtime_us
+
+# table format
+#     'timestamp TEXT',
+#     'filename TEXT',
+#     'creationtime TEXT',
+#     'inode INTEGER',
+#     'accesstime TEXT',
+#     "checksum TEXT",  # NOT NULL DEFAULT ''
+#     'entropy REAL',
+#     'mime_id INTEGER',
+#     'filesize INTEGER',
+#     'symlink TEXT',
+#     'owner TEXT',
+#     'domain TEXT',
+#     'mode TEXT',
+#     'casmod TEXT',
+#     'target TEXT',
+#     'lastmodified TEXT',
+#     'hardlinks INTEGER'
+#     'count INTEGER',
+#     'mtime_us INTEGER'
 
 
 def insert_differences(cur, basedir, all_sys, scan_start):
 
     if not all_sys:
         return
-    # cursor.execute("SELECT MAX(id) FROM scans")
-    # last_id = cursor.fetchone()[0] or 0
-    # sql = f"INSERT INTO scans (scantime) VALUES (?)", (scan_start),
+
     try:
         cur.execute("INSERT INTO scans (scantime) VALUES (?)", (scan_start,))
         scan_id = cur.lastrowid
     except sqlite3.Error:
-        print("table: scans")
+        print("insert_differences was unable to insert into table: scans")
         raise
 
     rows = [(scan_id, basedir) + row for row in all_sys]
 
-    # from meta_sys
-    # m_time, file_path, c_time, inode, a_time, checks, size, sym, owner, domain, mode, cam, target, lastmodified, hardlink, count, mtime_us
-
-    # table format
-    #     'timestamp TEXT',
-    #     'filename TEXT',
-    #     'changetime TEXT',
-    #     'inode INTEGER',
-    #     'accesstime TEXT',
-    #     "checksum TEXT",  # NOT NULL DEFAULT ''
-    #     'filesize INTEGER',
-    #     'symlink TEXT',
-    #     'owner TEXT',
-    #     '`group` TEXT',
-    #     'permissions TEXT',
-    #     'casmod TEXT',
-    #     'target TEXT',
-    #     'lastmodified TEXT',
-    #     'hardlinks INTEGER'
-    #     'count INTEGER',
-    #     'mtime_us INTEGER'
     try:
         cur.executemany("""
             INSERT INTO scan_entries (
-                scan_id, basedir, timestamp, filename, changetime, inode,
-                accesstime, checksum, filesize, symlink, owner, `group`,
-                permissions, casmod, target, lastmodified, hardlinks, count, mtime_us
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                scan_id, basedir, timestamp, filename, creationtime, inode, accesstime, checksum, entropy,
+                mime_id, filesize, symlink, owner, domain, mode, casmod, target, lastmodified,
+                hardlinks, count, mtime_us
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, rows)
     except sqlite3.Error:
-        print("table: scan_entries")
+        print("insert_differences was unable to insert into table: scan_entries")
         raise
 
 
@@ -316,21 +336,66 @@ def db_scans(cur, basedir):
     return groups
 
 
-def differences_db(dbopt, basedir, all_sys, cache_table, systimeche, showDiff, scan_start):
-    """ return prev_entries dir_diff and new_diff """
-    cache_records, new_records = [], []
+def differences_db(dbopt, basedir, all_sys, sys_tables, cache_table, systimeche, showDiff, scan_start):
+    """ get the old scans insert the new scan and pull differences from when the profile
+        was first made """
+
+    link_diff, ent_diff, mime_diff, dir_diff, new_diff = [], [], [], [], []
     conn = cur = None
     table = ""
     try:
         conn = sqlite3.connect(dbopt)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
+
         table = "scans"
         prev_scans = db_scans(cur, basedir)
+
         table = ""
         insert_differences(cur, basedir, all_sys, scan_start)
         conn.commit()
+
         if showDiff:
+
+            sys_a, sys_b = sys_tables
+            table = sys_a + " " + sys_b
+
+            query = f"""
+                SELECT b.* FROM {sys_b} b
+                JOIN {sys_a} a ON a.filename = b.filename
+                WHERE b.target <> a.target
+                AND b.timestamp = (
+                    SELECT MAX(timestamp) FROM {sys_b} b2
+                    WHERE b2.filename = b.filename
+                )
+                ORDER BY b.timestamp
+            """
+            cur.execute(query)
+            link_diff = cur.fetchall()
+            query = f"""
+                SELECT b.* FROM {sys_b} b
+                JOIN {sys_a} a ON a.filename = b.filename
+                WHERE ABS(b.entropy - a.entropy) >= 0.5
+                AND b.timestamp = (
+                    SELECT MAX(timestamp) FROM {sys_b} b2
+                    WHERE b2.filename = b.filename
+                )
+                ORDER BY b.timestamp
+            """
+            cur.execute(query)
+            ent_diff = cur.fetchall()
+            query = f"""
+                SELECT b.* FROM {sys_b} b
+                JOIN {sys_a} a ON a.filename = b.filename
+                WHERE b.mime_id <> a.mime_id
+                AND b.timestamp = (
+                    SELECT MAX(timestamp) FROM {sys_b} b2
+                    WHERE b2.filename = b.filename
+                )
+                ORDER BY b.timestamp
+            """
+            cur.execute(query)
+            mime_diff = cur.fetchall()
 
             # dirs that had no files and now do
 
@@ -352,7 +417,7 @@ def differences_db(dbopt, basedir, all_sys, cache_table, systimeche, showDiff, s
                     )
                 """
                 cur.execute(query)
-                cache_records = cur.fetchall()
+                dir_diff = cur.fetchall()
             else:
                 table = cache_table
                 query = f'''
@@ -370,8 +435,9 @@ def differences_db(dbopt, basedir, all_sys, cache_table, systimeche, showDiff, s
                         dirname = record[1]
                         if os.path.isdir(dirname):
                             try:
-                                if any(entry.is_file() for entry in os.scandir(dirname)):
-                                    cache_records.append(record)
+                                with os.scandir(dirname) as it:
+                                    if any(entry.is_file() for entry in it):
+                                        dir_diff.append(record)
                             except (FileNotFoundError, PermissionError):
                                 pass
 
@@ -386,17 +452,16 @@ def differences_db(dbopt, basedir, all_sys, cache_table, systimeche, showDiff, s
             WHERE c.filename IS NULL
             """
             cur.execute(sql)
-            new_records = [row[0] for row in cur.fetchall()]
+            new_diff = [row[0] for row in cur.fetchall()]
 
-        return prev_scans, cache_records, new_records
+        return prev_scans, link_diff, ent_diff, mime_diff, dir_diff, new_diff
     except sqlite3.Error as e:
-        errmsg = f"tables {table}" if table else ""
-        print(f"dirwalker.py problem retrieving data in find_symmetrics. database {dbopt} {errmsg} {type(e).__name__} error: {e}")
-        return None, None, None
+        print(f"dirwalkersrg.py problem retrieving data in differences_db. database {dbopt} {'tables ' + table if table else ''} {type(e).__name__} error: {e}")
+        return None, None, None, None, None, None
     except Exception as e:
-        print(f"General error in find_symmetrics {type(e).__name__} error: {e} \n{traceback.format_exc()}")
-        logging.error(f"find_symmetrics profile {'tables ' + table if table else ''} {type(e).__name__} error: {e}\n", exc_info=True)
-        return None, None, None
+        print(f"General error occurred in differences_db {type(e).__name__} error: {e} \n{traceback.format_exc()}")
+        logging.error(f"differences_db profile {'tables ' + table if table else ''} {type(e).__name__} error: {e}\n", exc_info=True)
+        return None, None, None, None, None, None
     finally:
         clear_conn(conn, cur)
 # end scan idx functions

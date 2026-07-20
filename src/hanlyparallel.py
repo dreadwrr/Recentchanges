@@ -19,9 +19,7 @@ from .pysql import increment_f
 # 06/08/2026
 
 
-# tfile
-#  logger_process(all_results, batch_incr, rout, scr, cerr, dbopt, ps, logger)
-def logger_process(results, sys_records, sys_tables, rout, scr, cerr, dbopt, ps, logger=None):
+def logger_process(results, sys_records, sys_tables, rout, scr, cerr, created, dbopt, ps, logger=None):
     # append rout messages to the rout list from hanly
     # if there are sys_records add them to the database sys changes sys_b
     #
@@ -62,8 +60,8 @@ def logger_process(results, sys_records, sys_tables, rout, scr, cerr, dbopt, ps,
                     try:
                         for msg in dcp_messages:
 
-                            if msg is not None and len(msg) > 6:
-                                filesize = msg[6]
+                            if msg is not None and len(msg) > 8:
+                                filesize = msg[8]
                                 if filesize:
                                     timestamp = msg[0]
                                     filepath = msg[1]
@@ -76,8 +74,10 @@ def logger_process(results, sys_records, sys_tables, rout, scr, cerr, dbopt, ps,
                                         rout.append(f'Copy {timestamp} {creation} {filepath}')
 
                                     # windows if creation time is greater than modified time it could be a copy, a download or a created file
-                                    # this differs from linux that has no creation time but casmod or change as mod can be put instead
-                                    # change as modified means it is significant in that it could be a downloaded file with preserved metadata
+                                    # this differs from linux that has no creation time but casmod or change as modified can be put instead
+                                    # it is significant in that it could be a downloaded file with preserved metadata
+                                    elif filepath in created:
+                                        rout.append(f'Created {timestamp} {creation} {filepath}')
                                     else:
                                         mod_time = timestamp.strftime(fmt)  # lexographic compare
                                         if creation and creation >= mod_time:
@@ -116,7 +116,7 @@ def logger_process(results, sys_records, sys_tables, rout, scr, cerr, dbopt, ps,
                     log.error(em, exc_info=True)
 
 
-def hanly_parallel(drive_type, rout, scr, cerr, parsed, cachermPATTERNS, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, iqt=False, strt=65, endp=90):
+def hanly_parallel(drive_type, rout, scr, cerr, parsed, id_to_mime, created, cachermPATTERNS, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, iqt=False, strt=65, endp=90):
 
     all_results = []
     batch_incr = []
@@ -149,7 +149,7 @@ def hanly_parallel(drive_type, rout, scr, cerr, parsed, cachermPATTERNS, checksu
         # tlog = threading.Thread(target=logging_worker, args=(log_q, len_parsed, strt, endp, show_progress, logger), daemon=True)
         # tlog.start()
         init_process_worker(None)
-        all_results, batch_incr, _, csum = hanly(parsed, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, cachermPATTERNS, show_progress, logger, strt, endp)
+        all_results, batch_incr, _, csum = hanly(parsed, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, id_to_mime, cachermPATTERNS, show_progress, logger, strt, endp)
         # if log_entries:
         #     logs_to_queue(log_entries, log_q)
 
@@ -177,7 +177,7 @@ def hanly_parallel(drive_type, rout, scr, cerr, parsed, cachermPATTERNS, checksu
             ) as executor:
                 futures = [
                     executor.submit(
-                        hanly, chunk, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, cachermPATTERNS, show_progress, None, strt, endp
+                        hanly, chunk, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, id_to_mime, cachermPATTERNS, show_progress, None, strt, endp
                     )
                     for chunk in chunks
                 ]
@@ -220,7 +220,7 @@ def hanly_parallel(drive_type, rout, scr, cerr, parsed, cachermPATTERNS, checksu
 
     print("processing results", flush=True)
     logger = logging.getLogger("HANLYLOGGER")
-    logger_process(all_results, batch_incr, sys_tables, rout, scr, cerr, dbopt, ps, logger)
+    logger_process(all_results, batch_incr, sys_tables, rout, scr, cerr, created, dbopt, ps, logger)
 
     lend = time.perf_counter()
     logger_total_time = lend - end
