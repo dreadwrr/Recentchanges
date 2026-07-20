@@ -1,8 +1,11 @@
+import logging
 import os
+import psutil
 import re
 import sys
 import time
 import threading
+import traceback
 from datetime import datetime
 from pathlib import Path
 # flake8: noqa: E402
@@ -25,7 +28,7 @@ from src.rntchangesfunctions import name_of
 from src.rntchangesfunctions import to_bool
 from src.rntchangesfunctions import removefile
 import src.watchdog_functions as wf
-# 07/08/2026
+# 07/17/2026
 # This watchdog script was made from an inotify script that was a result of needing to watch basedir for created files that
 # could have preserved metadata and may not show in regular searches. As well as cache files over 1 MB for the 
 # ctimecache.gpg.
@@ -58,7 +61,7 @@ class CreatedHandler(FileSystemEventHandler):
     MAX_JOBS = 8
     IDLE = MAX_JOBS // 2
 
-    def __init__(self, output_file, CACHE_F, cdir, lockfile, moduleNAME, debug_file, inclusions, exclusions, supbrwLIST, logger, parent=None):
+    def __init__(self, output_file, CACHE_F, cdir, lockfile, algo, moduleNAME, debug_file, inclusions, exclusions, supbrwLIST, logger, parent=None):
         super().__init__()
 
         localappdata = inclusions[0]
@@ -80,6 +83,7 @@ class CreatedHandler(FileSystemEventHandler):
         self.CACHE_F = CACHE_F
         self.cdir = cdir
         self.lockfile = lockfile
+        self.algo = algo
         self.moduleNAME = moduleNAME
         self.log_file = debug_file
         self.logger = logger
@@ -126,7 +130,7 @@ class CreatedHandler(FileSystemEventHandler):
             self.log_queue = queue_mod.Queue()
             init_process_worker(self.log_queue)
             self.log_thread = threading.Thread(
-                target=wf.logging_,
+                target=wf.logger_process,
                 args=(self.log_queue, self.lockfile, self.logger),
                 daemon=True,
                 name="LogWriter"
@@ -172,6 +176,11 @@ class CreatedHandler(FileSystemEventHandler):
                 match_found = True
             if not match_found:
                 path_lower = path.lower()
+                # if wf.DEBUG:
+                #     print("match", path_lower)
+                #     print("to")
+                #     for rel in self.inclusion:
+                #         print(rel)
                 if any(path_lower.startswith(excl) for excl in self.inclusion):
                     match_found = True
 
@@ -194,12 +203,12 @@ class CreatedHandler(FileSystemEventHandler):
 
                 if action == "moved":
 
-                    if wf.pair_handle(action, event, path, self.created_seen, log_q, self.logger):
+                    if wf.pair_handle(action, event, entry, path, self.start_time, self.created_seen, log_q, self.logger):
                         return
 
                 else:
                     if current > self.IDLE:
-                         emit_log("DEBUG", f"system at has idle jobs: {current} skipping stabilization wait {path}", log_q, logger=self.logger)
+                        emit_log("DEBUG", f"system at has idle jobs: {current} skipping stabilization wait {path}", log_q, logger=self.logger)
                     else:
                         i = 0
                         retried = 0
@@ -227,13 +236,15 @@ class CreatedHandler(FileSystemEventHandler):
 
                         if size == 0:
                             emit_log("DEBUG", f"watchdog size stabilized looks like a download 0 bytes. returning for move event. file: {path}", log_q, logger=self.logger)     
-                            return
                         if stable:
                             emit_log("DEBUG", f"watchdog size stabilized for handle_file {path}", log_q, logger=self.logger)
                         else:
                             emit_log("DEBUG", f"timed out waiting for stable size, proceeding anyway (checksum will self-guard): {path}", log_q, logger=self.logger)
 
-                res = wf.get_specs(entry, path, self.output_file, self.CACHE_F, self.lockfile, log_q, self.logger)
+                        if path not in self.created_seen:
+                            return
+
+                res = wf.get_specs(action, entry, path, self.output_file, self.CACHE_F, self.lockfile, self.algo, log_q, self.logger)
                 if res:
                     emit_log("ERROR", f"Unknown status: {res} returned for file: {path}", log_q, logger=self.logger)
 
@@ -248,6 +259,13 @@ class CreatedHandler(FileSystemEventHandler):
                 self.active_jobs += 1
             try:
                 return fn(*args)
+            # this can be commented out but it is better to shutdown to indicate there is an exception somewhere
+            except Exception:
+                # sys.excepthook(*sys.exc_info())
+                file_out = os.path.join(self.cdir, "crash.txt")
+                with open(file_out, "a") as f:
+                    f.write(traceback.format_exc())
+                os._exit(1)
             finally:
                 with self.active_lock:
                     self.active_jobs -= 1
@@ -287,7 +305,7 @@ class CreatedHandler(FileSystemEventHandler):
                 del self.created_seen[path]
 
 class WatchdogService:
-    def __init__(self, base, output_file, CACHE_F, cdir, lockfile, moduleNAME, debug_file, exclDIRS, inclusions, supbrwLIST, logger):
+    def __init__(self, base, output_file, CACHE_F, cdir, lockfile, algo, moduleNAME, debug_file, exclDIRS, inclusions, supbrwLIST, logger):
         self.base = base
         self.output_file = output_file
         self.CACHE_F = CACHE_F
@@ -305,6 +323,7 @@ class WatchdogService:
             CACHE_F,
             cdir,
             lockfile,
+            algo,
             moduleNAME,
             debug_file,
             inclusions,
@@ -329,30 +348,42 @@ class WatchdogService:
             self.observer.join()
             self.observer = None
 
+    def shutdown(self):
+        self.stop()
         if self.handler.executor:
             self.handler.executor.shutdown(wait=True)
-            if self.handler.log_queue is not None:
-                self.handler.log_queue.put(wf.SENTINEL)
-                self.handler.log_thread.join(timeout=1)
-
+            self.handler.executor = None
+        if self.handler.log_queue is not None:
+            self.handler.log_queue.put(wf.SENTINEL)
+            self.handler.log_thread.join(timeout=1)
+            self.handler.log_queue = None
 
 class TrayApp:
-    def __init__(self, service, pid_file, _time, logger):
+    def __init__(self, service, appdata_local, pid_file, _time, logger):
         self.service = service
         self.pid_file = pid_file
         self._time = _time
         self.logger = logger
 
-        icon_path = os.path.join(Path(os.path.dirname(__file__)).parent, "Resources", "recentchanges.ico")
-
         self.pid = os.getpid()
+
+        # can be called in inotifyfunctions but would slow it down
+        # old_pid_check(self.watchdog_pid_file, pid, logging, "windows")  
+
+        # the pid file should not be there normally. If it is try to kill it to attempt to auto rectify
+        wf.old_pid_check(pid_file, self.pid, logger, "windows")  
+
         self.write_pid()
+
         self.running = False
 
         self.tray = QSystemTrayIcon()
+        icon_path = os.path.join(appdata_local, "Resources", "recentchanges.ico")  # os.path.join(Path(os.path.dirname(__file__)).parent, "Resources", "recentchanges.ico")
         self.tray.setIcon(QIcon(icon_path))
 
         self.menu = QMenu()
+
+        self.tray.activated.connect(self.on_tray_activated)
 
         start_action = self.menu.addAction("Start")
         stop_action = self.menu.addAction("Stop")
@@ -363,8 +394,6 @@ class TrayApp:
         stop_action.triggered.connect(self.stop_watch)
         exit_action.triggered.connect(self.exit_app)
 
-        self.tray.activated.connect(self.on_tray_activated)
-
         self.tray.setContextMenu(self.menu)
         self.tray.show()
     
@@ -374,10 +403,16 @@ class TrayApp:
 
         # optional delayed auto-start
         QTimer.singleShot(0, self.start_watch)
+        FLBRAND = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M_%S")
+        emit_log("DEBUG", f"{FLBRAND} inotify started", self.service.handler.log_queue, logger=self.logger)
 
     def write_pid(self):
+        # with open(self.pid_file, "w") as f:  # original this could close a reused pid?
+        #     f.write(str(self.pid) + '\n')
+
+        proc = psutil.Process(self.pid)
         with open(self.pid_file, "w") as f:
-            f.write(str(self.pid) + '\n')
+            f.write(f"{self.pid}|{proc.create_time()}\n")
 
     def on_tray_activated(self, reason):
         # print("reason =", reason)  # probe
@@ -386,6 +421,7 @@ class TrayApp:
 
             print("Left click")
             # self.menu.popup(QCursor.pos())
+
             # QTimer.singleShot(
             #     0,
             #     lambda: self.menu.exec(QCursor.pos())
@@ -397,6 +433,7 @@ class TrayApp:
         # elif reason == QSystemTrayIcon.Context:  # right click
         #     print("Right click")
 
+        # This can be used to give an alert. but if something goes wrong the indication is just quit and launcher disapears **
         #     self.tray.showMessage(
         #         "Watchdog",
         #         "Monitor is running",
@@ -405,14 +442,11 @@ class TrayApp:
         #     )
 
     def start_watch(self):
-        FLBRAND = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M_%S")
-        emit_log("DEBUG", f"{FLBRAND} inotify started", self.service.handler.log_queue, logger=self.logger)
         if not self.running:
             self.service.start()
             self.running = True
             self.timer.stop()
             self.timer.start(int(self._time * 1000))
-
 
     def stop_watch(self):
         if self.running:
@@ -423,12 +457,13 @@ class TrayApp:
     def exit_app(self):
         self.stop_watch()
         self.timer.stop()
+        self.service.shutdown()
         # for t in threading.enumerate():
         #     print(t.name, t.daemon, t.is_alive())
         QApplication.quit()
         
 
-def main(appdata_local, home_dir, output_file, CACHE_F, cdir, pid_file, lockfile, log_path, ll_level, _time, user, moduleNAME, usrDIR, temp_dir, gnupg_home, debug_mode, *supbrwLIST):
+def main(appdata_local, home_dir, output_file, CACHE_F, cdir, pid_file, lockfile, log_path, ll_level, _time, algo, user, moduleNAME, usrDIR, temp_dir, gnupg_home, debug_mode, *supbrwLIST):
 
     debug_mode = to_bool(debug_mode)
     wf.DEBUG = debug_mode
@@ -451,34 +486,50 @@ def main(appdata_local, home_dir, output_file, CACHE_F, cdir, pid_file, lockfile
     inclusions = (appdata_local, usrDIR, temp_dir, user, flth, dbtarget, cache_f, cache_s, log_path, gnupg_home)
 
     debug_file = appdata_local / "logs" / "watchdog.log"
+    logging.getLogger('watchdog').setLevel(logging.WARNING)  # turn off the intercepted watchdog logging
     logger = setup_logger(str(debug_file), ll_level, "WATCHDOG")
 
-    app = QApplication(sys.argv)
+    try:
+        app = QApplication(sys.argv)
 
-    service = WatchdogService(
-        base,
-        output_file,
-        CACHE_F,
-        cdir,
-        lockfile,
-        moduleNAME,
-        debug_file,
-        exclDIRS,
-        inclusions,
-        supbrwLIST,
-        logger
-    )
+        service = WatchdogService(
+            base,
+            output_file,
+            CACHE_F,
+            cdir,
+            lockfile,
+            algo,
+            moduleNAME,
+            debug_file,
+            exclDIRS,
+            inclusions,
+            supbrwLIST,
+            logger
+        )
 
-    tray = TrayApp(service, pid_file, _time, logger)
+        tray = TrayApp(service, appdata_local, pid_file, _time, logger)
 
-    # import traceback
-    # def hook(exctype, value, tb):
-    #     with open(os.path.join(cdir, "crash.txt"), "a") as f:
-    #         f.write("".join(traceback.format_exception(exctype, value, tb)))
-    # sys.excepthook = hook
-    res = app.exec()
-    removefile(pid_file)
-    sys.exit(res)
+        # This can be commented out. But if an exception happens write it to a file and quit Watchdog this is to
+        # indicate that there is problem with the code.
+        def hook(exctype, value, tb):
+            sys.__excepthook__(exctype, value, tb)
+            with open(os.path.join(cdir, "crash.txt"), "a") as f:
+                f.write("".join(traceback.format_exception(exctype, value, tb)))
+            print(f"Unhandled exception {exctype.__name__} stack trace logged to: /tmp/crash.txt")
+            # app = QApplication.instance()
+            # if app is not None:
+            #     app.quit()
+        sys.excepthook = hook
+        
+        res = app.exec()
+        removefile(pid_file)
+        sys.exit(res)
+    except Exception as e:
+        em = "Failed to initialize Watchdog service:"
+        print(f"{em} {type(e).__name__} err: {e} \n {traceback.format_exc()}")
+        # QMessageBox.critical(None, "Error", f"{e}")
+        logging.error(em, exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
