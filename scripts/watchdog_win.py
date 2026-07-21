@@ -222,15 +222,21 @@ class CreatedHandler(FileSystemEventHandler):
                             except FileNotFoundError:
                                 return
 
-                            if size == last_size:
+                            if size == 0:
+                                if retried >= self.LIMIT:
+                                    stable = True
+                                    break
+                                i += 1
                                 retried += 1
+                            elif size == last_size:
                                 if retried >= self.LIMIT:
                                     stable = True
                                     break
                                 i = 0
+                                retried += 1
                             else:
-                                retried = 0
                                 i += 1
+                                retried = 0
 
                             last_size = size
 
@@ -241,10 +247,7 @@ class CreatedHandler(FileSystemEventHandler):
                         else:
                             emit_log("DEBUG", f"timed out waiting for stable size, proceeding anyway (checksum will self-guard): {path}", log_q, logger=self.logger)
 
-                        if path not in self.created_seen:
-                            return
-
-                res = wf.get_specs(action, entry, path, self.output_file, self.CACHE_F, self.lockfile, self.algo, log_q, self.logger)
+                res = wf.get_specs(action, entry, path, self.output_file, self.CACHE_F, self.lockfile, self.algo, self.created_seen, log_q, self.logger)
                 if res:
                     emit_log("ERROR", f"Unknown status: {res} returned for file: {path}", log_q, logger=self.logger)
 
