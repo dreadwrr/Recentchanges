@@ -222,7 +222,7 @@ def is_temp_file(path: Path, temp_suffixes) -> bool:
     return path.suffix.lower() in temp_suffixes
 
 
-def pair_handle(action, event, entry, path, start_time, created_seen, log_q, logger):
+def spec_handle(action, event, entry, path, start_time, created_seen, log_q, logger):
     """ returns false meaning process the event """
     src = str(Path(event.src_path).resolve())
     stat_info = get_stat(entry, log_q, logger=logger)
@@ -327,7 +327,7 @@ def old_pid_check(pid_file, new_pid, logger, platform):
 
 
 # original
-# def pair_handle(action, event, path, created_seen, log_q, logger):
+# def spec_handle(action, event, path, created_seen, log_q, logger):
 
     # src = str(Path(event.src_path).resolve())
     # # stat_info = get_stat(entry, log_q, logger=self.logger)
