@@ -133,6 +133,7 @@ def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, created
             return
         elif not size:
             return
+        del created_seen[path]
 
     if sym != "y":
 
