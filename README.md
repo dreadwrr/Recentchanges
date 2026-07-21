@@ -1,5 +1,5 @@
 Find modified and new files on the system quickly: <br>
-recentchanges\\bin\\parsec.exe C: --cutoff "2026-06-15 07:13:18" \# or "2026-06-15T07:13:18"<br>
+.\\bin\\parsec.exe C: --cutoff "2026-06-15 07:13:18" \# or "2026-06-15T07:13:18"<br>
 where the time is current local system time <br><br>
 
 Version: 6.5.0
