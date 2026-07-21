@@ -126,7 +126,10 @@ def hanly_parallel(drive_type, rout, created, scr, cerr, parsed, id_to_mime, cac
     if len_parsed == 0:
         return False
 
+    is_error = False
     csum = False
+
+    ha_total_time = 0
 
     logger = logging.getLogger("HANLY")
 
@@ -199,10 +202,12 @@ def hanly_parallel(drive_type, rout, created, scr, cerr, parsed, id_to_mime, cac
                         #     print(f"Progress: {prog:.2f}%", flush=True)
 
                     except BrokenProcessPool as e:
+                        is_error = True
                         print("hanly encountered a multiprocessing error")
                         emit_log("ERROR", f"unable to run hanly an error occured {e} \n{traceback.format_exc()}", log_q)
                         break
                     except Exception as e:
+                        is_error = True
                         em = f"Worker error from hanly multiprocessing: {type(e).__name__} {e}"
                         print(em)
                         emit_log("ERROR", f"{em} \n {traceback.format_exc()}", log_q)
@@ -214,9 +219,9 @@ def hanly_parallel(drive_type, rout, created, scr, cerr, parsed, id_to_mime, cac
             log_q.join_thread()
 
     end = time.perf_counter()
-    ha_total_time = end - start
 
-    if len(all_results) > 0:
+    if not is_error and len(all_results) > 0:
+        ha_total_time = end - start
         cprint.green('Hybrid analysis on')
 
     print("processing results", flush=True)
