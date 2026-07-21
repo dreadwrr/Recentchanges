@@ -203,7 +203,7 @@ class CreatedHandler(FileSystemEventHandler):
 
                 if action == "moved":
 
-                    if wf.pair_handle(action, event, entry, path, self.start_time, self.created_seen, log_q, self.logger):
+                    if wf.spec_handle(action, event, entry, path, self.start_time, self.created_seen, log_q, self.logger):
                         return
 
                 else:
@@ -240,10 +240,11 @@ class CreatedHandler(FileSystemEventHandler):
 
                             last_size = size
 
-                        if size == 0:
-                            emit_log("DEBUG", f"watchdog size stabilized looks like a download 0 bytes. returning for move event. file: {path}", log_q, logger=self.logger)     
                         if stable:
-                            emit_log("DEBUG", f"watchdog size stabilized for handle_file {path}", log_q, logger=self.logger)
+                            if size == 0:
+                                emit_log("DEBUG", f"watchdog size stabilized looks like a download 0 bytes. file: {path}", log_q, logger=self.logger)
+                            else:
+                                emit_log("DEBUG", f"watchdog size stabilized for handle_file {path}", log_q, logger=self.logger)
                         else:
                             emit_log("DEBUG", f"timed out waiting for stable size, proceeding anyway (checksum will self-guard): {path}", log_q, logger=self.logger)
 
