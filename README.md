@@ -12,13 +12,13 @@ Windows 10 11 <br>
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 File search application with Hybrid analysis and MFT search <br><br>
-Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br>
+Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br><br>
 
 GPG included or can use gpg4win. Can use system 7-zip winrar. default python zipfile. <br>
 
 <p>
-Features scientific calculator with mpmath package <br>
-xrc with Python Watchdog script <br>
+Scientific calculator with mpmath package <br>
+xRC Python Watchdog <br>
 Check for hash collisions during search <br>
 Save encrypted notes <br>
 Custom alarm clock that plays .mp3, .wav and .ogg files or beeps <br>
