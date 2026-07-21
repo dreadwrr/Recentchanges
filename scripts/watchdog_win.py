@@ -28,7 +28,7 @@ from src.rntchangesfunctions import name_of
 from src.rntchangesfunctions import to_bool
 from src.rntchangesfunctions import removefile
 import src.watchdog_functions as wf
-# 07/17/2026
+# 07/21/2026
 # This watchdog script was made from an inotify script that was a result of needing to watch basedir for created files that
 # could have preserved metadata and may not show in regular searches. As well as cache files over 1 MB for the 
 # ctimecache.gpg.
@@ -115,16 +115,16 @@ class CreatedHandler(FileSystemEventHandler):
 
         self.inclusion = get_runtime_exclude_list(
             localappdata, usrDIR, moduleNAME, flth, dbtarget, cache_f, cache_s,
-            gnupg_home, str(debug_file), str(log_path)
+            gnupg_home, str(debug_file), str(log_path) 
         )
-
+ 
         self.excluded = EXCLUSIONS.copy()
         self.excluded.append(output_file)
         self.excluded.extend(exclusions)
 
         self.suffixes = TEMP_SUFFIXES.copy()
 
-        if wf.DEBUG:
+        if wf.DEBUG: 
             init_process_worker(None)
         else:
             self.log_queue = queue_mod.Queue()
@@ -203,7 +203,7 @@ class CreatedHandler(FileSystemEventHandler):
 
                 if action == "moved":
 
-                    if wf.spec_handle(action, event, entry, path, self.start_time, self.created_seen, log_q, self.logger):
+                    if wf.shandle(action, event, entry, path, self.start_time, self.created_seen, log_q, self.logger):
                         return
 
                 else:
@@ -221,7 +221,8 @@ class CreatedHandler(FileSystemEventHandler):
                                 size = entry.stat().st_size
                             except FileNotFoundError:
                                 return
-
+                            except PermissionError:
+                                size = last_size 
                             if size == 0:
                                 if retried >= self.LIMIT:
                                     stable = True
