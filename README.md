@@ -1,4 +1,4 @@
-To quickly find modified and new files on the system you can use: <br>
+Find modified and new files on the system quick: <br>
 recentchanges\\bin\\parsec.exe C: --cutoff "2026-06-15 07:13:18" \# or "2026-06-15T07:13:18"<br>
 where the time is current local system time <br><br>
 
