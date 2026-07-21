@@ -116,7 +116,7 @@ def logger_process(results, sys_records, sys_tables, rout, scr, cerr, created, d
                     log.error(em, exc_info=True)
 
 
-def hanly_parallel(drive_type, rout, scr, cerr, parsed, id_to_mime, created, cachermPATTERNS, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, iqt=False, strt=65, endp=90):
+def hanly_parallel(drive_type, rout, created, scr, cerr, parsed, id_to_mime, cachermPATTERNS, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, iqt=False, strt=65, endp=90):
 
     all_results = []
     batch_incr = []
@@ -128,8 +128,6 @@ def hanly_parallel(drive_type, rout, scr, cerr, parsed, id_to_mime, created, cac
 
     csum = False
 
-    cprint.green('Hybrid analysis on')
-
     logger = logging.getLogger("HANLY")
 
     show_progress = False
@@ -138,7 +136,7 @@ def hanly_parallel(drive_type, rout, scr, cerr, parsed, id_to_mime, created, cac
 
     start = time.perf_counter()
     if len_parsed < 80 or drive_type.lower() == "hdd":
-
+        # print("aa")
         # avoid starting the queue and use logging directly to avoid overhead
 
         # log_q = queue.SimpleQueue()
@@ -217,6 +215,9 @@ def hanly_parallel(drive_type, rout, scr, cerr, parsed, id_to_mime, created, cac
 
     end = time.perf_counter()
     ha_total_time = end - start
+
+    if len(all_results) > 0:
+        cprint.green('Hybrid analysis on')
 
     print("processing results", flush=True)
     logger = logging.getLogger("HANLYLOGGER")
