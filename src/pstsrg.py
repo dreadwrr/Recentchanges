@@ -174,7 +174,7 @@ def main(dbopt, dbtarget, xdata, complete, rout, created, cachermPATTERNS, user_
                     print(f'{count} searches in gpg database')
 
                 if checksum and checkMETHOD != "blake2":
-                    if collision_check(xdata, cerr, sys_tables, c, ps):
+                    if collision_check(parsed, cerr, sys_tables, c, ps):
                         csum = True
 
                 # Analytics - Store the total files and total time for the search. Also get unique files and lifetime throughput.
