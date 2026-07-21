@@ -257,13 +257,14 @@ def convert_mime_to_int(xdata: tuple, mime_hashmap: dict, id_to_mime: dict) -> t
     for row in xdata:
         mime = row[7]
 
-        if mime and "/" in mime:
+        if mime:
             if mime in mime_hashmap:
                 mime_id = mime_hashmap[mime]["id"]
             else:
                 mime_id = next_mime_id
-
-                primary, subtype = mime.split("/", 1)
+                primary = subtype = None
+                if "/" in mime:
+                    primary, subtype = mime.split("/", 1)
 
                 info = {
                     "id": next_mime_id,
