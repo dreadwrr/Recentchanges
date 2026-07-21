@@ -98,7 +98,7 @@ def log_lineout(log_q, logger, path, status, message):
     return is_error
 
 
-def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, log_q, logger):
+def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, created_seen, log_q, logger):
     fmt = "%Y-%m-%d %H:%M:%S"
 
     cam = last_modified = None
@@ -128,8 +128,11 @@ def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, log_q, 
     if status in ("Nosuchfile", "Error"):
         return log_lineout(log_q, logger, path, status, "get_specs failed to get inode, hardlink and mode")
 
-    if action == "created" and not size:
-        return
+    if action == "created":
+        if path not in created_seen:
+            return
+        elif not size:
+            return
 
     if sym != "y":
 
