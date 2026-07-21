@@ -18,8 +18,8 @@ DEBUG = False  # switch to serial so more rudimentary operation and added verbos
 CSZE = 1024 * 1024  # when to cache created files
 
 
-def emit_write(output_file, CACHE_F, size, out_data, cache_data, lockfile, log_q, logger):
-    payload = (output_file, CACHE_F, size, out_data, cache_data)
+def emit_write(output_file, CACHE_F, checks, size, out_data, cache_data, lockfile, log_q, logger):
+    payload = (output_file, CACHE_F, checks, size, out_data, cache_data)
     if log_q is not None:
         log_q.put(("write", payload))
     else:
@@ -30,7 +30,7 @@ def emit_write(output_file, CACHE_F, size, out_data, cache_data, lockfile, log_q
 
 
 def file_lineout(payload, lockfile, logger):
-    output_file, CACHE_F, size, out_data, cache_data = payload
+    output_file, CACHE_F, checks, size, out_data, cache_data = payload
     # lock_file = open(lockfile, "w")
     # lock_ = False
     # try:
@@ -40,12 +40,12 @@ def file_lineout(payload, lockfile, logger):
     # block until lock
     # msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
     # lock_ = True
-    if size > CSZE and CACHE_F:
+    if checks and size > CSZE:
         with open(CACHE_F, 'a') as f:
             f.write(cache_data + '\n')
-    if output_file:
-        with open(output_file, 'a') as f:
-            f.write(" ".join(map(str, out_data)) + '\n')
+
+    with open(output_file, 'a') as f:
+        f.write(" ".join(map(str, out_data)) + '\n')
 
     # except OSError as e:
     #     logs.emit_log("ERROR", f"Failed to acquire lock: {e}", logger=logger)
@@ -203,7 +203,7 @@ def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, created
             last_modified, hardlink, mtime_us
         ]
 
-        emit_write(output_file, CACHE_F, size, data, out_str, lockfile, log_q, logger)
+        emit_write(output_file, CACHE_F, checks, size, data, out_str, lockfile, log_q, logger)
 
 
 def is_excl_dir(path: Path, exclusions: list) -> bool:
@@ -223,53 +223,44 @@ def is_temp_file(path: Path, temp_suffixes) -> bool:
     return path.suffix.lower() in temp_suffixes
 
 
-def spec_handle(action, event, entry, path, start_time, created_seen, log_q, logger):
-    """ returns false meaning process the event """
-    src = str(Path(event.src_path).resolve())
+def shandle(action, event, entry, path, start_time, created_seen, log_q, logger):
+    """ formerly phandle returns false meaning process the event """
+
+    # if using another index could store a key
+    # size = stat_info.st_size
+    # key = (path, size, mod_time)
+    # pending_files[key] = time.time()
+
+    # a moved file wouldnt have a creation event or the creation event could have been missed
     stat_info = get_stat(entry, log_q, logger=logger)
     if not stat_info:
-        return None
+        return True
 
     mod_time = stat_info.st_mtime
 
-    # firefox and others normal for downloaded file. creation event makes final file src 0 bytes -> writes a partial -> move event dest atomic with full file
-    if path in created_seen:
-
-        del created_seen[path]
-
-        # if using another index could store a key
-        # size = stat_info.st_size
-        # key = (path, size, mod_time)
-        # pending_files[key] = time.time()
-
-    # unconventional or maybe some other app? creation event write partial in place -> move event dest but dest isnt in created_seen src is.
-    elif src in created_seen:
+    src = str(Path(event.src_path).resolve())
+    # the unusual. maybe some other app? creation event write partial in place -> move event dest but dest isnt in created_seen src is.
+    if src in created_seen:
 
         del created_seen[src]
 
-        # log unusual event
         emit_log("DEBUG", f"handle_file {action} unusual src was in created_seen on move after created file. src: {src} dest or file: {path}", log_q, logger=logger)
 
-    else:
+    # the usual. firefox and others normal for downloaded file. creation event makes final file src 0 bytes -> writes a partial -> move event dest atomic with full file
+    elif path in created_seen:
 
-        # a moved file wouldnt have a creation event or the creation event could have been missed
+        del created_seen[path]
+
+    else:
+        # does it look like a creation event?
 
         emit_log("DEBUG", f"handle_file {action} did not have a creation event checking if ctime >= mtime for file: {path}", log_q, logger=logger)
-        change_time = stat_info.st_ctime
 
-        # gated on regular moves. ctime >= mtime and since watch start are files of interest so process anyway
-        # on linux this increases noise but is better to include than exclude and can adjust where necessary
-        # does it look like a creation event?
-        if change_time >= mod_time or change_time >= start_time:
-            # process
-            return False
-
-        # its a regular move dont process
-        else:
+        creation_time = stat_info.st_ctime
+        if creation_time < mod_time and creation_time < start_time:
             emit_log("DEBUG", f"handle_file {action} it was a regular move. skipping.. file: {path}", log_q, logger=logger)
-        return True
+            return True
 
-    # process
     return False
 
 
