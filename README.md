@@ -19,7 +19,7 @@ GPG included or can use gpg4win. Can use system 7-zip winrar. default python zip
 <p>
 Scientific calculator with mpmath package <br>
 xRC Python Watchdog <br>
-Check for hash collisions during search <br>
+Check for hash collisions during search (when using md5 checksum) <br>
 Save encrypted notes <br>
 Custom alarm clock that plays .mp3, .wav and .ogg files or beeps <br>
 Select from a number of fonts or install your own. also 5 themes unix, wb (white on black), solar, monochrome or modern  <br>
