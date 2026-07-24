@@ -269,7 +269,7 @@ def shandle(action, event, entry, path, start_time, created_seen, log_q, logger)
 
 def old_pid_check(pid_file, new_pid, logger, platform):
     """ if there is an old pid file try to kill. """
-    res = False
+    res = True
 
     if os.path.isfile(pid_file):
         with open(pid_file) as f:
@@ -300,8 +300,8 @@ def old_pid_check(pid_file, new_pid, logger, platform):
                             #   fk_success = _fk_process(r'inotifywait.*-e create -e moved_to --format %e\|%w%f%0')  # fk_success = _fk_process('inotifywait -m -r -e create -e moved_to --format %e|%w%f%0')  # original
                         elif platform == "windows":
                             res = process_kill(stored_pid, pid_file=pid_file)
-                        if res:
-                            return True  # In the rare case it wasnt previously shutdown prevented having two before starting this watchdog process
+                        if not res:
+                            return False  # In the rare case it wasnt previously shutdown prevented having two before starting this watchdog process
                         # else:
                         # alternative
                         # try:
