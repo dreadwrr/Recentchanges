@@ -40,7 +40,7 @@ def file_lineout(payload, lockfile, logger):
     # block until lock
     # msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
     # lock_ = True
-    if checks and size > CSZE:
+    if checks and size and size > CSZE:
         with open(CACHE_F, 'a') as f:
             f.write(cache_data + '\n')
 
@@ -181,6 +181,9 @@ def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, created
                 last_modified = m_time
                 m_time = c_time
 
+        if not size:
+            checks = None
+
         # Output results
 
         emit_log("DEBUG", f"change time: {c_epoch} and mtime: {m_epoch} , get_specs passed processed line", log_q, logger=logger)
@@ -189,7 +192,7 @@ def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, created
         #
         #                                              timestamp   mtime_us
         # the check in this app uses - checksum|size|modified_time|modified_ep|root
-        out_str = f"{inode}|{size}|{mtime_us}\t{checks}\t{path}"
+        out_str = f"{inode}|{size}|{mtime_us}\t{checks}\t{entropy}\t{mime}\t{path}"
 
         # always write to output_file so can diagnose ***
         # mt, ct, ats and lmt is format "date time"

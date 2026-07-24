@@ -7,7 +7,7 @@ from datetime import datetime
 from .logs import emit_log
 
 
-def upt_cache(cfr, checks, file_size, time_stamp, modified_ep, file_path):
+def upt_cache(cfr, checks, entropy, mime, file_size, time_stamp, modified_ep, file_path):
 
     if not checks:
         return
@@ -19,6 +19,8 @@ def upt_cache(cfr, checks, file_size, time_stamp, modified_ep, file_path):
 
     cfr[file_path][modified_ep] = {
         "checksum": checks,
+        "entropy": entropy,
+        "mime": mime,
         "size": file_size,
         "modified_time": time_stamp,
     }
@@ -43,6 +45,8 @@ def get_cached(cfr, file_size, modified_ep, file_path):
             ):
                 return {
                     "checksum": row.get("checksum"),
+                    "entropy": row.get("entropy"),
+                    "mime": row.get("mime"),
                     "modified_ep": modified_ep
                 }
 

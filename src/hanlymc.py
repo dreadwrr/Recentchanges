@@ -119,7 +119,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                 previous_size = None
                 is_sys = False
 
-                if len(record) < 18:
+                if len(record) < 17:
 
                     emit_log("DEBUG", f"sortcomplete entry malformed.  less than required 18 : {record}", logs.WORKER_LOG_Q, logger=logger)
                     continue

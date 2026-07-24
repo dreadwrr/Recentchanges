@@ -180,10 +180,10 @@ def strup(script_dir, script, appdata_local, home_dir, inotify_creation_file, CA
 def to_int_or_not(value, field, line):
     try:
         return int(value)
-    except ValueError:
+    except (TypeError, ValueError) as e:
         logging.debug(
-            "parselog invalid integer %s: %r line: %s",
-            field, value, line
+            "parselog invalid integer %s: %r line: %s err: %s",
+            field, value, line, e
         )
         return None
 
@@ -283,11 +283,11 @@ def parselog(file, checksum, logger):
             if entropy:
                 try:
                     entropy = float(entropy)
-                except ValueError:
+                except (TypeError, ValueError) as e:
                     entropy = None
                     logging.debug(
-                        "parselog not a float %s: %r line: %s",
-                        "entropy", entropy, line
+                        "parselog not a float %s: %r line: %s err: %s",
+                        "entropy", entropy, line, e
                     )
 
             inode = to_int_or_not(ino, "inode", line)
@@ -346,7 +346,7 @@ def rotate_cache(cfr, cache_f, logger):
                     logger.debug("Skipping possibly empty line from cache file: %s", line)
                     continue
                 try:
-                    metadata, checksum, filepath = line.split("\t", maxsplit=2)
+                    metadata, checksum, entropy, mime, filepath = line.split("\t", maxsplit=4)
                     filepath = filepath.strip()
                     if not filepath:
                         logger.debug("Skipping malformed line in cache file with empty filepath: %s", line)
@@ -368,8 +368,15 @@ def rotate_cache(cfr, cache_f, logger):
                 if time_stamp_frm:
                     time_stamp = time_stamp_frm.replace(microsecond=0)
                     logger.debug("Inserting %s %s %s %s %s", checksum, size, time_stamp, mtime_epoch, filepath)
-                    upt_cache(cfr, checksum, size, time_stamp, mtime_epoch, filepath)
-                    created[filepath] = checksum
+                    upt_cache(cfr, checksum, entropy, mime, size, time_stamp, mtime_epoch, filepath)
+
+                    cache_data = {
+                        'checksum': checksum,
+                        'entropy': entropy,
+                        'mime': mime
+                    }
+
+                    created[filepath] = cache_data
                 else:
                     print("xRC invalid time_stamp or format detected in cache file.")
                     logger.debug("xRC Invalid timestamp in cache file line: %s", line)

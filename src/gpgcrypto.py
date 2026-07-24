@@ -172,6 +172,8 @@ def decr_ctime(cache_f: str) -> dict:
             continue
         cfr_src.setdefault(root, {})[modified_ep] = {
             "checksum": row.get('checksum', None),
+            "entropy": row.get('entropy', None),
+            "mime": row.get('mime', None),
             "size": size,
             "modified_time": row.get('modified_time', None),
             "owner": row.get('owner', None),

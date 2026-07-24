@@ -185,12 +185,14 @@ def process_results(results, cache_f):
                 time_stamp = res[0].strftime("%Y-%m-%d %H:%M:%S")
                 file_path = res[1]
                 checks = res[5]
-                file_size = res[6]
-                # user = res[8]
-                # group = res[9]
-                mtime_epoch = res[15]
-                # epath = res[16]
-                upt_cache(cache_f, checks, file_size, time_stamp, mtime_epoch, file_path)
+                entropy = res[6]
+                mime = res[7]
+                file_size = res[8]
+                # user = res[10]
+                # group = res[11]
+                mtime_epoch = res[17]
+                # epath = res[18]
+                upt_cache(cache_f, checks, entropy, mime, file_size, time_stamp, mtime_epoch, file_path)
 
     except Exception as e:
         msg = f'Error updating cache: {type(e).__name__}: {e}'

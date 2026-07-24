@@ -82,6 +82,8 @@ def process_ps1(line, checksum, filetype, search_start_dt, cache_f, algo="md5", 
                         return ("Deleted", mt, mt, file_path), log_entries
             else:
                 checks = cached.get("checksum")
+                entropy = cached.get("entropy")
+                mime = cached.get("mime")
 
         else:
             checks, entropy, mime, file_dt, file_us, file_st, status = calculate_checksum(file_path, mtime, mtime_us, inode, size, algo=algo, retry=1, cacheable=False, log_q=logs.WORKER_LOG_Q, logger=logger)
