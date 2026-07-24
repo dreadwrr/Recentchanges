@@ -153,7 +153,8 @@ class CreatedHandler(FileSystemEventHandler):
                 print(f"{action} not moved or created")
             return
 
-        current = self.active_jobs
+        with self.active_lock:
+            current = self.active_jobs
         log_q = self.log_queue
 
         emit_log("DEBUG", f"File event: {action} file: {entry}", log_q, logger=self.logger)
@@ -372,11 +373,13 @@ class TrayApp:
 
         self.pid = os.getpid()
 
-        # can be called in inotifyfunctions but would slow it down
+        # can be called in inotifyfunctions but would slow down the main script. handle it here
         # old_pid_check(self.watchdog_pid_file, pid, logging, "windows")  
 
         # the pid file should not be there normally. If it is try to kill it to attempt to auto rectify
-        wf.old_pid_check(pid_file, self.pid, logger, "windows")  
+        if not wf.old_pid_check(pid_file, self.pid, logger, "windows"):
+            logging.error(f"Process from pid file: {pid_file} is running and was unable to kill quiting")
+            sys.exit(1)
 
         self.write_pid()
 
