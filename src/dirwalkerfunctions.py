@@ -230,7 +230,7 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
     exclDIRS_fullpath = set(exclDIRS_fullpath)
 
     base_folders, root_count = get_base_folders(base_dir, exclDIRS_fullpath)
-    if root_count == 0:
+    if root_count <= 1:
         print(f"Unable to read base folders of drive {base_dir} the drive could be empty or check permissions")
         return None, 0
 

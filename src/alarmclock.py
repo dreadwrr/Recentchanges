@@ -717,13 +717,21 @@ class AlarmClock(QWidget):
         apm.setStyleSheet(f"color: {color};")
 
         if theme == "green":
-            # background-color: #1e1e1e;  # gray which doesnt stand out on darkmode **
-            # border: none;
-            lcd.setStyleSheet(f"""
-                color: {color};
-                background-color: black;
-                border: 1px solid {color};
-            """)
+
+            if platform.system() == "Windows":
+                lcd.setStyleSheet(f"""
+                    color: {color};
+                    background-color: black;
+                    border: 1px solid {color};
+                """)
+            else:
+                # substitutes
+                #   background-color: #1e1e1e;
+                lcd.setStyleSheet(f"""
+                    color: {color};
+                    border: 1px solid {color}
+                """)
+
         elif theme == "redblack":
             lcd.setStyleSheet(f"""
                 color: {color};

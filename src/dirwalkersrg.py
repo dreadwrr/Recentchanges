@@ -119,6 +119,11 @@ def sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, new_mime
             # map mime str to an int for database
             parsed_revised, new_mime_rows, next_mime_id = convert_mime_to_int(parsedsys, mime_hashmap, id_to_mime)
 
+            cur.execute("DELETE FROM scan_entries WHERE basedir = ?", (basedir,))
+            cur.execute("DELETE FROM scans WHERE id NOT IN (SELECT DISTINCT scan_id FROM scan_entries)")
+            # with open(r"c:\AMD\debugparsedrevised.txt", "w") as f:
+            #     f.write("\n".join(map(str, parsed_revised)))
+
             cur.executemany(f"""
                 INSERT OR IGNORE INTO {drive_sys_table} (
                     timestamp, filename, creationtime, inode, accesstime, checksum,

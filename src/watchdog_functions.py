@@ -188,7 +188,7 @@ def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, created
 
         emit_log("DEBUG", f"change time: {c_epoch} and mtime: {m_epoch} , get_specs passed processed line", log_q, logger=logger)
 
-        # get proper formatting - printf '%s|%s|%s\t%s\t%s\n' "$inode" "$size" "$mtime" "$checksum" "$path" >> "$cache_file"  # uptcache from pblk on cache
+        # get proper formatting - printf '%s|%s|%s\t%s\t%s\%s\t%s\n' "$inode" "$size" "$mtime" "$checksum" "entropy" "mime" "$path" >> "$cache_file"  # uptcache from pblk on cache
         #
         #                                              timestamp   mtime_us
         # the check in this app uses - checksum|size|modified_time|modified_ep|root
@@ -198,7 +198,7 @@ def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, created
         # mt, ct, ats and lmt is format "date time"
         # get proper formatting - output="$mt \"$y\" $ct $i $ats $adtcmd $cam $lmt $nlinks $mtime_us"  # pblk
         #
-        # adtcmd="$check_sum $fs $sl $wnr $grp $pmn"  # pblk
+        # adtcmd="$check_sum $ent $mtyp $fs $sl $wnr $grp $pmn"  # pblk
 
         data = [
             m_time, f'"{path}"', c_time, inode, a_time, checks,

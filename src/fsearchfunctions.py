@@ -132,7 +132,13 @@ def get_file_id(filepath, log_q=None, logger=None):
 
             size = (info[5] << 32) | info[6]
 
-            file_index = (info[8] << 32) + info[9]
+            file_index = (info[8] << 32) | info[9]
+
+            # file_index = (file_index + (1 << 63)) % (1 << 64) - (1 << 63)  # force to signed integer
+            # Convert unsigned 64-bit file ID to signed 64-bit for SQLite.
+            if file_index >= (1 << 63):
+                file_index -= 1 << 64
+
             hard_link = info[7]
 
             creation_frm = info[1].timestamp()  # pywin types dt object

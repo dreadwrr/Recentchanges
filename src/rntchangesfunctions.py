@@ -772,7 +772,7 @@ def build_tsv(sortcomplete, tmpopt, logf, rout, created, escaped_user, outpath, 
             if fpath in copy_paths:
                 is_copy = "y"
             elif fpath in created_paths:
-                is_copy = "y"
+                is_created = "y"
 
             row = (
                 f"{dt.strftime(fmt) if dt else ''}\t"

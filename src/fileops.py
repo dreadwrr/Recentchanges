@@ -76,6 +76,9 @@ def set_stat(line, checks, file_dt, file_st, file_us, inode, log_q=None, logger=
 
     a_ino = file_st.st_ino
 
+    if a_ino >= (1 << 63):
+        a_ino -= 1 << 64
+
     if a_ino != inode:
         checks = None
         if isinstance(line, tuple):

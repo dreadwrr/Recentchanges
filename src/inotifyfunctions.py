@@ -178,11 +178,26 @@ def strup(script_dir, script, appdata_local, home_dir, inotify_creation_file, CA
         logger.error(f"strup General exception unable to start inotify wait: {e} {type(e).__name__}", exc_info=True)
 
 
+def to_float_or_not(value, field, line):
+    """ for entropy value can be None so not unusual just return None. anything else log as DEBUG """
+    if value in ("", "None", None):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError) as e:
+        logging.debug(
+            "parselog not a float %s: %r line: %s err: %s",
+            field, value, line, e
+        )
+        return None
+
+
 def to_int_or_not(value, field, line):
+    """ anything else None is not usual for value log it as ERROR if it fails """
     try:
         return int(value)
     except (TypeError, ValueError) as e:
-        logging.debug(
+        logging.error(
             "parselog invalid integer %s: %r line: %s err: %s",
             field, value, line, e
         )
@@ -281,17 +296,8 @@ def parselog(file, checksum, logger):
                     logger.error("skipped error resolving symlink target, file: %s", filename)
                     continue
 
-            if entropy:
-                try:
-                    entropy = float(entropy)
-                except (TypeError, ValueError) as e:
-                    entropy = None
-                    logging.debug(
-                        "parselog not a float %s: %r line: %s err: %s",
-                        "entropy", entropy, line, e
-                    )
-
             inode = to_int_or_not(ino, "inode", line)
+            entropy = to_float_or_not(entropy, "entropy", line) if checksum else entropy
             filesize = to_int_or_not(sze, "filesize", line) if checksum else sze
             usec = to_int_or_not(us, "usec", line) if checksum else us
             hardlink_count = to_int_or_not(hardlink, "hardlink_count", line) if checksum else hardlink
@@ -368,7 +374,7 @@ def rotate_cache(cfr, cache_f, logger):
                 time_stamp_frm = epoch_to_date(mtime_epoch / 1_000_000)
                 if time_stamp_frm:
                     time_stamp = time_stamp_frm.replace(microsecond=0)
-                    logger.debug("Inserting %s %s %s %s %s", checksum, size, time_stamp, mtime_epoch, filepath)
+                    logger.debug("Inserting %s %s %s %s %s %s %s", checksum, entropy, mime, size, time_stamp, mtime_epoch, filepath)
                     upt_cache(cfr, checksum, entropy, mime, size, time_stamp, mtime_epoch, filepath)
 
                     cache_data = {
