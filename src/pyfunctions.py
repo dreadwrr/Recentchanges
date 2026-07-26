@@ -244,16 +244,18 @@ def insert_sys_entry(entry, record, recent_sys, sys_records):
     sys_record_flds(record, sys_records, prev_count)
 
 
-def convert_mime_to_int(xdata: tuple, mime_hashmap: dict, id_to_mime: dict) -> tuple[list, list, int]:
+def convert_mime_to_int(xdata: tuple, mime_hashmap: dict, id_to_mime: dict, next_mime_id: int = None, new_mime_rows: list | None = None, ) -> tuple[list, list, int]:
     """ convert tuple from mime str to int from hashmap
         update mime hashmap and id_to_mime hashmap and
         generate insertion list of unseen mime types
         for db """
+
+    if not new_mime_rows:
+        new_mime_rows = []  # for updating mime_types tbl and maintaining the index of mimes
+    if not next_mime_id:
+        next_mime_id = max(id_to_mime.keys(), default=0) + 1
+
     parsed_revised = []  # convert the mime field which is a str to an id
-    new_mime_rows = []  # for updating mime_types tbl and maintaining the index of mimes
-
-    next_mime_id = max(id_to_mime.keys(), default=0) + 1
-
     for row in xdata:
         mime = row[7]
 

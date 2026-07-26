@@ -360,30 +360,3 @@ def old_pid_check(pid_file, new_pid, logger, platform):
     #       #      return
 
     #   return True
-
-
-# def get_pid(pid_file):
-#     """ not used as could accidently kill the wrong process """
-#     pid = None
-#     if os.path.isfile(pid_file):
-#         try:
-#             with open(pid_file, "r") as f:
-#                 pid = int(f.read().strip())
-#         except (ValueError, OSError):
-#             return None
-#     return pid
-
-
-#     pid = get_pid(watchdog_pid_file)
-#     if pid:
-#         differs = new_pid and new_pid != pid
-#         if differs or not new_pid:
-#             logger.debug(f"{watchdog_pid_file} stale pid found attempted cleanup new {new_pid} vs old {pid}")
-#             if platform == "linux":
-#                 # process_kill(pid)
-#                 drop_pid(pid, platform, watchdog_pid_file)
-#                 # if not res:
-#                 #   kill by pattern
-#                 #   fk_success = _fk_process(r'inotifywait.*-e create -e moved_to --format %e\|%w%f%0')  # fk_success = _fk_process('inotifywait -m -r -e create -e moved_to --format %e|%w%f%0')  # original
-#             else:
-#                 process_kill(pid, watchdog_pid_file)

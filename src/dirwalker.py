@@ -287,7 +287,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
                         ))
                     # insert/update database
                     # del_keys is to remove db entries for deleted folders if wanting to maintain but no need
-                    if sync_db(dbopt, basedir, cache_s, None, None, None, key_upt, from_idx=True):
+                    if sync_db(dbopt, basedir, cache_s, None, None, None, None, key_upt, from_idx=True):
                         nc = cnc(dbopt, compLVL)
                         if encr(dbopt, dbtarget, email, no_compression=nc, dcr=True):
                             nc = cnc(cache_s, compLVL)

@@ -557,6 +557,27 @@ def help_about(lclhome, hudt, version_no):
     dlg.exec()
 
 
+def return_terminal():
+    terminals = []
+
+    term_env = os.environ.get("TERMINAL")
+    if term_env:
+        terminals.append(term_env)
+
+    terminals.extend([
+        "x-terminal-emulator", "mate-terminal", "gnome-terminal", "terminator", "xfce4-terminal", "urxvt", "rxvt",
+        "termit", "Eterm", "aterm", "uxterm", "xterm", "roxterm", "termite", "lxterminal", "terminology", "st",
+        "qterminal", "lilyterm", "tilix", "terminix", "konsole", "kitty", "guake", "tilda", "alacritty", "hyper", "wezterm",
+        "rio",
+    ])
+
+    for terminal in terminals:
+        if shutil.which(terminal):
+            return terminal
+    return None
+    # raise RuntimeError("No terminal emulator found")
+
+
 def handle_output(proc):
     stdout, stderr = proc.communicate()
     if proc.returncode != 0:

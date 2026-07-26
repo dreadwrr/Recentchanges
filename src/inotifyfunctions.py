@@ -21,8 +21,9 @@ from .pyfunctions import ap_decode
 from .pyfunctions import epoch_to_date
 from .pyfunctions import escf_py
 from .pyfunctions import parse_datetime
+from .qtfunctions import return_terminal
 from .rntchangesfunctions import removefile
-# 07/17/2026
+# 07/25/2026
 
 # Globals
 QUOTED_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
@@ -32,6 +33,7 @@ QUOTED_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
 
 # cross platform
 def process_by_target(target):
+    """ return process id or 0 if the process isnt running """
     for proc in psutil.process_iter(["pid", "cmdline"]):
         try:
             cmdline = proc.info["cmdline"] or []
@@ -43,6 +45,7 @@ def process_by_target(target):
 
 
 def process_kill(pid, pid_file):
+    """ close process by id """
     try:
         proc = psutil.Process(pid)
         proc.terminate()
@@ -61,6 +64,7 @@ def process_kill(pid, pid_file):
 
 
 def drop_pid(pid, platform, pid_file=None):
+    """ formerly shutdown. close process by id """
     try:
         if platform == "linux":
             os.kill(-pid, signal.SIGTERM)
@@ -74,6 +78,18 @@ def drop_pid(pid, platform, pid_file=None):
     except PermissionError:
         print("shutdown func inotifywait permission error")
     return False
+
+
+def get_pid(pid_file):
+    """ not used as could accidently kill the wrong process """
+    pid = None
+    if os.path.isfile(pid_file):
+        try:
+            with open(pid_file, "r") as f:
+                pid = int(f.read().strip())
+        except (ValueError, OSError):
+            return None
+    return pid
 # end cross platform
 
 
@@ -163,12 +179,12 @@ def strup(script_dir, script, appdata_local, home_dir, inotify_creation_file, CA
                 if debug_mode else
                 subprocess.CREATE_NEW_PROCESS_GROUP
             )
-        # else:
-        #     kwargs["start_new_session"] = True
-        #     if debug_mode:
-        #         terminal = return_terminal()
-        #         if terminal:
-        #             cmd = build_terminal_cmd(terminal, cmd)
+        else:
+            kwargs["start_new_session"] = True
+            if debug_mode:
+                terminal = return_terminal()
+                if terminal:
+                    cmd = build_terminal_cmd(terminal, cmd)
 
         subprocess.Popen(cmd, **kwargs)
 
@@ -178,26 +194,26 @@ def strup(script_dir, script, appdata_local, home_dir, inotify_creation_file, CA
         logger.error(f"strup General exception unable to start inotify wait: {e} {type(e).__name__}", exc_info=True)
 
 
-def to_float_or_not(value, field, line):
+def to_float_or_not(value, field, line, logger):
     """ for entropy value can be None so not unusual just return None. anything else log as DEBUG """
     if value in ("", "None", None):
         return None
     try:
         return float(value)
     except (TypeError, ValueError) as e:
-        logging.debug(
+        logger.debug(
             "parselog not a float %s: %r line: %s err: %s",
             field, value, line, e
         )
         return None
 
 
-def to_int_or_not(value, field, line):
+def to_int_or_not(value, field, line, logger):
     """ anything else None is not usual for value log it as ERROR if it fails """
     try:
         return int(value)
     except (TypeError, ValueError) as e:
-        logging.error(
+        logger.error(
             "parselog invalid integer %s: %r line: %s err: %s",
             field, value, line, e
         )
@@ -267,8 +283,10 @@ def parselog(file, checksum, logger):
 
             timestamp = inputln[0]
 
-            filename = ap_decode(inputln[1])
-            escf_path = escf_py(filename)
+            # decode if linux
+            # filename = ap_decode(inputln[1])
+            # escf_path = escf_py(filename)
+            filename = inputln[1]
 
             changetime = inputln[2]
             ino = None if inputln[3] in ("", "None") else inputln[3]
@@ -296,29 +314,11 @@ def parselog(file, checksum, logger):
                     logger.error("skipped error resolving symlink target, file: %s", filename)
                     continue
 
-            inode = to_int_or_not(ino, "inode", line)
-            entropy = to_float_or_not(entropy, "entropy", line) if checksum else entropy
-            filesize = to_int_or_not(sze, "filesize", line) if checksum else sze
-            usec = to_int_or_not(us, "usec", line) if checksum else us
-            hardlink_count = to_int_or_not(hardlink, "hardlink_count", line) if checksum else hardlink
-
-            # changetime = inputln[2]
-            # ino = None if inputln[3] in ("", "None") else inputln[3]
-            # accesstime = inputln[4]
-            # checks = None if n > 5 and inputln[5] in ("", "None") else (inputln[5] if n > 5 else None)
-            # entropy = None if n > 6 and inputln[6] in ("", "None") else (inputln[6] if n > 6 else None)
-            # mime = None if n > 7 and inputln[7] in ("", "None") else (inputln[7] if n > 7 else None)
-            # sze = None if n > 8 and inputln[8] in ("", "None") else (inputln[8] if n > 8 else None)
-            # sym = None if n <= 9 or inputln[9] in ("", "None") else inputln[9]
-            # onr = None if n <= 10 or inputln[10] in ("", "None") else inputln[10]
-            # gpp = None if n <= 11 or inputln[11] in ("", "None") else inputln[11]
-            # pmr = None if n <= 12 or inputln[12] in ("", "None") else inputln[12]
-            # cam = None if n <= 13 or inputln[13] in ("", "None") else inputln[13]
-            # timestamp1 = None if n <= 14 or inputln[14] in ("", "None") else inputln[14]
-            # timestamp2 = None if n <= 15 or inputln[15] in ("", "None") else inputln[15]
-            # lastmodified = None if not timestamp1 or not timestamp2 else f"{timestamp1} {timestamp2}"
-            # hardlink = None if n <= 16 or inputln[16] in ("", "None") else inputln[16]
-            # us = None if n <= 17 or inputln[17] in ("", "None") else inputln[17]
+            inode = to_int_or_not(ino, "inode", line, logger)
+            entropy = to_float_or_not(entropy, "entropy", line, logger) if checksum else entropy
+            filesize = to_int_or_not(sze, "filesize", line, logger) if checksum else sze
+            usec = to_int_or_not(us, "usec", line, logger) if checksum else us
+            hardlink_count = to_int_or_not(hardlink, "hardlink_count", line, logger) if checksum else hardlink
 
             if not checksum:
                 cam = checks
@@ -329,7 +329,7 @@ def parselog(file, checksum, logger):
                 hardlink_count = sym
                 checks = entropy = mime = filesize = sym = onr = gpp = None
 
-            results.append((timestamp, filename, changetime, inode, accesstime, checks, entropy, mime, filesize, sym, onr, gpp, pmr, cam, target, lastmodified, hardlink_count, usec, escf_path))
+            results.append((timestamp, filename, changetime, inode, accesstime, checks, entropy, mime, filesize, sym, onr, gpp, pmr, cam, target, lastmodified, hardlink_count, usec))
 
         except Exception as e:
             print(f'Problem detected in parser parselog for line {line} err: {type(e).__name__}: {e} \n skipping..')
@@ -363,7 +363,8 @@ def rotate_cache(cfr, cache_f, logger):
                     logger.error("Failed to parse delimiter in cache file line: %s", line)
                     continue
                 try:
-                    _, size, mtime_epoch = metadata.split("|")  # inode not used
+                    inode, size, mtime_epoch = metadata.split("|")  # inode not used
+                    inode = int(inode)
                     size = int(size)
                     mtime_epoch = int(mtime_epoch)
                 except ValueError:
@@ -378,6 +379,7 @@ def rotate_cache(cfr, cache_f, logger):
                     upt_cache(cfr, checksum, entropy, mime, size, time_stamp, mtime_epoch, filepath)
 
                     cache_data = {
+                        'inode': inode,
                         'checksum': checksum,
                         'entropy': entropy,
                         'mime': mime
