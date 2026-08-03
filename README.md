@@ -3,7 +3,7 @@ Find modified and new files on the system quickly with: <br>
 where the time is current local system time <br><br>
 
 Version: 6.5.0
-Last updated: 07/20/2026 <br>
+Last updated: 08/03/2026 <br>
 Windows 10 11 <br>
 
 - Added Support for blake2b checksum
