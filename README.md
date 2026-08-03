@@ -12,9 +12,7 @@ Windows 10 11 <br>
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 File search application with Hybrid analysis and MFT search <br><br>
-Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed <br><br>
-
-GPG included or can use gpg4win. Can use system 7-zip winrar. default python zipfile. <br>
+Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed. Comes with GPG or can use gpg4win also can use system 7-zip winrar. default python zipfile. <br>
 
 - Scientific calculator
 - Look for created files with xRC Python Watchdog
