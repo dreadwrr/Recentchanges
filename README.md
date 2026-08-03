@@ -16,7 +16,6 @@ Can be used with system python or one step pyinstall build. A windows setup vers
 
 GPG included or can use gpg4win. Can use system 7-zip winrar. default python zipfile. <br>
 
-<p>
 -Scientific calculator <br><br>
 -Look for created files with xRC Python Watchdog <br><br>
 -Check for hash collisions during search (when using md5 checksum) <br><br>
@@ -39,7 +38,7 @@ Commands: <br>
 ./recentchanges search <br>
 ./recentchanges reset <br>
 ./recentchanges query <br>
-</p><br>
+<br>
 if encountering gpg key issues or some other problem try recentchanges reset. Which can be added to path from setup button <br><br>
 
 ## Troubleshooting
