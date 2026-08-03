@@ -4,14 +4,12 @@ where the time is current local system time <br><br>
 
 Version: 6.5.0
 Last updated: 08/03/2026 <br>
-Windows 10 11 <br>
-
 - Added Support for blake2b checksum
 - Added entropy mime and target change to hybrid analysis and profile scans
 - Verified python watchdog script
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
-File search application with Hybrid analysis and MFT search <br><br>
+Windows 10 11 File search application with Hybrid analysis and MFT search <br><br>
 Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed. Comes with GPG or can use gpg4win also can use system 7-zip winrar. default python zipfile. <br>
 
 - Scientific calculator
