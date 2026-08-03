@@ -17,16 +17,16 @@ Can be used with system python or one step pyinstall build. A windows setup vers
 GPG included or can use gpg4win. Can use system 7-zip winrar. default python zipfile. <br>
 
 <p>
-- Scientific calculator <br><br>
-- Look for created files with xRC Python Watchdog <br><br>
-- Check for hash collisions during search (when using md5 checksum) <br><br>
-- Save encrypted notes <br><br>
-- Custom alarm clock that plays .mp3, .wav and .ogg files or beeps <br><br>
-- Select from a number of fonts or install your own. also 5 themes unix, wb (white on black), solar, monochrome or modern  <br><br>
-- Quick commands displays saved commands for easy reference <br><br>
-- Create a custom crest with a .png image file max size 255 x 333 <br><br>
-- Will use gpg4win system install or app gpg if not installed <br><br>
-- Full commandline support with recentchanges.bat and rnt.bat <br><br>
+-Scientific calculator <br><br>
+-Look for created files with xRC Python Watchdog <br><br>
+-Check for hash collisions during search (when using md5 checksum) <br><br>
+-Save encrypted notes <br><br>
+-Custom alarm clock that plays .mp3, .wav and .ogg files or beeps <br><br>
+-Select from a number of fonts or install your own. also 5 themes unix, wb (white on black), solar, monochrome or modern  <br><br>
+-Quick commands displays saved commands for easy reference <br><br>
+-Create a custom crest with a .png image file max size 255 x 333 <br><br>
+-Will use gpg4win system install or app gpg if not installed <br><br>
+-Full commandline support with recentchanges.bat and rnt.bat <br><br>
 
 find file or files by extension and also compress to a .zip/.rar archive by time<br>
 A new feature Find new files fast with a  drive index that is stored in a .gpg cache file loaded into memory.<br><br>
