@@ -78,7 +78,9 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
         sys_tables = ()
 
     fmt = "%Y-%m-%d %H:%M:%S"
+
     time_period = 5  # days for a file that isnt regularly updated. 5 default
+    time_delta = datetime.now() - timedelta(days=time_period)
 
     dbit = False
     csum = False
@@ -100,6 +102,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                 total_e = len(parsed_chunk)
                 steps = sorted({math.ceil(i * total_e / 10) for i in range(1, 11)})
                 step_len = len(steps)
+
             for record in parsed_chunk:
                 r += 1
                 x += 1
@@ -119,7 +122,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                 previous_size = None
                 is_sys = False
 
-                if len(record) < 17:
+                if len(record) < 18:
 
                     emit_log("DEBUG", f"sortcomplete entry malformed.  less than required 18 : {record}", logs.WORKER_LOG_Q, logger=logger)
                     continue
@@ -133,7 +136,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                     continue
 
                 filename = record[1]
-                label = filename  # label = record[16]  # on linux escaped in fsearch if can contain new line
+                label = filename  # label = record[18]  # on linux escaped in fsearch if can contain new line
 
                 recent_entries = get_recent_changes(filename, cur, 'logs', ['mtime_us'])
                 recent_sys = get_recent_sys(filename, cur, sys_tables, ['mtime_us', 'count']) if ps else None
@@ -347,7 +350,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                                     entry["flag"].append(f'Modified {record[0]} {record[2]} {label}')
 
                         if not cam_file:
-                            time_delta = datetime.now() - timedelta(days=time_period)
+
                             if previous_timestamp < time_delta:
                                 message = f'File that isnt regularly updated {label}.'
                                 if is_sys:
