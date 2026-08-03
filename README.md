@@ -10,7 +10,8 @@ Last updated: 08/03/2026 <br>
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 Windows 10 11 File search application with Hybrid analysis and MFT search <br><br>
-Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed. Comes with GPG or can use gpg4win also can use system 7-zip winrar. default python zipfile. <br>
+Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed.
+Uses included GPG or can use gpg4win <br>
 
 - Scientific calculator
 - Look for created files with xRC Python Watchdog
@@ -23,7 +24,7 @@ Can be used with system python or one step pyinstall build. A windows setup vers
 - Will use gpg4win system install or app gpg if not installed
 - Full commandline support with recentchanges.bat and rnt.bat
 
-find file or files by extension and also compress to a .zip/.rar archive by time<br>
+find file or files by extension and also compress to a .zip/.rar archive by time. default is python zipfile or can use system 7-zip winrar. <br><br>
 A new feature Find new files fast with a  drive index that is stored in a .gpg cache file loaded into memory.<br><br>
 Scan the system index independently with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
 or faked modified time.  <br><br>
