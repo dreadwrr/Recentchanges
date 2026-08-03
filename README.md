@@ -2,7 +2,7 @@ Find modified and new files on the system quickly with: <br>
 .\\bin\\parsec.exe C: --cutoff "2026-06-15 07:13:18" \# or "2026-06-15T07:13:18"<br>
 where the time is current local system time <br><br>
 
-Version: 6.5.0
+Version: 6.5.0 <br>
 Last updated: 08/03/2026 <br>
 Added Support for blake2b checksum <br>
 Added entropy mime and target change to hybrid analysis and profile scans <br>
