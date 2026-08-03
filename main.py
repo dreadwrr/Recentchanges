@@ -983,7 +983,8 @@ class MainWindow(QMainWindow):
             self.dirtybit = False
             uinpt = window_prompt(self, "Save notes", "Save note changes?", "Yes", "No")
             if uinpt:
-                self.save_notes(isexit=True)  # self.save_user_data(True)
+                # 08/03/2026
+                self.save_notes_history()  # self.save_notes(isexit=True)
 
         if getattr(self, 'isexec', False):
             self.clean_up()
@@ -1024,8 +1025,10 @@ class MainWindow(QMainWindow):
     def set_config(self, exit_code):
 
         # self.on_exit()
+
+        toml = self.toml_file
         try:
-            toml = self.toml_file
+
             amt = toml.stat().st_mtime_ns
             imt = self.tomldefault_imt
             if amt != imt:
