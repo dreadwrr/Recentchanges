@@ -17,8 +17,8 @@ Can be used with system python or one step pyinstall build. A windows setup vers
 GPG included or can use gpg4win. Can use system 7-zip winrar. default python zipfile. <br>
 
 <p>
-Scientific calculator <br>
-Look for created files with xRC Python Watchdog <br>
+Scientific calculator <br><br>
+Look for created files with xRC Python Watchdog <br><br>
 Check for hash collisions during search (when using md5 checksum) <br>
 Save encrypted notes <br>
 Custom alarm clock that plays .mp3, .wav and .ogg files or beeps <br>
