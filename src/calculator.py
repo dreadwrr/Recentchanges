@@ -858,7 +858,9 @@ class SCalculator(QtWidgets.QWidget):
                 self.text = char
             self.last_expression = None
             self.del_locked = False
+            self.ui.negateButton.blockSignals(True)
             self.ui.negateButton.setChecked(False)
+            self.ui.negateButton.blockSignals(False)
         # or append
         else:
             if char == "." and "." in self.text:
@@ -1262,6 +1264,8 @@ class SCalculator(QtWidgets.QWidget):
         else:
             if kind == "RAND":
                 self.text = str(mpmath.rand()) if self.is_mpmath else str(random.random())
+                # 08/03/2026 to fit on screen slice
+                self.text = self.text[:self.OUTPUT_LIMIT + 2]
                 # digits = random.randint(1, 16)
                 # self.text = str(random.randint(0, 10**digits - 1))
             elif kind == "RNDINT":
@@ -1387,3 +1391,22 @@ if __name__ == '__main__':
     window = SCalculator()
     window.show()
     sys.exit(app.exec())
+
+
+# Notes:
+# def format_dms(value):
+#     sign = "-" if value < 0 else ""
+#     value = abs(value)
+#     degrees = int(value)
+#     rem = (value - degrees) * 60
+#     minutes = int(rem)
+#     rem = (rem - minutes) * 60
+#     seconds = round(rem)
+#     if seconds == 60:
+#         seconds = 0
+#         minutes += 1
+#     if minutes == 60:
+#         minutes = 0
+#         degrees += 1
+
+#     return f"{sign}{degrees}°{minutes:02d}'{seconds:02d}\""
