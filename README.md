@@ -4,9 +4,6 @@ where the time is current local system time <br><br>
 
 Version: 6.5.0 <br>
 Last updated: 08/03/2026 <br>
-Added Support for blake2b checksum <br>
-Added entropy mime and target change to hybrid analysis and profile scans <br>
-Verified python watchdog script <br>
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 Windows 10 11 File search application with Hybrid analysis and MFT search <br><br>
