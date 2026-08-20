@@ -189,36 +189,34 @@ class MainWindow(QMainWindow):
         self.config = None
         self.analytics = config['analytics']['analytics']
         self.feedback = config['analytics']['feedback']
+        self.zipPROGRAM = config['compress']['zipPROGRAM'].lower()
+        self.zipPATH = config['compress']['zipPATH']
+        self.checksum = config['diagnostics']['checkSUM']
+        self.checkMETHOD = config['diagnostics']['checkMETHOD']
         self.pageIDX = config['display']['pageIDX']
         self.hudCOLOR = config['display']['hudCOLOR']
         self.hudSZE = config['display']['hudSZE']
         self.hudFNT = config['display']['hudFNT']
-
         self.alarm_24h = config['display']['alarm_24hr']
         self.alarm_soundFILE = alarm_soundFILE
         self.alarm_set_soundFILE = alarm_set_soundFILE
         self.alarmCOLOR = config['display']['alarmCOLOR']
-
         self.moduleNAME = config['paths']['moduleNAME']  # diff_file prefix
         self.pwrshell = config['search']['pwrshell']
         self.basedir = config['search']['drive']  # search target
         self.oldbasedir = self.basedir
-        proteusEXTN = config['shield']['proteusEXTN']
-        self.proteusEXTN = ["[no extension]" if p == "" else p for p in proteusEXTN]
-        self.proteusPATH = config['shield']['proteusPATH']
-        self.checksum = config['diagnostics']['checkSUM']
-        self.checkMETHOD = config['diagnostics']['checkMETHOD']
-        self.proteusSHIELD = config['shield']['proteusSHIELD']
-        self.psEXEC = config['shield']['exec']
         self.exclDIRS = user_path(config['search']['exclDIRS'], usr)
+        self.extensions = config['search']['extension']
         self.xRC = config['search']['xRC']
         self._time = config['search']['_time']
         self.high_water = config['search']['high_water']
         self.low_water = config['search']['low_water']
         self.min_span = config['search']['min_span']
-        self.zipPROGRAM = config['compress']['zipPROGRAM'].lower()
-        self.zipPATH = config['compress']['zipPATH']
-        self.extensions = config['search']['extension']
+        self.proteusSHIELD = config['shield']['proteusSHIELD']
+        self.psEXEC = config['shield']['exec']
+        proteusEXTN = config['shield']['proteusEXTN']
+        self.proteusEXTN = ["[no extension]" if p == "" else p for p in proteusEXTN]
+        self.proteusPATH = config['shield']['proteusPATH']
         self.cmode = config['calculator']['mode']
         self.decimals = config['calculator']['decimals']
         self.cTHRESHOLD = config['calculator']['scientific_threshold']
@@ -227,6 +225,7 @@ class MainWindow(QMainWindow):
         self.randintMAX = config['calculator']['randintMAX']
         self.randintMIN = config['calculator']['randintMIN']
         self.clogLEVEL = config['calculator']['logLEVEL']
+
         self.j_settings = j_settings  # usrprofile
 
         self.psEXTN = self.j_settings.get(self.basedir, {}).get("proteusEXTN")
@@ -243,6 +242,10 @@ class MainWindow(QMainWindow):
 
         # Vars
         self.app_version = "6.5.0"
+
+        self.dispatch = sys.executable
+        self.app = str(appdata_local / "src" / "set_recent_helper.py")
+
         self.pwd = os.getcwd()
         self.home_dir = home_dir
         config_local = appdata_local / "config"
@@ -252,16 +255,15 @@ class MainWindow(QMainWindow):
         self.lclhome = appdata_local
         self.lclscripts = appdata_local / "scripts"
         self.inotify_creation_file = self.lclscripts / "file_creation_log.txt"  # 07/04/2026
-        self.search_pattern = "watchdog_win.py"
         self.watchdog_pid_file = os.path.join(self.lclscripts, 'inotify_watcher.pid')
+        self.search_pattern = "watchdog_win.py"
+
         self.resources = appdata_local / "Resources"
+
         self.filter_file = appdata_local / "filter.py"
         flth_frm = appdata_local / "flth.csv"
         self.flth = str(flth_frm)
-        self.dispatch = sys.executable
-        self.app = str(appdata_local / "src" / "set_recent_helper.py")
         self.filter_file = appdata_local / "filter.py"
-
         self.default_gpg = appdata_local / "gpg" / "gpg.exe"
         self.defaultzipPATH = appdata_local / "7-zip" / "7z.exe"
 
@@ -342,7 +344,6 @@ class MainWindow(QMainWindow):
         self.init_timers()
         self.install_clock(alarm_soundFILE, alarm_set_soundFILE)
         self.init_events()
-
         self.install_logger()
 
         self.ui.dbprogressBAR.setValue(0)
@@ -1036,23 +1037,23 @@ class MainWindow(QMainWindow):
                 if not updated_config:
                     raise ConfigurationError
 
-                driveTYPE_frm = updated_config['search']['driveTYPE']  # script entry
-                dspEDITOR = updated_config['display']['dspEDITOR']
-                popPATH = updated_config['display']['popPATH']
+                analytics = updated_config['analytics']['analytics']
+                feedback = updated_config['analytics']['feedback']
                 cachermPATTERNS = updated_config['backend']['cachermPATTERNS']
                 cachermPATTERNS = cache_clear_patterns(self.usr, cachermPATTERNS)
                 email = updated_config['backend']['email']
                 updated_downloads = user_path(updated_config['compress']['downloads'], self.usr)  # end script entry
-                analytics = updated_config['analytics']['analytics']
-                feedback = updated_config['analytics']['feedback']
                 zipPATH = updated_config['compress']['zipPATH']
                 zipPROGRAM = updated_config['compress']['zipPROGRAM'].lower()
                 checksum = updated_config['diagnostics']['checkSUM']
                 checkMETHOD = updated_config['diagnostics']['checkMETHOD']
+                dspEDITOR = updated_config['display']['dspEDITOR']
+                popPATH = updated_config['display']['popPATH']
                 hudCOLOR = updated_config['display']['hudCOLOR']
                 hudSZE = updated_config['display']['hudSZE']
                 hudFNT = updated_config['display']['hudFNT']
                 moduleNAME = updated_config['paths']['moduleNAME']
+                driveTYPE_frm = updated_config['search']['driveTYPE']  # script entry
                 pwrshell = updated_config['search']['pwrshell']
                 exclDIRS = user_path(updated_config['search']['exclDIRS'], self.usr)
                 xRC = updated_config['search']['xRC']
@@ -1066,7 +1067,6 @@ class MainWindow(QMainWindow):
                 proteusPATH = updated_config['shield']['proteusPATH']
                 proteusSHIELD = updated_config['shield']['proteusSHIELD']
                 psEXEC = updated_config['shield']['exec']
-
                 dspPATH_frm = self.config['display']['dspPATH']
                 new_dspPATH = updated_config['display']['dspPATH']
                 nogo = user_path(self.config['shield']['nogo'], self.usr)
@@ -1281,34 +1281,33 @@ class MainWindow(QMainWindow):
                             self.ui.hudt.appendPlainText(f"Incorrect setting for driveTYPE: {driveTYPE_frm} restoring current value.")
                             update_toml_values({'search': {'driveTYPE': self.driveTYPE}}, self.toml_file)
 
-                self.dspEDITOR = dspEDITOR
-                self.dspPATH = dspPATH
-                self.popPATH = popPATH
-                self.cachermPATTERNS = cachermPATTERNS
-                self.email = email
                 self.analytics = analytics
                 self.feedback = feedback
+                self.cachermPATTERNS = cachermPATTERNS
+                self.email = email
+                self.zipPATH = zipPATH
+                self.zipPROGRAM = zipPROGRAM
+                self.checksum = checksum
+                self.checkMETHOD = checkMETHOD
+                self.dspEDITOR = dspEDITOR
+                self.popPATH = popPATH
                 self.moduleNAME = moduleNAME
+                self.exclDIRS = exclDIRS
+                self.xRC = xRC
+                self.dspPATH = dspPATH
 
                 if is_pwrshell:
                     self.pwrshell = pwrshell
 
-                self.proteusEXTN = ["[no extension]" if p == "" else p for p in proteusEXTN]
-                self.proteusPATH = proteusPATH
-                self.checksum = checksum
-                self.checkMETHOD = checkMETHOD
-                self.proteusSHIELD = proteusSHIELD
-                self.psEXEC = psEXEC
-                self.exclDIRS = exclDIRS
-                self.xRC = xRC
                 self._time = _time
                 self.high_water = high_water
                 self.low_water = low_water
                 self.min_span = min_span
-                self.zipPROGRAM = zipPROGRAM
-                self.zipPATH = zipPATH
                 self.extensions = extensions
-
+                self.proteusEXTN = ["[no extension]" if p == "" else p for p in proteusEXTN]
+                self.proteusPATH = proteusPATH
+                self.proteusSHIELD = proteusSHIELD
+                self.psEXEC = psEXEC
                 self.cmode = cmode
                 self.decimals = decimals
                 self.cTHRESHOLD = cTHRESHOLD
@@ -2967,7 +2966,7 @@ class MainWindow(QMainWindow):
             output_f = os.path.join(drive, mftraw)
             self.ui.progressBAR.setValue(5)
 
-            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR):  # .
+            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR):
                 self.isexec = False
                 return
             self.worker.set_task(self.parsec_command, self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
@@ -3028,7 +3027,7 @@ class MainWindow(QMainWindow):
 
             tbl = [
                 t for t in tbl
-                if t not in {"analytics", "scans", "mime_types", "scan_entries"}  # , "extn",
+                if t not in {"extn", "analytics", "scans", "mime_types", "scan_entries"}  # ,
             ]
             cd.addItems(tbl)
 
@@ -3757,6 +3756,7 @@ def start_main_window():
     config = load_toml(toml_file)
     if not config:
         return 1
+
     email = config['backend']['email']
     email_name = config['backend']['name']
     downloads = user_path(config['compress']['downloads'], usr)
@@ -3769,21 +3769,19 @@ def start_main_window():
         dspEDITOR, dspPATH = resolve_editor(dspEDITOR, dspPATH_frm, toml_file)  # verify we have a working one
         if dspEDITOR is None:
             return 1
-    cachermPATTERNS = config['backend']['cachermPATTERNS']
-    supbrwLIST = config['diagnostics']['supbrwLIST']
+    popPATH = config['display']['popPATH']
     alarm_soundFILE = config['display']['alarm_soundFILE']
     alarm_set_soundFILE = config['display']['alarm_set_soundFILE']
-
-    popPATH = config['display']['popPATH']
-    basedir = config['search']['drive']
-    driveTYPE_frm = config['search']['driveTYPE']
+    cachermPATTERNS = config['backend']['cachermPATTERNS']
+    cachermPATTERNS = cache_clear_patterns(usr, cachermPATTERNS)
+    supbrwLIST = config['diagnostics']['supbrwLIST']
     ll_level = config['logs']['logLEVEL']
     log_file = config['logs']['userLOG']
+    basedir = config['search']['drive']
+    driveTYPE_frm = config['search']['driveTYPE']
     proteuspaths = config['shield']['proteusPATH']
     nogo = user_path(config['shield']['nogo'], usr)
     suppress_list = user_path(config['shield']['filterout'], usr)
-
-    cachermPATTERNS = cache_clear_patterns(usr, cachermPATTERNS)
 
     escaped_user = re.escape(usr)
 
@@ -3820,7 +3818,7 @@ def start_main_window():
         QMessageBox.critical(None, "Error", "Unable to verify gpg in path. Likely path was partially initialized. quitting")  # QMessageBox.warning(None, "")
         return 1
 
-    # end startup
+    # end startup/initialize
 
     with tempfile.TemporaryDirectory() as tempdir:
         try:
