@@ -15,18 +15,17 @@ Uses included GPG or can use gpg4win <br><br>
 
 Features: <br>
 - Scientific calculator
-- With xRC look for created files with python watchdog
-- Check for hash collisions during search (when using md5 checksum)
+- Python watchdog package
+- Check for hash collisions during search when using md5 checksums
 - Save encrypted notes
-- Custom alarm clock that plays .mp3, .wav and .ogg files or beeps
+- Alarm clock supports .mp3, .wav or .ogg files
 - Select from a number of fonts or install your own. also 5 themes unix, wb (white on black), solar, monochrome or modern
 - Quick commands displays saved commands for easy reference
 - Create a custom crest with a .png image file max size 255 x 333
-- Will use gpg4win system install or app gpg if not installed
 - Full commandline support with recentchanges.bat and rnt.bat
 
 find file or files by extension and also compress to a .zip/.rar archive by time. default is python zipfile or can use system 7-zip winrar. <br><br>
-A new feature find new files fast with a  drive index that is stored in a .gpg cache file loaded into memory.<br><br>
+A new feature find new files fast with a drive index that is stored in a .gpg cache file loaded into memory.<br><br>
 Scan the system index independently with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
 or faked modified time.  <br><br>
 
