@@ -15,6 +15,7 @@ python-magic-standalone==0.4.28
 pywin32==311
 requests==2.32.5
 six==1.17.0
+sqlcipher3==0.6.2
 tomlkit==0.14.0
 tzdata==2025.3
 urllib3==2.6.3
