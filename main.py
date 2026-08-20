@@ -5,7 +5,6 @@ import multiprocessing
 import os
 import re
 import shutil
-import subprocess
 import sys
 # 05/30/2026 this can bypass prevent cp1252 unicode error
 if hasattr(sys.stdout, "reconfigure"):
@@ -15,7 +14,6 @@ if hasattr(sys.stderr, "reconfigure"):
 import tempfile
 import threading
 import traceback
-import win32api
 from pathlib import Path
 from PySide6.QtCore import Qt, Slot, Signal, QThread, QTimer, QSortFilterProxyModel, QSize
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPixmap, QImage
@@ -3030,7 +3028,7 @@ class MainWindow(QMainWindow):
 
             tbl = [
                 t for t in tbl
-                if t not in {"extn", "analytics", "scans", "mime_types", "scan_entries"}  # ,
+                if t not in {"analytics", "scans", "mime_types", "scan_entries"}  # , "extn",
             ]
             cd.addItems(tbl)
 
@@ -3814,7 +3812,6 @@ def start_main_window():
     gpg_path = shutil.which("gpg")
     gnupg_home = None
     if gpg_path is None:
-        print("a")
         gpg_path, gnupg_home = set_gpg(appdata_local, "gpg")
     else:
         gpg_path = Path(gpg_path).resolve()
@@ -3823,23 +3820,26 @@ def start_main_window():
         QMessageBox.critical(None, "Error", "Unable to verify gpg in path. Likely path was partially initialized. quitting")  # QMessageBox.warning(None, "")
         return 1
 
-    domain_frm = os.environ.get('USERDOMAIN', '.')  # used to set perms for database location below
-    if not domain_frm:
-        domain_frm = win32api.GetDomainName()
-        if not domain_frm:
-            print("Unable to get domain to set perms for recent changes qt app. exiting")
-            sys.exit(1)
     # end startup
 
     with tempfile.TemporaryDirectory() as tempdir:
         try:
+
+            # import win32api
+            # domain_frm = os.environ.get('USERDOMAIN', '.')  # used to set perms for database location below
+            # if not domain_frm:
+            #     domain_frm = win32api.GetDomainName()
+            #     if not domain_frm:
+            #         print("Unable to get domain to set perms for recent changes qt app. exiting")
+            #         sys.exit(1)
+
             # set perms for temp directory
-            set_userperm = f"{domain_frm}\\" + usr
-            subprocess.run(["icacls", tempdir, "/inheritance:r"], stdout=subprocess.DEVNULL)
-            subprocess.run(["icacls", tempdir, "/reset"], stdout=subprocess.DEVNULL)  # remove administrators
-            subprocess.run(["icacls", tempdir, "/grant", f"{set_userperm}:(OI)(CI)F"], stdout=subprocess.DEVNULL)
-            # subprocess.run(["icacls", tempdir, "/grant", "NT AUTHORITY\\SYSTEM:(OI)(CI)F"], check=True)  # add admins back
-            # subprocess.run(["icacls", tempdir, "/grant", "BUILTIN\\Administrators:(OI)(CI)F"], check=True)
+            # set_userperm = f"{domain_frm}\\" + usr
+            # subprocess.run(["icacls", tempdir, "/inheritance:r"], stdout=subprocess.DEVNULL)
+            # subprocess.run(["icacls", tempdir, "/reset"], stdout=subprocess.DEVNULL)  # remove administrators
+            # subprocess.run(["icacls", tempdir, "/grant", f"{set_userperm}:(OI)(CI)F"], stdout=subprocess.DEVNULL)
+            # # subprocess.run(["icacls", tempdir, "/grant", "NT AUTHORITY\\SYSTEM:(OI)(CI)F"], check=True)  # add admins back
+            # # subprocess.run(["icacls", tempdir, "/grant", "BUILTIN\\Administrators:(OI)(CI)F"], check=True)
 
             app = QApplication(sys.argv)
 
@@ -3879,7 +3879,6 @@ def start_main_window():
             dbopt = os.path.join(appdata_local, output + '.db')
 
             if os.path.isfile(dbtarget):
-                # p = get_cipher_key(dbtarget)
                 res = start_user_agent(dbtarget)
                 if not res:
                     # if res is None:
