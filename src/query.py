@@ -1,5 +1,4 @@
 import os
-import sqlite3
 import shutil
 import sys
 import tempfile
@@ -12,15 +11,16 @@ from .config import load_toml
 from .configfunctions import find_install
 from .configfunctions import get_config
 from .gpgcrypto import check_for_gpg
-from .gpgcrypto import decr
+from .gpgcrypto import gpg_can_decrypt
 from .gpgkeymanagement import delete_gpg_keys
 from .pyfunctions import is_integer
 from .pyfunctions import parse_datetime
 from .pysql import clear_conn
+from .pysql import create_conn
 from .rntchangesfunctions import name_of
 from .rntchangesfunctions import set_gpg
 # from .rntchangesfunctions import cprint
-# 06/19/2026
+# 08/20/2026
 
 
 # see config.toml cache clear patterns for db
@@ -79,37 +79,6 @@ def average_time(conn, cur):
     return "N/A"
 
 
-# def clock_average(rows):
-#     sum_sin = 0
-#     sum_cos = 0
-#     n = 0
-
-#     for r in rows:
-#         if not r or not r[0]:
-#             continue
-
-#         seconds = int(r[0]) % 86400  # time of day only
-#         angle = 2 * pi * seconds / 86400
-
-#         sum_sin += sin(angle)
-#         sum_cos += cos(angle)
-#         n += 1
-
-#     if n == 0:
-#         return "N/A"
-
-#     angle = atan2(sum_sin, sum_cos)
-#     if angle < 0:
-#         angle += 2 * pi
-
-#     avg_seconds = angle * 86400 / (2 * pi)
-
-#     hours = int(avg_seconds // 3600)
-#     minutes = int((avg_seconds % 3600) // 60)
-
-#     return f"{hours:02d}:{minutes:02d}"
-
-
 def clock_average(rows):
     sum_sin = 0
     sum_cos = 0
@@ -146,36 +115,6 @@ def clock_average(rows):
     minutes = int((avg_seconds % 3600) // 60)
 
     return f"{hours:02d}:{minutes:02d}"
-
-
-# def search_times(cur):
-#     groups, current = [], []
-
-#     cur.execute("SELECT timestamp FROM logs")
-#     rows = cur.fetchall()
-
-#     for row in rows:
-#         ts = row[0]
-
-#         is_blank = (ts is None or ts == "")
-
-#         if is_blank:
-#             if current:
-#                 groups.append(current)
-#                 current = []
-#             continue
-
-#         dt = parse_datetime(ts)
-#         if dt:
-#             current.append([dt.timestamp(),])
-
-#     if current:
-#         groups.append(current)
-
-    # # first timestamp or start of each search
-    # first_times = [group[0] for group in groups if group]
-
-    # return first_times
 
 
 def search_times(cur):
@@ -241,9 +180,10 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
     flth = str(flth)
     dbtarget = str(dbtarget)
 
-    result = False
-
     tempd = tempfile.gettempdir()
+
+    result = False
+    error_msg = None
 
     if reset:
 
@@ -251,25 +191,24 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
 
     try:
 
-        with tempfile.TemporaryDirectory(dir=tempd) as tempdir:
+        with tempfile.TemporaryDirectory(dir=tempd):
 
             if database:
                 dbopt = database
                 result = True
             else:
+                dbopt = os.path.join(appdata_local, output)
 
-                # there may not be a key for the gpg check that there are no problems
-                # if not gpg_can_decrypt(dbtarget):
-                #     return 1
-                dbopt = os.path.join(tempdir, output)
-                result = decr(dbtarget, dbopt)
+                # there may not be a key for gpg check that
+                result, error_msg = gpg_can_decrypt(dbtarget)
 
                 # can easily break if trying to automate fixing keys. let the user do it if wanted.
+
             if result:
                 if os.path.isfile(dbopt):
 
                     try:
-                        conn = sqlite3.connect(dbopt)
+                        conn = create_conn(dbopt, dbtarget, email)
                         cur = conn.cursor()
                         # optionally run database commands here
                         # cur.execute("DELETE FROM logs WHERE filename = ?", ('/home/guest/Downloads/Untitled' ,))
@@ -423,18 +362,12 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                     # no recent.db file permission error abort so sql doesnt make an empty database
                     log_fn(f"Unable to locate database: {dbopt}")
 
-            # User has no key
-            elif not database and result is None:
-
-                ctime_path = cache_f.name
-                log_fn(f"No key for {dbtarget} or {ctime_path}. if unable to fix delete to reset")
-
             else:
-
+                if error_msg:
+                    log_fn(error_msg)
                 if os.path.isfile(dbtarget):
                     log_fn(f'Find out why not decrypting. If unable to fix call: recentchanges reset  . unable to decrypt file: {dbtarget}')
 
-                # else if no recent.gpg there was an exception
                 return 1
 
     except Exception as e:

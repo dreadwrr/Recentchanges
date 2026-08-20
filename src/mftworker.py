@@ -16,6 +16,7 @@ from .mftfunctions import mft_entrycount
 from .mftfunctions import output_mft
 from .mftfunctions import read_mft_progress
 from .pyfunctions import cprint
+from .pyfunctions import fmt
 from .qtclasses import Worker
 from .rntchangesfunctions import removefile
 from .rntchangesfunctions import str_to_bool
@@ -32,8 +33,6 @@ class MftWorker(Worker):
         super().__init__(None)
 
         self.logger = logging.getLogger(log_label)
-
-        self.fmt = "%Y-%m-%d %H:%M:%S"
 
         self.lclhome = lclapp_data
         self.exe_path = self.lclhome / "bin"
@@ -138,7 +137,7 @@ class MftWorker(Worker):
                     df[col] = pd.to_datetime(df[col], errors='coerce')
 
             df = df.dropna(subset=[time_field])
-            # self.log.emit(compt.strftime(self.fmt))  # debug time cutoff
+            # self.log.emit(compt.strftime(fmt))  # debug time cutoff
             # df.to_csv("D:\\Adobe\\output.csv", index=False)  # debug dataframe
             recent_files = df[  # vectorized
                 (df['InUse']) &
@@ -317,7 +316,7 @@ class MftWorker(Worker):
                         dt = row[time_field]
                         full_path = row['FullPath']
                         k += 1
-                        f.write(f"{dt.strftime(self.fmt)} {full_path}\n")
+                        f.write(f"{dt.strftime(fmt)} {full_path}\n")
 
                 return k
             except Exception as er:

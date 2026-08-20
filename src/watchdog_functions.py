@@ -1,10 +1,10 @@
 import os
 import psutil
 from pathlib import Path
-from src.dirwalkerfunctions import get_stat
 from src.logs import emit_log
 from src.logs import write_log
 from src.fileops import calculate_checksum
+from src.fileops import get_stat
 from src.fileops import set_stat
 from src.fsearchfunctions import file_owner
 from src.fsearchfunctions import get_file_id
@@ -13,6 +13,7 @@ from src.inotifyfunctions import drop_pid
 from src.inotifyfunctions import process_kill
 from src.pyfunctions import epoch_to_date
 from src.pyfunctions import epoch_to_str
+from src.pyfunctions import fmt
 SENTINEL = None
 DEBUG = False  # switch to serial so more rudimentary operation and added verbosity to print out in key areas so can debug the core for stable operation
 CSZE = 1024 * 1024  # when to cache created files
@@ -99,7 +100,6 @@ def log_lineout(log_q, logger, path, status, message):
 
 
 def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, created_seen, log_q, logger):
-    fmt = "%Y-%m-%d %H:%M:%S"
 
     cam = last_modified = None
 
@@ -109,7 +109,7 @@ def get_specs(action, entry, path, output_file, CACHE_F, lockfile, algo, created
 
     m_epoch = stat_info.st_mtime
 
-    c_epoch = stat_info.st_birthtime
+    c_epoch = getattr(stat_info, "st_birthtime", stat_info.st_ctime)
 
     a_epoch = stat_info.st_atime
 

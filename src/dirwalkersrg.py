@@ -1,16 +1,18 @@
 import logging
 import os
-import sqlite3
+import sqlcipher3
 import traceback
 from collections import defaultdict
+from pathlib import Path
 from .dirwalkerfunctions import flatten_dict
+from .dirwalkerfunctions import get_config_data
 from .fileops import hlink_count
-from .gpgcrypto import encr
 from .gpgcrypto import encr_sys_cache
-from .pyfunctions import cnc
+from .logs import setup_logger
 from .pyfunctions import convert_mime_to_int
 from .pysql import clear_conn
 from .pysql import clear_table
+from .pysql import create_conn
 from .pysql import create_sys_tables
 from .pysql import create_table_cache
 from .pysql import get_mime_map
@@ -22,56 +24,16 @@ from .pysql import table_has_data
 from .pysql import update_cache
 from .qtdrivefunctions import get_idx_tables
 from .qtdrivefunctions import parse_systimeche
-# 07/19/2026
-
-
-def hardlinks(basedir, database, target, conn, cur, logger):
-    log = logger if logger else logging
-    try:
-
-        cur.execute("SELECT filename, inode, symlink FROM logs WHERE hardlinks is NOT NULL and hardlinks != ''")
-        file_rows = cur.fetchall()
-
-        matches = []
-
-        for record in file_rows:
-            file_path = record[0]
-            inode = record[1]
-            symlink = record[2]
-
-            if symlink != "y":
-                if os.path.isfile(file_path):
-                    count_val = hlink_count(file_path=file_path, logger=logger)
-                    if count_val:
-                        matches.append((count_val, inode, file_path))
-
-        if matches:
-            cur.execute("UPDATE logs SET hardlinks = NULL WHERE hardlinks IS NOT NULL AND hardlinks != ''")
-            cur.executemany(
-                "UPDATE logs SET hardlinks = ? WHERE inode = ? AND filename = ?",
-                matches
-            )
-            conn.commit()
-        return True
-
-    except sqlite3.Error as e:
-        em = f"hardlinks Error executing database query/update. err: {type(e).__name__}: {e}"
-        print(em)
-        log.error(em, exc_info=True)
-        conn.rollback()
-    except Exception as e:
-        em = f"Error setting hardlinks: {e} {type(e).__name__}"
-        print(em)
-        log.error(em, exc_info=True)
-    return None
+# 08/20/2026
 
 
 # functions for find_created index_system and scan_system
 
 
-# insert changes into sys2 or sys2_n table. sys or sys_n table have originals.
-# ie for C:\\ sys2, sys for S:\\ sys2_s, sys_s,  sys_n for n drive
-def sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, new_mime_rows, keys=None, from_idx=False):
+def sync_db(dbopt, dbtarget, email, basedir, cache_s, parsedsys, parsedidx, sys_records, new_mime_rows, keys=None, from_idx=False):
+    '''
+        insert changes into sys2 or sys2_n table. sys or sys_n table have originals.
+        ie for C:\\ sys2, sys for S:\\ sys2_s, sys_s,  sys_n for n drive '''
 
     systimeche, suffix = parse_systimeche(basedir, cache_s)
 
@@ -82,7 +44,7 @@ def sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, new_mime
 
     try:
 
-        conn = sqlite3.connect(dbopt)
+        conn = create_conn(dbopt, dbtarget, email)
         cur = conn.cursor()
         # scan IDX
         if sys_records:
@@ -185,7 +147,7 @@ def sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, new_mime
 
         return res
 
-    except sqlite3.Error as e:
+    except sqlcipher3.Error as e:
         if conn:
             conn.rollback()
         emsg = f"Database error sync_db in dirwalkersrg: {type(e).__name__} {e}"
@@ -200,51 +162,43 @@ def sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, new_mime
     return False
 
 
-def create_new_index(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, dir_data, idx_drive=False, compLVL=200, dcr=True, error_message=None):
+def save_db(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, parsedidx, sys_records, new_mime_rows, keys=None, idx_drive=False):
+    if sync_db(dbopt, dbtarget, email, basedir, cache_s, parsedsys, parsedidx, sys_records, new_mime_rows, keys, idx_drive):
+        return True
+    return False
 
+
+def index_drive(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, parsedidx, dir_data, idx_drive, error_message):
+    ''' encrypt the cache and then save in database '''
+    if save_db(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, parsedidx, None, None, None, idx_drive):
+
+        if encr_sys_cache(dir_data, cache_s, email):
+            return 0
+        else:
+            print(error_message)
+            return 1
+
+    else:
+        print("Failed to sync db. index_system from dirwalkersrg")
+    return 4
+
+
+def create_new_index(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, dir_data, idx_drive=False, error_message=None):
+    ''' flatten dict of dicts and store. save cache file and store in db '''
     if dir_data:
         parsedidx = flatten_dict(dir_data)
 
-        # encrypt the cache and then save in database
-        return index_drive(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, parsedidx, dir_data, idx_drive, compLVL, dcr, error_message)
+        return index_drive(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, parsedidx, dir_data, idx_drive, error_message)
     else:
         print("No directories to cache. the cache file was empty")
 
     return 1
 
 
-def save_db(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, parsedidx, sys_records, new_mime_rows, keys=None, idx_drive=False, compLVL=200, dcr=True):
-    if sync_db(dbopt, basedir, cache_s, parsedsys, parsedidx, sys_records, new_mime_rows, keys, idx_drive):
-
-        nc = cnc(dbopt, compLVL)
-        if encr(dbopt, dbtarget, email, no_compression=nc, dcr=dcr):
-            return True
-        else:
-            print("Reencryption of database failed.")
-    return False
-
-
-def index_drive(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, parsedidx, dir_data, idx_drive, compLVL, dcr, error_message):
-
-    if save_db(dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, parsedidx, None, None, idx_drive, compLVL, dcr):
-        if dir_data:
-
-            if encr_sys_cache(dir_data, cache_s, email):
-                return 0
-            else:
-                print(error_message)
-                return 1
-        else:
-            return 0
-    else:
-        print("Failed to sync db. index_system from dirwalkersrg")
-    return 4
-
-
-def db_sys_changes(dbopt, sys_tables):
+def db_sys_changes(dbopt, dbtarget, email, sys_tables):
     conn = cur = None
     try:
-        conn = sqlite3.connect(dbopt)
+        conn = create_conn(dbopt, dbtarget, email)
         cur = conn.cursor()
         sys_a, sys_b = sys_tables
 
@@ -257,7 +211,7 @@ def db_sys_changes(dbopt, sys_tables):
 
         return recent_sys, mime_hashmap, id_to_mime
 
-    except (sqlite3.Error, Exception) as e:
+    except (sqlcipher3.Error, Exception) as e:
         print(f"Problem retrieving profile data for system index in db_sys_changes dirwalkersrg. database {dbopt} {type(e).__name__} error: {e}")
     finally:
         clear_conn(conn, cur)
@@ -266,36 +220,33 @@ def db_sys_changes(dbopt, sys_tables):
 
 # scan idx functions
 
-# cursor.execute("SELECT MAX(id) FROM scans")
-# last_id = cursor.fetchone()[0] or 0
-# sql = f"INSERT INTO scans (scantime) VALUES (?)", (scan_start),
-
-# from meta_sys
-# m_time, file_path, c_time, inode, a_time, checks, entropy, mime_id, size, sym, owner, domain, mode, cam, target, lastmodified, hardlink, count, mtime_us
-
-# table format
-#     'timestamp TEXT',
-#     'filename TEXT',
-#     'creationtime TEXT',
-#     'inode INTEGER',
-#     'accesstime TEXT',
-#     "checksum TEXT",  # NOT NULL DEFAULT ''
-#     'entropy REAL',
-#     'mime_id INTEGER',
-#     'filesize INTEGER',
-#     'symlink TEXT',
-#     'owner TEXT',
-#     'domain TEXT',
-#     'mode TEXT',
-#     'casmod TEXT',
-#     'target TEXT',
-#     'lastmodified TEXT',
-#     'hardlinks INTEGER'
-#     'count INTEGER',
-#     'mtime_us INTEGER'
-
 
 def insert_differences(cur, basedir, all_sys, scan_start):
+
+    # table format
+    #     'timestamp TEXT',
+    #     'filename TEXT',
+    #     'creationtime TEXT',
+    #     'inode INTEGER',
+    #     'accesstime TEXT',
+    #     "checksum TEXT",  # NOT NULL DEFAULT ''
+    #     'entropy REAL',
+    #     'mime_id INTEGER',
+    #     'filesize INTEGER',
+    #     'symlink TEXT',
+    #     'owner TEXT',
+    #     'domain TEXT',
+    #     'mode TEXT',
+    #     'casmod TEXT',
+    #     'target TEXT',
+    #     'lastmodified TEXT',
+    #     'hardlinks INTEGER'
+    #     'count INTEGER',
+    #     'mtime_us INTEGER'
+
+    # cur.execute("SELECT MAX(id) FROM scans")
+    # last_id = cursor.fetchone()[0] or 0
+    # sql = f"INSERT INTO scans (scantime) VALUES (?)", (scan_start),
 
     if not all_sys:
         return
@@ -303,7 +254,7 @@ def insert_differences(cur, basedir, all_sys, scan_start):
     try:
         cur.execute("INSERT INTO scans (scantime) VALUES (?)", (scan_start,))
         scan_id = cur.lastrowid
-    except sqlite3.Error:
+    except sqlcipher3.Error:
         print("insert_differences was unable to insert into table: scans")
         raise
 
@@ -317,12 +268,12 @@ def insert_differences(cur, basedir, all_sys, scan_start):
                 hardlinks, count, mtime_us
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, rows)
-    except sqlite3.Error:
+    except sqlcipher3.Error:
         print("insert_differences was unable to insert into table: scan_entries")
         raise
 
 
-def db_scans(cur, basedir):
+def scans_db(cur, basedir):
 
     cur.execute("""
         SELECT e.*, s.scantime FROM scan_entries e
@@ -341,7 +292,7 @@ def db_scans(cur, basedir):
     return groups
 
 
-def differences_db(dbopt, basedir, all_sys, sys_tables, cache_table, systimeche, showDiff, scan_start):
+def differences_db(dbopt, dbtarget, email, basedir, all_sys, sys_tables, cache_table, systimeche, showDiff, scan_start):
     """ get the old scans insert the new scan and pull differences from when the profile
         was first made """
 
@@ -349,12 +300,12 @@ def differences_db(dbopt, basedir, all_sys, sys_tables, cache_table, systimeche,
     conn = cur = None
     table = ""
     try:
-        conn = sqlite3.connect(dbopt)
-        conn.row_factory = sqlite3.Row
+        conn = create_conn(dbopt, dbtarget, email)
+        conn.row_factory = sqlcipher3.Row
         cur = conn.cursor()
 
         table = "scans"
-        prev_scans = db_scans(cur, basedir)
+        prev_scans = scans_db(cur, basedir)
 
         table = ""
         insert_differences(cur, basedir, all_sys, scan_start)
@@ -460,7 +411,7 @@ def differences_db(dbopt, basedir, all_sys, sys_tables, cache_table, systimeche,
             new_diff = [row[0] for row in cur.fetchall()]
 
         return prev_scans, link_diff, ent_diff, mime_diff, dir_diff, new_diff
-    except sqlite3.Error as e:
+    except sqlcipher3.Error as e:
         print(f"dirwalkersrg.py problem retrieving data in differences_db. database {dbopt} {'tables ' + table if table else ''} {type(e).__name__} error: {e}")
         return None, None, None, None, None, None
     except Exception as e:
@@ -470,3 +421,84 @@ def differences_db(dbopt, basedir, all_sys, sys_tables, cache_table, systimeche,
     finally:
         clear_conn(conn, cur)
 # end scan idx functions
+
+
+def hardlinks(basedir, database, target, conn, cur, logger):
+    log = logger if logger else logging
+    try:
+
+        cur.execute("SELECT filename, inode, symlink FROM logs WHERE hardlinks is NOT NULL and hardlinks != ''")
+        file_rows = cur.fetchall()
+
+        matches = []
+
+        for record in file_rows:
+            file_path = record[0]
+            inode = record[1]
+            symlink = record[2]
+
+            if symlink != "y":
+                if os.path.isfile(file_path):
+                    count_val = hlink_count(file_path=file_path, logger=logger)
+                    if count_val:
+                        matches.append((count_val, inode, file_path))
+
+        if matches:
+            cur.execute("UPDATE logs SET hardlinks = NULL WHERE hardlinks IS NOT NULL AND hardlinks != ''")
+            cur.executemany(
+                "UPDATE logs SET hardlinks = ? WHERE inode = ? AND filename = ?",
+                matches
+            )
+            conn.commit()
+        return True
+
+    except sqlcipher3.Error as e:
+        em = f"hardlinks Error executing database query/update. err: {type(e).__name__}: {e}"
+        print(em)
+        log.error(em, exc_info=True)
+        if conn:
+            conn.rollback()
+    except Exception as e:
+        em = f"Error setting hardlinks: {e} {type(e).__name__}"
+        print(em)
+        log.error(em, exc_info=True)
+    return None
+
+
+def set_hardlinks(appdata_local, dbopt, dbtarget, basedir, user, tempdir, email):
+    '''
+        update the hardlink state for all files in the logs table. Any files that no longer exist are NULL and
+        is useful to see that those file dont exist in the database viewer '''
+
+    appdata_local = Path(appdata_local)
+    # tempdir = Path(tempdir)
+    config_data = get_config_data(appdata_local, user)
+    log_file = config_data.log_file
+    ll_level = config_data.ll_level
+    logging_values = (appdata_local, ll_level, tempdir)
+    logger = setup_logger(log_file, logging_values[1], "HARDLINKS")
+
+    rlt = 1
+
+    if os.path.isfile(dbopt):
+        conn = cur = None
+        try:
+            conn = create_conn(dbopt, dbtarget, email)
+            cur = conn.cursor()
+
+            sts = hardlinks(basedir, dbopt, dbtarget, conn, cur, logger)
+            if sts:
+                cur.close()
+                conn.close()
+                cur = conn = None
+
+                print("Progress: 100.00%", flush=True)
+                rlt = 0
+
+        finally:
+            clear_conn(conn, cur)
+
+    else:
+        print("dirwalker.py could not find dbopt: ", dbopt)
+
+    return rlt

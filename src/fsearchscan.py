@@ -1,4 +1,4 @@
-# Get metadata hash of files and return array                       07/19/2026
+# Get metadata hash of files and return array                       08/10/2026
 import os
 from datetime import datetime
 from . import logs
@@ -12,6 +12,7 @@ from .fsearchfunctions import get_cached
 from .fsearchfunctions import file_owner
 from .fsearchfunctions import normalize_timestamp
 from .pyfunctions import epoch_to_date
+from .pyfunctions import fmt
 
 # Find Parallel SORTCOMPLETE search and  ctime hashing
 
@@ -19,7 +20,6 @@ from .pyfunctions import epoch_to_date
 def process_scan(line, checksum, file_type, search_start_dt, cache_f, algo="md5", logger=None):
 
     label = "Sortcomplete"
-    fmt = "%Y-%m-%d %H:%M:%S"
     CSZE = 1048576
 
     log_entries = []

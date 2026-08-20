@@ -11,13 +11,12 @@ from .fsearchfunctions import file_owner
 from .fsearchfunctions import parse_iso
 from . import logs
 from .logs import emit_log
-
+from .pyfunctions import fmt
 # Powershell Parallel SORTCOMPLETE search and ctime hashing
 
 
 def process_ps1(line, checksum, filetype, search_start_dt, cache_f, algo="md5", logger=None):
 
-    fmt = "%Y-%m-%d %H:%M:%S"
     label = "Sortcomplete"
     CSZE = 1024 * 1024
 

@@ -17,9 +17,8 @@ except ImportError:
 from datetime import datetime
 from pathlib import Path
 from .fsearchfunctions import upt_cache
-from .pyfunctions import ap_decode
 from .pyfunctions import epoch_to_date
-from .pyfunctions import escf_py
+from .pyfunctions import fmt
 from .pyfunctions import parse_datetime
 from .qtfunctions import return_terminal
 from .rntchangesfunctions import removefile
@@ -121,7 +120,8 @@ def _fk_process(pattern):
 # end linux
 
 
-def strup(script_dir, script, appdata_local, home_dir, inotify_creation_file, CACHE_F, cdir, pid_file, lockfile, log_file, ll_level, _time, escaped_user, moduleNAME, usrDIR, temp_dir, gnupg_home, supbrwLIST, debug_mode, algo, logger, platform):
+def strup(script_dir, script, appdata_local, home_dir, inotify_creation_file, CACHE_F, cdir, pid_file, lockfile, log_file, ll_level,
+          _time, escaped_user, moduleNAME, usrDIR, temp_dir, gnupg_home, supbrwLIST, debug_mode, algo, platform, logger=logging):
 
     def build_terminal_cmd(terminal, cmd):
         """ wrapper function for debug below working off of return_terminal
@@ -189,9 +189,11 @@ def strup(script_dir, script, appdata_local, home_dir, inotify_creation_file, CA
         subprocess.Popen(cmd, **kwargs)
 
         logger.debug("strup completed successfully")
+        return True
     except Exception as e:
         print("xRC unable to start watchdog logged to", log_file)
         logger.error(f"strup General exception unable to start inotify wait: {e} {type(e).__name__}", exc_info=True)
+        return None
 
 
 def to_float_or_not(value, field, line, logger):
@@ -476,7 +478,6 @@ def trim_tout(log_file, time_back=6, trim_to=9, min_span_hours=0, logger=logging
                             print("trim_tout low water was higher than high water defaulting to high water", trim_to)
                             time_back = trim_to
                         cutoff_time = cutoff_time - (time_back * 3600)
-                        fmt = "%Y-%m-%d %H:%M:%S"
                         cutoff_str = datetime.fromtimestamp(cutoff_time).strftime(fmt)
                         kept = [line for line in tout_files if time_extract_str(line, log_file, logger) >= cutoff_str]
                         if kept:
@@ -578,7 +579,7 @@ def init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, temp_dir, gn
                         strup(
                             script_dir, script, appdata_local, home_dir, inotify_creation_file, CACHE_F, cdir, watchdog_pid_file, lockfile,
                             log_file, ll_level, _time, user, moduleNAME, usrDIR, temp_dir, gnupg_home, supbrwLIST, debug_mode, algo,
-                            logger, platform
+                            platform, logger
                         )
                     else:
                         if fk_success:
@@ -616,7 +617,7 @@ def init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, temp_dir, gn
                         strup(
                             script_dir, script, appdata_local, home_dir, inotify_creation_file, CACHE_F, cdir, watchdog_pid_file, lockfile,
                             log_file, ll_level, _time, user, moduleNAME, usrDIR, temp_dir, gnupg_home, supbrwLIST, debug_mode, algo,
-                            logger, platform
+                            platform, logger
                         )
                     else:
                         if fk_success:
@@ -642,7 +643,7 @@ def init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, temp_dir, gn
             strup(
                 script_dir, script, appdata_local, home_dir, inotify_creation_file, CACHE_F, cdir, watchdog_pid_file, lockfile,
                 log_file, ll_level, _time, user, moduleNAME, usrDIR, temp_dir, gnupg_home, supbrwLIST, debug_mode, algo,
-                logger, platform
+                platform, logger
             )
 
     except Exception as e:

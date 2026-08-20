@@ -1,3 +1,4 @@
+
 import logging
 import math
 import multiprocessing as mp
@@ -6,14 +7,9 @@ import traceback
 import threading
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from concurrent.futures.process import BrokenProcessPool
-from .fsearchfunctions import upt_cache
 from . import logs
-from .logs import emit_log
-from .logs import init_process_worker
-from .logs import logs_to_queue
-from .logs import logging_worker
-# import queue
-# Get metadata hash of files and return array 07/20/2026
+from .fsearchfunctions import upt_cache
+# Get metadata hash of files and return array 08/03/2026
 
 
 def process_line_worker(search_fn, chunk, checksum, file_type, search_start_dt, cache_f, show_progress=False, algo="md5", logger=None, strt=20, endp=60):
@@ -47,7 +43,7 @@ def process_line_worker(search_fn, chunk, checksum, file_type, search_start_dt, 
         except Exception as e:
             em = f"process_line_worker - Error line {i} of {len(chunk)}: {type(e).__name__} {e}"
             print(em)
-            emit_log("ERROR", f"{em}", logs.WORKER_LOG_Q, logger=logger)
+            logs.emit_log("ERROR", f"{em}", logs.WORKER_LOG_Q, logger=logger)
             raise
         r = i + 1
         x += 1
@@ -62,7 +58,7 @@ def process_line_worker(search_fn, chunk, checksum, file_type, search_start_dt, 
                     #     prog_v = strt + round(delta_p * (steps[current_step] / t_chunk))
                     #     print(f"Progress: {prog_v}%", flush=True)
                     # else:
-                    emit_log("prog", x, logs.WORKER_LOG_Q)
+                    logs.emit_log("prog", x, logs.WORKER_LOG_Q)
                     x = 0
                     current_step += 1
 
@@ -70,7 +66,7 @@ def process_line_worker(search_fn, chunk, checksum, file_type, search_start_dt, 
         if logger:
             print(f"Progress:{endp:.2f}", flush=True)
         if current_step <= len(steps) - 1:
-            emit_log("prog", x, logs.WORKER_LOG_Q)
+            logs.emit_log("prog", x, logs.WORKER_LOG_Q)
 
     return results, log_entries, r
 
@@ -94,7 +90,7 @@ def process_lines(search_fn, lines, file_type, search_start_dt, process_label, u
 
     if len_lines < 80 or drive_type.lower() == "hdd":
         try:
-            init_process_worker(None)
+            logs.init_process_worker(None)
             ck_results, _, _ = process_line_worker(search_fn, lines, checksum, file_type, search_start_dt, cache_f, show_progress, algo, logger, strt, endp)
         except Exception as e:
             emsg = f"Worker error occurred: {type(e).__name__} : {e}"
@@ -110,14 +106,14 @@ def process_lines(search_fn, lines, file_type, search_start_dt, process_label, u
 
         ctx = mp.get_context()
         log_q = ctx.Queue(maxsize=4096)
-        log_t = threading.Thread(target=logging_worker, args=(log_q, len_lines, strt, endp, show_progress, logger), daemon=True)
+        log_t = threading.Thread(target=logs.logging_worker, args=(log_q, len_lines, strt, endp, show_progress, logger), daemon=True)
         log_t.start()
 
         try:
             with ProcessPoolExecutor(
                 max_workers=max_workers,
                 mp_context=ctx,
-                initializer=init_process_worker,
+                initializer=logs.init_process_worker,
                 initargs=(log_q,)
             ) as executor:
                 futures = [
@@ -133,19 +129,19 @@ def process_lines(search_fn, lines, file_type, search_start_dt, process_label, u
                         if results:
                             ck_results.extend(results)
                         if log_entries:
-                            logs_to_queue(log_entries, log_q)
+                            logs.logs_to_queue(log_entries, log_q)
                         # done += r
                         # if show_progress:
                         #     print(f"Progress: {strt + round((endp - strt) * done / len_lines)}%", flush=True)
 
                     except BrokenProcessPool as e:
                         print("search failed in mc")
-                        emit_log("ERROR", f"fsearch error {e} \n{traceback.format_exc()}", log_q)
+                        logs.change_loggeremit_log("ERROR", f"fsearch error {e} \n{traceback.format_exc()}", log_q)
                         return None, None
                     except Exception as e:
                         emsg = f"Worker error occurred: {type(e).__name__} : {e}"
                         print(emsg)
-                        emit_log("ERROR", f"{emsg} \n{traceback.format_exc()}", log_q)
+                        logs.emit_log("ERROR", f"{emsg} \n{traceback.format_exc()}", log_q)
                         return None, None
 
         finally:

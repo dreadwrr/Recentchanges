@@ -2,27 +2,73 @@ import csv
 import logging
 import os
 import stat
+from dataclasses import dataclass
 from datetime import datetime
 from io import StringIO
+from pathlib import Path
+from typing import Dict
 from .config import get_json_settings
-from .dirwalkerwin import return_info
+from .config import load_toml
+from .configfunctions import get_config
+from .configfunctions import find_user_folder
 from .fileops import calculate_checksum
 from .fileops import find_dir_link_target
 from .fileops import find_link_target
+from .fileops import get_stat
 from .fileops import is_reparse_point
 from .fileops import set_stat
 from .fsearchfunctions import get_file_id
+from .fsearchfunctions import file_owner
 from .gpgcrypto import decrm
 from .logs import emit_log
+from .pyfunctions import epoch_to_date
 from .pyfunctions import epoch_to_str
-# 07/19/2026
+from .pyfunctions import fmt
+from .pyfunctions import user_path
+# 08/20/2026
 
-fmt = "%Y-%m-%d %H:%M:%S"
+
 EXEC_EXTN = (".exe", ".msi", ".bat", ".com")
 
 MODE_FILENAME = 1
 MODE_EXT = 2
 MODE_FILENAME_EXT = 3
+
+
+@dataclass
+class ConfigData:
+    usrDIR: Path
+    toml_file: Path
+    json_file: Path
+    log_file: Path
+    config: Dict
+    exclDIRS: list
+    nogo: list
+    filterout_list: list
+    driveTYPE: str
+    ll_level: str
+
+
+def get_config_data(appdata_local, usr):
+    ''' read and return the configs for dirwalker to avoid passing too many arguments '''
+    toml_file, json_file, _ = get_config(appdata_local, usr, platform="Windows")
+
+    usrDIR = find_user_folder("Desktop")
+    if usrDIR is None:
+        print("Could not find user Desktop folder")
+        return None
+    config = load_toml(toml_file)
+    if not config:
+        return None
+    exclDIRS = user_path(config['search']['exclDIRS'], usr)
+    nogo = user_path(config['shield']['nogo'], usr)
+    filterout_list = user_path(config['shield']['filterout'], usr)
+    driveTYPE = config['search']['driveTYPE']
+    ll_level = config['logs']['logLEVEL']
+    log_file = config['logs']['userLOG']
+    log_file = appdata_local / "logs" / log_file
+
+    return ConfigData(usrDIR, toml_file, json_file, log_file, config, exclDIRS, nogo, filterout_list, driveTYPE, ll_level)
 
 
 # Cache read
@@ -83,15 +129,15 @@ def chunk_split(recent_sys, list_length, batch_size=25):  # , max_workers=8
     # chunks = [c for c in chunks if c]
     # return chunks
 
-#
-# above uses numpy because pandas uses it. if not numpy
-# num_chunks = min(8, multiprocessing.cpu_count() or 1)
-# total_items = len(recent_sys)
-# chunk_size = math.ceil(total_items / num_chunks)
-# chunks = [
-#     recent_sys[i:i + chunk_size]
-#     for i in range(0, total_items, chunk_size)
-# ]
+    #
+    # above uses numpy because pandas uses it. if not numpy
+    # num_chunks = min(8, multiprocessing.cpu_count() or 1)
+    # total_items = len(recent_sys)
+    # chunk_size = math.ceil(total_items / num_chunks)
+    # chunks = [
+    #     recent_sys[i:i + chunk_size]
+    #     for i in range(0, total_items, chunk_size)
+    # ]
 
 
 def flatten_dict(dir_data):
@@ -115,7 +161,22 @@ def none_if_empty(value):
     return value or None
 
 
-def get_base_folders(basedir, exclDIRS_fullpath):
+# def output_metrics(total_read, end, start, parsedsys=None):
+    # output read speed
+    # if parsedsys:
+    #     total_read = 0
+    #     for rec in parsedsys:
+    #         if len(rec) >= 9:
+    #             total_read += rec[8]
+    # el = end - start
+    # print("")
+    # if el:
+    #     speed = (total_read / (1024 * 1024)) / el
+    #     print(f"{speed:.2f} MB/s")
+    #     print("{:.3f} s".format(el))
+
+
+def get_base_folders(basedir, excluded_paths):
     c = 0
     base_folders = []
     if os.path.isdir(basedir):
@@ -124,7 +185,7 @@ def get_base_folders(basedir, exclDIRS_fullpath):
 
     for folder_name in os.listdir(basedir):
         folder_path = os.path.join(basedir, folder_name)
-        if folder_path in exclDIRS_fullpath:
+        if folder_path in excluded_paths:
             continue
         if os.path.isdir(folder_path):
             c += 1
@@ -133,7 +194,7 @@ def get_base_folders(basedir, exclDIRS_fullpath):
 
 
 def get_drive_type(basedir, driveTYPE, cache_s, json_file):
-    """ from config return the drive type or default passed default driveTYPE """
+    """ from config return the drive type or passed default driveTYPE """
     # _, suffix = parse_systimeche(basedir, cache_s)
     di = get_json_settings(None, basedir, json_file) or {}
     dtype = di.get("drive_type")
@@ -157,6 +218,7 @@ def create_profile_baseline(EXEC_EXTN):
 
 
 class ErrorHandler:
+    """ currently not used. for os.walk """
     def __init__(self, logger=None):
         self.logger = logger if logger else logging
 
@@ -173,18 +235,19 @@ class ErrorHandler:
             raise list_error
 
 
-# os.scandir find
-def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpath=None, filename=None, extension=None, search_type=None, iqt=False, logger=None, strt=0, endp=100):
-    if exclDIRS_fullpath is not None and not isinstance(exclDIRS_fullpath, list):
-        raise TypeError("exclDIRS_fullpath is not a list")
+def files_search(base_dir, search_start_dt, feedback, exclDIRS, excluded_paths=None, filename=None, extension=None, search_type=None, iqt=False, logger=None, strt=0, endp=100):
+    ''' os.scandir find
+
+        if mode is None use process scan find created files by time for recentchangessearch
+        modes
+        process search find filename, extension or filename and extension and or by time for findfile '''
+
+    if excluded_paths is not None and not isinstance(excluded_paths, list):
+        raise TypeError("excluded_paths is not a list")
     logger = logger if logger else logging
     if search_start_dt and not isinstance(search_start_dt, datetime):
         print("search_start_dt is not a valid date time object exiting")
         return None, 0
-
-    # if mode is None use process scan find created files by time for recentchangessearch
-    # modes
-    # process search find filename, extension or filename and extension and or by time for findfile
 
     def match_name(file_lower, filename, extension):
         return file_lower == filename
@@ -224,12 +287,12 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
         else:
             raise ValueError("Mode not found.")
 
-    if not exclDIRS_fullpath:
-        exclDIRS_fullpath = [os.path.join(base_dir, d.lstrip("\\")) for d in exclDIRS]
+    if not excluded_paths:
+        excluded_paths = [os.path.join(base_dir, d.lstrip("\\")) for d in exclDIRS]
 
-    exclDIRS_fullpath = set(exclDIRS_fullpath)
+    excluded_paths = set(excluded_paths)
 
-    base_folders, root_count = get_base_folders(base_dir, exclDIRS_fullpath)
+    base_folders, root_count = get_base_folders(base_dir, excluded_paths)
     if root_count <= 1:
         print(f"Unable to read base folders of drive {base_dir} the drive could be empty or check permissions")
         return None, 0
@@ -267,7 +330,7 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
 
                             if entry.is_dir():
 
-                                if full_path in exclDIRS_fullpath:
+                                if full_path in excluded_paths:
                                     continue
                                 stat_info = get_stat(entry, logger=logger)
                                 if not stat_info:
@@ -295,7 +358,7 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
                                         if not stat_info:
                                             continue
                                         mtime = stat_info.st_mtime
-                                        c_time = stat_info.st_birthtime
+                                        c_time = getattr(stat_info, "st_birthtime", stat_info.st_ctime)
                                         if (mtime < cutoff and c_time < cutoff):
                                             continue
 
@@ -343,7 +406,7 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
 
                             if entry.is_dir():
 
-                                if full_path in exclDIRS_fullpath:
+                                if full_path in excluded_paths:
                                     continue
                                 stat_info = get_stat(entry, logger=logger)
                                 if not stat_info:
@@ -368,7 +431,7 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
                                     continue
 
                                 mtime = stat_info.st_mtime
-                                c_time = stat_info.st_birthtime
+                                c_time = getattr(stat_info, "st_birthtime", stat_info.st_ctime)
 
                                 atime = stat_info.st_atime
 
@@ -443,10 +506,10 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, exclDIRS_fullpat
         raise
 
 
-# create a directory cache of the system
-# return files by specification for multliprocessing hashing
-def collect_files(basedir, exclDIRS_fullpath, filter_tup, exec_tup, extn_tup, paths_tup, is_noextension, is_exec, is_sym, logger):
-    ''' proteusEXTN shield os.scandir '''
+def collect_files(basedir, excluded_paths, filter_tup, exec_tup, extn_tup, paths_tup, is_noextension, is_exec, is_sym, logger):
+    ''' proteusEXTN shield os.scandir
+        create a directory cache of the system
+        return files by specification for multliprocessing hashing '''
     all_entries = []
     log_entries = []
     dir_data = {}
@@ -488,7 +551,7 @@ def collect_files(basedir, exclDIRS_fullpath, filter_tup, exec_tup, extn_tup, pa
 
                             if entry.is_dir():
 
-                                if path in exclDIRS_fullpath:
+                                if path in excluded_paths:
                                     continue
                                 stat_info = get_stat(entry, logger=logger)
                                 if not stat_info:
@@ -636,13 +699,47 @@ def collect_files(basedir, exclDIRS_fullpath, filter_tup, exec_tup, extn_tup, pa
     return all_entries, dir_data, log_entries, max_depth, r, j
 
 
-# os.scandir meta DirEntry object formerly walk_meta
-# for Build IDX meta - either to specifications or XzmProfile template
-# take initial stat. run the checksum then stat again to confirm hash.
+def return_info(file_path, st, symlink, link_target, log_q):
+
+    sym = target = hardlink = None
+
+    if symlink:
+        sym = "y"
+        target = link_target
+
+    # attrs = getattr(st, "st_file_attributes", 0)
+    # mode, _ = get_mode(attrs, sym)
+    # inode = st.st_ino
+    # hardlink = st.st_nlink
+
+    inode, _, hardlink, _, _, mode, status = get_file_id(file_path, log_q)  # reparse c_time
+    if status in ("Nosuchfile", "Error"):
+        return sym, target, mode, inode, hardlink, None, None, None, st.st_mtime_ns, None, None, None, st.st_size, status
+    resolve_owner = file_owner(file_path, log_q)
+    if resolve_owner in ("Nosuchfile", "Error"):
+        return sym, target, mode, inode, hardlink, None, None, None, st.st_mtime_ns, None, None, None, st.st_size, status
+    owner, domain = resolve_owner if resolve_owner else (None, None)
+
+    m_epoch = st.st_mtime
+    m_epoch_ns = st.st_mtime_ns
+    c_epoch = getattr(st, "st_birthtime", st.st_ctime)  # defensive purposes newer python uses st_birthtime
+    a_epoch = st.st_atime
+    m_dt = epoch_to_date(m_epoch)
+    m_time = m_dt.strftime(fmt)
+    c_time = epoch_to_str(c_epoch)
+    a_time = epoch_to_str(a_epoch)
+    size = st.st_size
+
+    return sym, target, mode, inode, hardlink, owner, domain, m_dt, m_epoch_ns, m_time, c_time, a_time, size, status
+
 
 def scandir_meta(file_path, st, symlink, link_target, found, sys_data, algo="md5", log_q=None):
+    '''
+        os.scandir meta DirEntry object formerly walk_meta
+        for Build IDX meta - either to specifications or XzmProfile template
+        take initial stat. run the checksum then stat again to confirm hash. '''
 
-    count = 1  # init version #
+    count = 1  # initial version
     status = None
     checks = entropy = mime = size = cam = lastmodified = None
 
@@ -691,17 +788,16 @@ def scandir_meta(file_path, st, symlink, link_target, found, sys_data, algo="md5
         raise
 
 
-# For Scan IDX meta
-# same as above but have previous checksum of file. stat and hash each profile item and check to original to find any
-# changes including modifications without a new modified time or faked modified time.
-#
-# a file could change to a symlink and vice versa. which wouldnt effect anything but is info that can be output for symmetric
-# differences
-# previous_symlink before
-# and symlink\\sym after
-#
 def meta_sys(file_path, previous_md5, previous_entropy, previous_mime_id, previous_symlink, previous_target, previous_count, is_sym, sys_data, link_data, ent_data, mime_data, id_to_mime, algo="md5", log_q=None):
+    '''
+        For Scan IDX meta
+        same as above but have previous checksum of file. stat and hash each profile item and check to original to find any
+        changes including modifications without a new modified time or faked modified time.
 
+        a file could change to a symlink and vice versa. which wouldnt effect anything but is info that can be output for symmetric
+        differences
+        previous_symlink before
+        and symlink\\sym after '''
     status = None
     checks = entropy = mime = size = hardlink = None
 
@@ -729,9 +825,9 @@ def meta_sys(file_path, previous_md5, previous_entropy, previous_mime_id, previo
         sym, target, mode, inode, hardlink, owner, domain, m_dt, m_epoch_ns, m_time, c_time, a_time, size, status = file_info
 
         if status == "Nosuchfile":
-            return False, status
+            return False, status, 0
         elif status == "Error":
-            return None, status
+            return None, status, 0
 
         mtime_us = m_epoch_ns // 1_000
 
@@ -743,7 +839,7 @@ def meta_sys(file_path, previous_md5, previous_entropy, previous_mime_id, previo
                     checks, mtime, st, mtime_us, c_time, inode, size = set_stat(file_info, checks, file_dt, file_st, file_us, inode, log_q)
                     if mtime is None:
                         emit_log("ERROR", f"meta_sys Retried mtime was None skipping file {file_path}", log_q)
-                        return None, status
+                        return None, status, 0
 
                     m_time = mtime.strftime(fmt)
                     c_time = c_time.strftime(fmt) if c_time else None
@@ -774,7 +870,7 @@ def meta_sys(file_path, previous_md5, previous_entropy, previous_mime_id, previo
                     sys_data.append(all_sys)
 
             else:  # status == "Nosuchfile" or status == "Changed"
-                return False, status
+                return False, status, 0
 
         elif sym == "y" and is_sym:
             if previous_symlink == "y":
@@ -792,33 +888,17 @@ def meta_sys(file_path, previous_md5, previous_entropy, previous_mime_id, previo
                 link_data.append((*all_sys, file_to_symlink, False))  # emit_log("ERROR", f"meta_sys Warning file changed to symlink: {file_path}", log_q)
                 link_data.append((previous_target, target))
 
-        return True, status
+        return True, status, size
 
     except PermissionError as e:
         emit_log("ERROR", f"meta_sys Permission error on: {file_path} err: {e}", log_q)
-        return None, status
+        return None, status, 0
     except FileNotFoundError:
         emit_log("DEBUG", f"file not found while scanning. file: {file_path}", log_q)
-        return False, "Nosuchfile"
+        return False, "Nosuchfile", 0
     except Exception as e:
         emit_log("ERROR", f"meta_sys Problem getting metadata skipped: {file_path} err:{type(e).__name__}: {e}", log_q)
         raise
-
-
-def get_stat(entry, log_q=None, log_entries=None, logger=None):
-    try:
-        return entry.stat(follow_symlinks=False)
-    except OSError as e:
-        emit_log("DEBUG", f"OSError cannot stat  {type(e).__name__} {e} : {entry}", log_q, log_entries, logger)
-        return None
-
-
-def get_filter_tup(suppress_list):
-    sup_set = set()
-    for s in suppress_list:
-        if s:
-            sup_set.add(s.lower())
-    return tuple(sup_set)
 
 
 def check_specified_paths(basedir, configured_paths, list_name, suppress=False):
@@ -841,6 +921,118 @@ def check_specified_paths(basedir, configured_paths, list_name, suppress=False):
             f'{", ".join(missing)}'
         )
     return tuple(paths), exists
+
+
+def fill_filterout_list(action, appdata_local, basedir, driveTYPE, dbtarget, cache_s, gnupghome, exclDIRS, nogo, filterout_list, extension, user, usrDIR, config, config_data, is_noextension):
+    """ handle inclusions. build exclusions for index_system and find_created. if drive != C:\\ get drivetype from usrprofile.json
+        return filterout_list and drivetype """
+
+    exclDIRS += nogo
+
+    from .qtdrivefunctions import parse_systimeche
+    """ filter out """
+    # handle exclusions
+    filterout_list = [os.path.join(basedir, d) for d in filterout_list]
+    if action == 'downloads':
+        if basedir == "C:\\":
+
+            # sensitivity adjust
+            # left out for speed so dont have to glob. these are intermittent runtime files so doesnt effect anything
+            # search_archive = os.path.join(appdata_local, f"{moduleNAME}_MDY_*")  # windows
+            # search_archive = os.path.join("/tmp", f"{moduleNAME}_MDY_*")  # linux
+            # excluded = glob.glob(search_archive)
+            # search_exclude = [
+            #     str(Path(f).relative_to(Path(f).anchor))
+            #     for f in excluded
+            # ]
+            # exclDIRS += search_exclude
+
+            # biggest exclude is gnupg\\random_seed and any runtime files
+            # windows is primarily tempdir from qt app. these files are intermittent so are not a problem
+            # tempdir\\'{moduleNAME}xcreated.txt'
+            # tempdir\\'{moduleNAME}xfindfiles.txt'
+            # tempdir\\excluded.txt
+
+            moduleNAME = config['paths']['moduleNAME']
+            download_results = os.path.join(usrDIR, moduleNAME + 'x')  # desktop
+            flth_frm = appdata_local / "flth.csv"  # filter hits
+            cache_f_frm = os.path.join(appdata_local, "ctimecache.gpg")
+            cache_s_frm, _ = parse_systimeche(basedir, cache_s)
+            cache_s_frm = os.path.join(appdata_local, cache_s_frm)
+
+            filterout_list.append(str(flth_frm))
+            filterout_list.append(download_results)
+            filterout_list.append(cache_f_frm)
+            filterout_list.append(cache_s_frm)
+
+        if driveTYPE not in ("HDD", "SSD"):
+            driveTYPE = config_data.driveTYPE
+            json_file = config_data.json_file
+            print("driveTYPE for drive", basedir, " was null check json file", json_file)
+
+    elif action == 'build':
+        if basedir == "C:\\":
+
+            # Windows temp folder
+            exclude_temp = f"Users\\{user}\\AppData\\Local\\Temp"
+            if exclude_temp not in exclDIRS:
+                exclDIRS.append(exclude_temp)
+
+            moduleNAME = config['paths']['moduleNAME']
+            ad_results = os.path.join(appdata_local, moduleNAME + "x")  # appdata
+            download_results = os.path.join(usrDIR, moduleNAME + "x")  # desktop
+            filterout_list.append(ad_results)
+            filterout_list.append(download_results)
+            # filterout_list.append(str(file_out))  # linux
+
+            if '.gpg' in extension:
+
+                cache_f_frm = os.path.join(appdata_local, "ctimecache.gpg")
+                cache_s_frm, _ = parse_systimeche(basedir, cache_s)
+                cache_s_frm = os.path.join(appdata_local, cache_s_frm)
+
+                filterout_list.append(cache_f_frm)
+                filterout_list.append(cache_s_frm)
+                filterout_list.append(dbtarget)
+
+            if ".csv" in extension:
+
+                flth_frm = appdata_local / "flth.csv"
+                filterout_list.append(str(flth_frm))
+
+            if is_noextension and gnupghome:
+
+                file_exclude = os.path.join(gnupghome, "random_seed")
+                if file_exclude not in filterout_list:
+                    filterout_list.append(file_exclude)
+
+        else:
+            # use drive type stored for basedir != "C:\\"
+            json_file = config_data.json_file
+            driveTYPE = get_drive_type(basedir, driveTYPE, cache_s, json_file)
+    else:
+        RuntimeError("invalid action", action)
+
+    return filterout_list, driveTYPE
+
+
+def get_extension_tup(extension):
+    extn_set = set()
+    is_noextension = False
+    for e in extension:
+        if e:
+            extn_set.add(e.lower())
+        else:
+            is_noextension = True
+    return tuple(extn_set), is_noextension
+
+
+def get_filter_tup(suppress_list):
+    sup_set = set()
+    for s in suppress_list:
+        if s:
+            sup_set.add(s.lower())
+    return tuple(sup_set)
 
 
 def output_diff(diff_file, prev_scans, all_sys, mime_hashmap, id_to_mime, link_change, ent_change, mime_change, link_diff, ent_diff, mime_diff, nfs_records, dir_diff, new_diff, cmsg, are_symmetrics, showDiff, scan_start):
@@ -910,7 +1102,6 @@ def output_diff(diff_file, prev_scans, all_sys, mime_hashmap, id_to_mime, link_c
     if ent_change:
         warn = []
         reg = []
-        recent_changes.append("")
         recent_changes.append("change in entropy")
         for ent in ent_change:
             timestamp = ent[0]
@@ -920,9 +1111,9 @@ def output_diff(diff_file, prev_scans, all_sys, mime_hashmap, id_to_mime, link_c
             delta = ent[-1]
 
             tup_str = timestamp + " " + file_name
-            str_end = f"change from {previous_entropy:.2f} to {entropy:.2f} with a delta of {delta:.2f}"
+            str_end = f"change from {previous_entropy:.2f} to {entropy:.2f}"
             if delta >= 1.00:
-                warn.append(tup_str + " Warning file high entropy" + str_end)
+                warn.append(tup_str + " Warning file high entropy " + str_end)
             else:
                 reg.append(tup_str + " had a delta of .5 or more " + str_end)
 
@@ -932,7 +1123,6 @@ def output_diff(diff_file, prev_scans, all_sys, mime_hashmap, id_to_mime, link_c
             recent_changes.append(regular)
 
     if mime_change:
-        recent_changes.append("")
         recent_changes.append("changed by file type")
         for m in mime_change:
             timestamp = m[0]
@@ -948,11 +1138,8 @@ def output_diff(diff_file, prev_scans, all_sys, mime_hashmap, id_to_mime, link_c
                 recent_changes.append(timestamp + " " + file_name + " " + previous_mime + " → " + mime)
 
     if link_change:
-
         warn = []
         reg = []
-
-        recent_changes.append("")
         recent_changes.append("symlink change by target or type")
 
         link_change_len = len(link_change)
@@ -1005,18 +1192,19 @@ def output_diff(diff_file, prev_scans, all_sys, mime_hashmap, id_to_mime, link_c
                     print(hdr1, file=f)
                     print(hdr2, file=f)
                     print(fstr, file=f)
-                for record in records:
-                    record_str = ' '.join(map(str, record))
-                    f.write(record_str + '\n')
-
-                if recent_changes:
+                    for record in records:
+                        record_str = ' '.join(map(str, record))
+                        f.write(record_str + '\n')
                     f.write('\n')
-                    for changes in recent_changes:
-                        f.write(changes + '\n')
 
-                parts = scan_date.split()
-                time_stamp = f'MDY_{parts[0]}-TIME_{parts[1]}'
-                f.write(time_stamp + '\n\n')
+            if recent_changes:
+                for changes in recent_changes:
+                    f.write(changes + '\n')
+
+            parts = scan_date.split()
+            time_stamp = f'MDY_{parts[0]}-TIME_{parts[1]}'
+            f.write(time_stamp + '\n\n')
+
             if cmsg:
                 print(cmsg, file=f)
 

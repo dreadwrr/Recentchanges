@@ -5,6 +5,7 @@ from src.recentchangessearch import main as recentchanges_main
 from src.recentchangessearchparser import build_subparser
 from src.rntchanges import main as rntchanges_main
 from scripts.watchdog_win import main as watchdog_main
+from src.dirwalkersrg import set_hardlinks
 
 
 def dispatch_internal(argv):
@@ -18,10 +19,10 @@ def dispatch_internal(argv):
 
         DISPATCH_MAP = {
             "dirwalker.py": {
-                "hardlink": 7,
+                "hardlink": 9,
                 "scan": 8,
-                "build": 7,
-                "downloads": 12,
+                "build": 8,
+                "downloads": 7,
             },
             "recentchangessearch.py": recentchanges_main,
             "findfile.py": findfile_main,
@@ -38,8 +39,8 @@ def dispatch_internal(argv):
                 )
                 sys.exit(1)
             min_args = entry[cmd]
-            if len_args < min_args:
-                print(f"Not enough args for '{cmd}', expected {min_args}, got {len_args}")
+            if len(args) < min_args:
+                print(f"Not enough args for '{cmd}', expected {min_args}, got {len(args)}")
                 sys.exit(1)
 
             sys.exit(dirwalker_main(args))
@@ -53,4 +54,9 @@ def dispatch_internal(argv):
                 sys.exit(entry(args))
             elif script == "watchdog_win.py":
                 sys.exit(entry(*args[1:]))
+
+        elif script == "run":
+            if cmd == "hardlinks":
+                sys.exit(set_hardlinks(*args[1:]))
+
     sys.exit(rntchanges_main(argv))

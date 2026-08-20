@@ -53,8 +53,8 @@ def get_cached(cfr, file_size, modified_ep, file_path):
     return None
 
 
-# return the last known modified_ep
 def get_last_mtime(cfr, file_path, latest_ep):
+    ''' return the last known modified_ep '''
     if not isinstance(cfr, dict):
         return None
 
@@ -105,8 +105,8 @@ def parse_iso8601(s):
         return None
 
 
-# OPEN_REPARSE = getattr(win32file, "FILE_FLAG_OPEN_REPARSE_POINT", 0x00200000)
 def get_file_id(filepath, log_q=None, logger=None):
+    # OPEN_REPARSE = getattr(win32file, "FILE_FLAG_OPEN_REPARSE_POINT", 0x00200000)
     try:
         # win32con.FILE_ATTRIBUTE_NORMAL ln 125
         handle = win32file.CreateFile(
@@ -167,9 +167,6 @@ def get_file_id(filepath, log_q=None, logger=None):
             return None, None, None, None, None, None, "Nosuchfile"
         emit_log("DEBUG", f"get_file_id unable to get inode symlinks hardlinks creationtime mode for file: {filepath} {type(e).__name__} error: {e}", log_q, logger=logger)
         return None, None, None, None, None, None, "Error"
-
-
-# emit_log("DEBUG", f"file_owner File not found while getting owner domain for file: {file_path}", log_q)
 
 
 def file_owner(file_path, log_q=None, logger=None):
@@ -247,7 +244,7 @@ def get_mft_mode(attribs, is_symlink=None):
 
 
 def default_mode(is_symlink):
-    # default unknown and set if symlink
+    ''' default unknown and set if symlink '''
     mode = ['-'] * 6
     if is_symlink:
         mode[5] = "l"
@@ -255,7 +252,7 @@ def default_mode(is_symlink):
 
 
 def set_excl_dirs(basedir, excl_path, exclDIRS):
-    """ write a list of exclude paths for powershell search scripts """
+    ''' write a list of exclude paths for powershell search scripts '''
     with open(excl_path, "w") as f:
         for entry in exclDIRS:
             #  str_out = basedir + entry.replace("$", "\\$")

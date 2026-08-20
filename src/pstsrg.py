@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
-# pstsrg.py - Process and store logs in a SQLite database, encrypting the database       06/19/2026
+# pstsrg.py - Process and store logs in a SQLite database, encrypting the database       08/10/2026
 import os
-import sqlite3
+import sqlcipher3
 import sys
 import traceback
 from .configfunctions import find_gnupg_home
 from .dirwalker import index_system
-from .gpgcrypto import encr
-from .gpgcrypto import decr
+from .gpgcrypto import get_cipher_key
 from .hanlyparallel import hanly_parallel
-from .pyfunctions import cnc
 from .pyfunctions import convert_mime_to_int
 from .pyfunctions import cprint
 from .pyfunctions import unescf_py
 from .pysql import clear_conn
 from .pysql import collision_check
+from .pysql import create_conn
 from .pysql import create_db
 from .pysql import get_lifetime_throughput
 from .pysql import get_mime_map
@@ -26,10 +25,9 @@ from .pysql import insert_mimes
 from .pysql import table_has_data
 from .qtdrivefunctions import get_idx_tables
 from .query import blank_count
-from .rntchangesfunctions import removefile
 
 
-def main(dbopt, dbtarget, xdata, complete, rout, created, cachermPATTERNS, user_setting, logging_values, total_time, total_files, dcr=False, iqt=False, strt=65, endp=90):
+def main(dbopt, dbtarget, xdata, complete, rout, created, cachermPATTERNS, user_setting, logging_values, total_time, total_files, iqt=False, strt=65, endp=90):
 
     # tempwork = logging_values[3]  # the script temp directory
     scr = logging_values[4]
@@ -48,7 +46,7 @@ def main(dbopt, dbtarget, xdata, complete, rout, created, cachermPATTERNS, user_
     checkMETHOD = user_setting['checkMETHOD']
     cdiag = user_setting['cdiag']
     ps = user_setting['ps']
-    compLVL = user_setting['compLVL']
+    # compLVL = user_setting['compLVL']
 
     sys_tables, _, _ = get_idx_tables(basedir, cache_s)
 
@@ -80,38 +78,33 @@ def main(dbopt, dbtarget, xdata, complete, rout, created, cachermPATTERNS, user_
     # app_dir = os.path.dirname(dbtarget)
     # dbopt = os.path.join(app_dir, outfile)
 
-    if not iqt:
-        if os.path.isfile(dbtarget):
-            if not decr(dbtarget, dbopt):
-                print(f'Find out why db not decrypting or delete: {dbtarget} and make a new one')
-                return None, None
-        else:
-            try:
-                conn = create_db(dbopt, sys_tables)
+    # 07/31/2026
+    # sqlcipher unlock is the conn
+
+    try:
+        if not iqt:
+            if not os.path.isfile(dbopt):
+                conn = create_db(dbopt, dbtarget, sys_tables, email)
                 cprint.green('Persistent database created')
                 goahead = False
-            except Exception as e:
-                print("Failed to create db:", e)
-                return None, None
-    else:
-        if not os.path.isfile(dbtarget):
-            goahead = False
+    except Exception as e:
+        print("Failed to create db:", e)
+        return None, None
 
     try:
         if not os.path.isfile(dbopt):
             print("pstrg: cant find db unable to continue", dbopt)
             return None, None
         if not conn:
-            conn = sqlite3.connect(dbopt)
+            conn = create_conn(dbopt, dbtarget, email)
     except Exception as e:
         print(f'failed with error: {e}')
         print()
         print("Unable to connect to database and do hybrid analysis")
-        if not dcr:
-            removefile(dbopt)
         return None, None
 
     try:
+        p = get_cipher_key(dbtarget)
         c = conn.cursor()
 
         drive_sys_table = sys_tables[0]
@@ -127,11 +120,14 @@ def main(dbopt, dbtarget, xdata, complete, rout, created, cachermPATTERNS, user_
                     gnupg_home = find_gnupg_home(json_file)
 
                 print('Generating system profile.')
+
                 appdata_local = logging_values[2]
-                res = index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, analytics, False, gnupg_home, compLVL, iqt, strt, endp)
+                res = index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, analytics, False, gnupg_home, iqt, strt, endp)
                 if res != 0:
                     print("index_system from dirwalker failed to hash in pstsrg")
-                conn = sqlite3.connect(dbopt)
+
+                conn = sqlcipher3.connect(dbopt)
+                conn.execute(f'PRAGMA key = "x\'{p.hex()}\'"')
                 c = conn.cursor()
 
             elif ps and not iqt:
@@ -157,7 +153,9 @@ def main(dbopt, dbtarget, xdata, complete, rout, created, cachermPATTERNS, user_
                         print(f"Progress: {strt}", flush=True)
 
                     # get the time for multiprocessing and logger for benchmark. These are not stored and are for per run execution.
-                    csum, ha_total_time, logger_total_time = hanly_parallel(model_type, rout, created, scr, cerr, parsed, id_to_mime, cachermPATTERNS, checksum, cdiag, dbopt, is_ps, user, logging_values, sys_tables, iqt, strt, endp)
+                    csum, ha_total_time, logger_total_time = hanly_parallel(model_type, rout, created, scr, cerr, parsed, id_to_mime, cachermPATTERNS,
+                                                                            checksum, cdiag, dbopt, dbtarget, is_ps, user, logging_values, sys_tables,
+                                                                            p, iqt, strt, endp)
 
                 except Exception as e:
                     print(f"hanlydb failed to process : {type(e).__name__} : {e} \n{traceback.format_exc().strip()}", file=sys.stderr)
@@ -226,7 +224,7 @@ def main(dbopt, dbtarget, xdata, complete, rout, created, cachermPATTERNS, user_
                 print(f'stats db failed to insert err: {e}  \n{traceback.format_exc()}')
                 db_error = True
 
-        sts = False
+        # sts = False
 
         # Encrypt if o.k.
         if not db_error:
@@ -235,17 +233,13 @@ def main(dbopt, dbtarget, xdata, complete, rout, created, cachermPATTERNS, user_
                 c.close()
                 conn.close()
                 conn = c = None
-                nc = cnc(dbopt, compLVL)
-                if new_profile:
-                    dcr = False
-                sts = encr(dbopt, dbtarget, email, no_compression=nc, dcr=dcr)
-                if not sts:
-                    res = 3  # & 2 gpg problem
-                    print(f'Failed to encrypt database. Run   gpg --yes -e -r {email} -o {dbtarget} {dbopt}  before running again to preserve data.')
+                # if not sts:
+                #   res = 3  # & 2 gpg problem
+                #   print(f'Failed to encrypt database. Run   gpg --yes -e -r {email} -o {dbtarget} {dbopt}  before running again to preserve data.')
 
             except Exception as e:
                 res = 3
-                print(f'Encryption failed pstsrg.py: {e}')
+                print(f'Failed to commit to database while closing connection in pstsrg.py: {e}')
 
         else:
             conn.rollback()
@@ -256,8 +250,6 @@ def main(dbopt, dbtarget, xdata, complete, rout, created, cachermPATTERNS, user_
 
     data = (csum, unique_files, lifetime_throughput, ha_total_time, logger_total_time)
 
-    if not dcr and res != 3:
-        removefile(dbopt)
     if res == 0 and new_profile:
         return "new_profile", data
     elif res == 0 and new_database:

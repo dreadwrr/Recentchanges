@@ -95,19 +95,19 @@ class ProcessHandler(QObject):
                     self.ranges["pstsrg"] = (65, 80)
             else:
                 self.ranges = {
-                    "build": (0, 100),
-                    "scan": (0, 100)
+                    "build": (-1, -1),
+                    "scan": (-1, -1)
                 }
 
             self.wait_count = 0
 
             self.stop_timer = QTimer()
-            self.stop_timer.timeout.connect(self._stop_poll)
+            self.stop_timer.timeout.connect(self.stop_poll)
             self.stop_timer.start(100)
         else:
-            self._terminate_process()
+            self.terminate_process()
 
-    def _stop_poll(self):
+    def stop_poll(self):
         in_range = any(start <= self.prog_v <= end for start, end in self.ranges.values())
 
         if in_range and self.wait_count <= 30000:
@@ -118,11 +118,11 @@ class ProcessHandler(QObject):
             pstsrg = self.ranges.get("pstsrg")
             if pstsrg and self.prog_v > pstsrg[1] and not self.is_scanIDX:
                 return
-        self._terminate_process()
+        self.terminate_process()
         if self.wait_count > 30000:
             self.log.emit("Process timeout; continuing termination.")
 
-    def _terminate_process(self):
+    def terminate_process(self):
         if self.is_terminating:
             return
         self.is_terminating = True
@@ -236,9 +236,9 @@ class ProcessHandler(QObject):
         elif line.startswith("fsearch complete") or line.startswith("pstsrg complete"):
             if self.should_stop:
                 if line.startswith("pstsrg complete") and self.is_scanIDX:
-                    self._terminate_process()
+                    self.terminate_process()
                 elif line.startswith("fsearch complete"):
-                    self._terminate_process()
+                    self.terminate_process()
         else:
             self.log.emit(line)
 

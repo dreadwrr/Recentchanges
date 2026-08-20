@@ -131,7 +131,7 @@ def logic(syschg, nodiff, diffrlt, validrlt, thetime, argone, argf, result_outpu
         else:
 
             if flsrh:
-                cprint.cyan(f'All files newer than {filename} on Desktop')
+                cprint.cyan(f'All files newer than {filename.replace('/', '\\')} on Desktop')
             elif argf:
                 cprint.cyan('All new filtered files are listed on Desktop')
             else:
@@ -725,10 +725,10 @@ def build_tsv(sortcomplete, tmpopt, logf, rout, created, escaped_user, outpath, 
                 # full_path = ' '.join(parts[5:])
                 # full_path = unescf_py(parts[5])
                 if action == "Copy":
-                    full_path = parts[5:]
+                    full_path = parts[5]
                     copy_paths.add(full_path)
                 elif action == "Created":
-                    full_path = parts[5:]
+                    full_path = parts[5]
                     created_paths.add(full_path)
 
         is_link = any(len(row) > 9 and row[9] == 'y' for row in sortcomplete)

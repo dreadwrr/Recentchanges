@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'untitled12.ui'
+## Form generated from reading UI file 'untitled14.ui'
 ##
 ## Created by: Qt User Interface Compiler version 6.11.1
 ##
@@ -28,7 +28,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(1627, 1113)
+        MainWindow.resize(1578, 1055)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -84,6 +84,12 @@ class Ui_MainWindow(object):
         self.actionHistoryv.setObjectName(u"actionHistoryv")
         self.actionWatchdog = QAction(MainWindow)
         self.actionWatchdog.setObjectName(u"actionWatchdog")
+        self.actionDrive_read_test = QAction(MainWindow)
+        self.actionDrive_read_test.setObjectName(u"actionDrive_read_test")
+        self.actionFile_creation_log = QAction(MainWindow)
+        self.actionFile_creation_log.setObjectName(u"actionFile_creation_log")
+        self.actionScientific_calculator = QAction(MainWindow)
+        self.actionScientific_calculator.setObjectName(u"actionScientific_calculator")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.gridLayout_6 = QGridLayout(self.centralwidget)
@@ -96,45 +102,648 @@ class Ui_MainWindow(object):
         self.gridLayout_7.setObjectName(u"gridLayout_7")
         self.gridLayout = QGridLayout()
         self.gridLayout.setObjectName(u"gridLayout")
-        self.ftimelabel1 = QLabel(self.page)
-        self.ftimelabel1.setObjectName(u"ftimelabel1")
+        self.horizontalLayout_22 = QHBoxLayout()
+        self.horizontalLayout_22.setObjectName(u"horizontalLayout_22")
+        self.horizontalLayout_22.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+        self.diffchkb = QCheckBox(self.page)
+        self.diffchkb.setObjectName(u"diffchkb")
         sizePolicy1 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         sizePolicy1.setHorizontalStretch(0)
         sizePolicy1.setVerticalStretch(0)
-        sizePolicy1.setHeightForWidth(self.ftimelabel1.sizePolicy().hasHeightForWidth())
-        self.ftimelabel1.setSizePolicy(sizePolicy1)
+        sizePolicy1.setHeightForWidth(self.diffchkb.sizePolicy().hasHeightForWidth())
+        self.diffchkb.setSizePolicy(sizePolicy1)
+        self.diffchkb.setMinimumSize(QSize(111, 20))
+        self.diffchkb.setMaximumSize(QSize(157, 20))
 
-        self.gridLayout.addWidget(self.ftimelabel1, 9, 1, 1, 1)
+        self.horizontalLayout_22.addWidget(self.diffchkb)
 
-        self.ntlabel = QLabel(self.page)
-        self.ntlabel.setObjectName(u"ntlabel")
-        sizePolicy1.setHeightForWidth(self.ntlabel.sizePolicy().hasHeightForWidth())
-        self.ntlabel.setSizePolicy(sizePolicy1)
+        self.diffchkc = QCheckBox(self.page)
+        self.diffchkc.setObjectName(u"diffchkc")
+        self.diffchkc.setEnabled(True)
+        sizePolicy1.setHeightForWidth(self.diffchkc.sizePolicy().hasHeightForWidth())
+        self.diffchkc.setSizePolicy(sizePolicy1)
 
-        self.gridLayout.addWidget(self.ntlabel, 12, 0, 1, 1)
+        self.horizontalLayout_22.addWidget(self.diffchkc)
 
-        self.combd = QComboBox(self.page)
-        self.combd.addItem("")
-        self.combd.setObjectName(u"combd")
-        sizePolicy1.setHeightForWidth(self.combd.sizePolicy().hasHeightForWidth())
-        self.combd.setSizePolicy(sizePolicy1)
-        self.combd.setMinimumSize(QSize(89, 22))
-        self.combd.setMaximumSize(QSize(89, 22))
+        self.diffchkd = QCheckBox(self.page)
+        self.diffchkd.setObjectName(u"diffchkd")
+        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        sizePolicy2.setHorizontalStretch(0)
+        sizePolicy2.setVerticalStretch(0)
+        sizePolicy2.setHeightForWidth(self.diffchkd.sizePolicy().hasHeightForWidth())
+        self.diffchkd.setSizePolicy(sizePolicy2)
+        self.diffchkd.setMinimumSize(QSize(151, 24))
 
-        self.gridLayout.addWidget(self.combd, 7, 6, 1, 1)
+        self.horizontalLayout_22.addWidget(self.diffchkd)
+
+
+        self.gridLayout.addLayout(self.horizontalLayout_22, 37, 0, 1, 2)
+
+        self.mftlabel2 = QLabel(self.page)
+        self.mftlabel2.setObjectName(u"mftlabel2")
+        sizePolicy1.setHeightForWidth(self.mftlabel2.sizePolicy().hasHeightForWidth())
+        self.mftlabel2.setSizePolicy(sizePolicy1)
+
+        self.gridLayout.addWidget(self.mftlabel2, 36, 7, 1, 1)
+
+        self.verticalSpacer_3 = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+
+        self.gridLayout.addItem(self.verticalSpacer_3, 12, 5, 1, 1)
+
+        self.horizontalLayout_19 = QHBoxLayout()
+        self.horizontalLayout_19.setSpacing(0)
+        self.horizontalLayout_19.setObjectName(u"horizontalLayout_19")
+        self.horizontalLayout_19.setContentsMargins(10, -1, -1, -1)
+        self.mftlabel3 = QLabel(self.page)
+        self.mftlabel3.setObjectName(u"mftlabel3")
+        sizePolicy1.setHeightForWidth(self.mftlabel3.sizePolicy().hasHeightForWidth())
+        self.mftlabel3.setSizePolicy(sizePolicy1)
+        self.mftlabel3.setMinimumSize(QSize(55, 20))
+        self.mftlabel3.setMaximumSize(QSize(55, 20))
+
+        self.horizontalLayout_19.addWidget(self.mftlabel3)
+
+        self.mftchka = QCheckBox(self.page)
+        self.mftchka.setObjectName(u"mftchka")
+        sizePolicy1.setHeightForWidth(self.mftchka.sizePolicy().hasHeightForWidth())
+        self.mftchka.setSizePolicy(sizePolicy1)
+        self.mftchka.setMinimumSize(QSize(21, 16))
+        self.mftchka.setMaximumSize(QSize(21, 16))
+        self.mftchka.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+
+        self.horizontalLayout_19.addWidget(self.mftchka)
+
+
+        self.gridLayout.addLayout(self.horizontalLayout_19, 36, 5, 1, 1)
+
+        self.stimebf = QPushButton(self.page)
+        self.stimebf.setObjectName(u"stimebf")
+        sizePolicy1.setHeightForWidth(self.stimebf.sizePolicy().hasHeightForWidth())
+        self.stimebf.setSizePolicy(sizePolicy1)
+        self.stimebf.setMinimumSize(QSize(89, 22))
+        self.stimebf.setMaximumSize(QSize(89, 16777215))
+
+        self.gridLayout.addWidget(self.stimebf, 9, 0, 1, 1)
+
+        self.verticalLayout_4 = QVBoxLayout()
+        self.verticalLayout_4.setSpacing(0)
+        self.verticalLayout_4.setObjectName(u"verticalLayout_4")
+        self.verticalLayout_4.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+        self.jpgv = QLabel(self.page)
+        self.jpgv.setObjectName(u"jpgv")
+        sizePolicy1.setHeightForWidth(self.jpgv.sizePolicy().hasHeightForWidth())
+        self.jpgv.setSizePolicy(sizePolicy1)
+        self.jpgv.setMinimumSize(QSize(533, 300))
+        self.jpgv.setMaximumSize(QSize(533, 300))
+        self.jpgv.setPixmap(QPixmap(u"D:/mnt/mnt/mnt/sda3/mnt/sda3/Untitled Folder/Qinst/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/mnt/sdb1/ventoy/Themes/background.png"))
+        self.jpgv.setScaledContents(True)
+
+        self.verticalLayout_4.addWidget(self.jpgv)
+
+        self.horizontalLayout_6 = QHBoxLayout()
+        self.horizontalLayout_6.setSpacing(0)
+        self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
+        self.horizontalLayout_6.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+        self.horizontalLayout_6.setContentsMargins(-1, -1, 0, -1)
+        self.gridLayout_3 = QGridLayout()
+        self.gridLayout_3.setSpacing(0)
+        self.gridLayout_3.setObjectName(u"gridLayout_3")
+        self.tomlb = QToolButton(self.page)
+        self.tomlb.setObjectName(u"tomlb")
+        self.tomlb.setMinimumSize(QSize(89, 21))
+        self.tomlb.setMaximumSize(QSize(89, 22))
+
+        self.gridLayout_3.addWidget(self.tomlb, 0, 1, 1, 1)
+
+        self.resetButton = QPushButton(self.page)
+        self.resetButton.setObjectName(u"resetButton")
+        sizePolicy1.setHeightForWidth(self.resetButton.sizePolicy().hasHeightForWidth())
+        self.resetButton.setSizePolicy(sizePolicy1)
+        self.resetButton.setMaximumSize(QSize(89, 22))
+
+        self.gridLayout_3.addWidget(self.resetButton, 0, 2, 1, 1)
+
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+
+        self.gridLayout_3.addItem(self.verticalSpacer, 1, 3, 1, 1)
+
+        self.horizontalSpacer_8 = QSpacerItem(260, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+
+        self.gridLayout_3.addItem(self.horizontalSpacer_8, 0, 3, 1, 1)
+
+        self.jpgb = QPushButton(self.page)
+        self.jpgb.setObjectName(u"jpgb")
+        self.jpgb.setEnabled(True)
+        sizePolicy1.setHeightForWidth(self.jpgb.sizePolicy().hasHeightForWidth())
+        self.jpgb.setSizePolicy(sizePolicy1)
+        self.jpgb.setMinimumSize(QSize(89, 22))
+        self.jpgb.setMaximumSize(QSize(89, 22))
+
+        self.gridLayout_3.addWidget(self.jpgb, 0, 0, 1, 1)
+
+
+        self.horizontalLayout_6.addLayout(self.gridLayout_3)
+
+
+        self.verticalLayout_4.addLayout(self.horizontalLayout_6)
+
+
+        self.gridLayout.addLayout(self.verticalLayout_4, 3, 8, 1, 1)
+
+        self.stopButton = QPushButton(self.page)
+        self.stopButton.setObjectName(u"stopButton")
+        self.stopButton.setMinimumSize(QSize(89, 22))
+        self.stopButton.setMaximumSize(QSize(89, 22))
+
+        self.gridLayout.addWidget(self.stopButton, 5, 7, 1, 1)
+
+        self.horizontalLayout_18 = QHBoxLayout()
+        self.horizontalLayout_18.setSpacing(0)
+        self.horizontalLayout_18.setObjectName(u"horizontalLayout_18")
+        self.ntbrowseb2 = QPushButton(self.page)
+        self.ntbrowseb2.setObjectName(u"ntbrowseb2")
+        sizePolicy1.setHeightForWidth(self.ntbrowseb2.sizePolicy().hasHeightForWidth())
+        self.ntbrowseb2.setSizePolicy(sizePolicy1)
+        self.ntbrowseb2.setMinimumSize(QSize(89, 0))
+
+        self.horizontalLayout_18.addWidget(self.ntbrowseb2)
+
+        self.ntbrowseb3 = QPushButton(self.page)
+        self.ntbrowseb3.setObjectName(u"ntbrowseb3")
+        sizePolicy1.setHeightForWidth(self.ntbrowseb3.sizePolicy().hasHeightForWidth())
+        self.ntbrowseb3.setSizePolicy(sizePolicy1)
+        self.ntbrowseb3.setMinimumSize(QSize(89, 0))
+
+        self.horizontalLayout_18.addWidget(self.ntbrowseb3)
+
+
+        self.gridLayout.addLayout(self.horizontalLayout_18, 15, 0, 1, 1)
+
+        self.ntsb = QPushButton(self.page)
+        self.ntsb.setObjectName(u"ntsb")
+        sizePolicy1.setHeightForWidth(self.ntsb.sizePolicy().hasHeightForWidth())
+        self.ntsb.setSizePolicy(sizePolicy1)
+        self.ntsb.setMinimumSize(QSize(89, 26))
+        self.ntsb.setMaximumSize(QSize(89, 26))
+
+        self.gridLayout.addWidget(self.ntsb, 14, 5, 1, 1)
+
+        self.mftrange = QSpinBox(self.page)
+        self.mftrange.setObjectName(u"mftrange")
+        sizePolicy3 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(self.mftrange.sizePolicy().hasHeightForWidth())
+        self.mftrange.setSizePolicy(sizePolicy3)
+        self.mftrange.setMinimumSize(QSize(89, 0))
+        self.mftrange.setMaximumSize(QSize(89, 22))
+        self.mftrange.setMinimum(1)
+        self.mftrange.setSingleStep(1)
+        self.mftrange.setStepType(QAbstractSpinBox.StepType.DefaultStepType)
+        self.mftrange.setValue(24)
+        self.mftrange.setDisplayIntegerBase(10)
+
+        self.gridLayout.addWidget(self.mftrange, 36, 6, 1, 1)
+
+        self.downloadButton = QPushButton(self.page)
+        self.downloadButton.setObjectName(u"downloadButton")
+        self.downloadButton.setEnabled(True)
+        self.downloadButton.setMinimumSize(QSize(89, 22))
+        self.downloadButton.setMaximumSize(QSize(89, 22))
+
+        self.gridLayout.addWidget(self.downloadButton, 8, 4, 1, 1)
+
+        self.hudt = QTextEdit(self.page)
+        self.hudt.setObjectName(u"hudt")
+        self.hudt.setStyleSheet(u"QTextEdit {\n"
+"    background-color: black;\n"
+"    color: #00FF00;\n"
+"    font-family: Consolas, Courier, monospace;\n"
+"    font-size: 12pt;\n"
+"}")
+
+        self.gridLayout.addWidget(self.hudt, 3, 0, 2, 8)
+
+        self.mftsearchb = QPushButton(self.page)
+        self.mftsearchb.setObjectName(u"mftsearchb")
+        self.mftsearchb.setMinimumSize(QSize(89, 22))
+        self.mftsearchb.setMaximumSize(QSize(89, 22))
+
+        self.gridLayout.addWidget(self.mftsearchb, 37, 6, 1, 1)
+
+        self.mftlabel1 = QLabel(self.page)
+        self.mftlabel1.setObjectName(u"mftlabel1")
+        sizePolicy1.setHeightForWidth(self.mftlabel1.sizePolicy().hasHeightForWidth())
+        self.mftlabel1.setSizePolicy(sizePolicy1)
+        self.mftlabel1.setMinimumSize(QSize(89, 0))
+        self.mftlabel1.setMaximumSize(QSize(89, 16777215))
+
+        self.gridLayout.addWidget(self.mftlabel1, 35, 6, 1, 1)
+
+        self.mftbrowseb = QPushButton(self.page)
+        self.mftbrowseb.setObjectName(u"mftbrowseb")
+        sizePolicy1.setHeightForWidth(self.mftbrowseb.sizePolicy().hasHeightForWidth())
+        self.mftbrowseb.setSizePolicy(sizePolicy1)
+        self.mftbrowseb.setMinimumSize(QSize(89, 0))
+        self.mftbrowseb.setMaximumSize(QSize(89, 16777215))
+
+        self.gridLayout.addWidget(self.mftbrowseb, 35, 7, 1, 1)
+
+        self.dlabel = QLabel(self.page)
+        self.dlabel.setObjectName(u"dlabel")
+
+        self.gridLayout.addWidget(self.dlabel, 6, 4, 1, 1)
+
+        self.verticalLayout_2 = QVBoxLayout()
+        self.verticalLayout_2.setObjectName(u"verticalLayout_2")
+        self.label = QLabel(self.page)
+        self.label.setObjectName(u"label")
+        self.label.setPixmap(QPixmap(u"Resources/xrc.png"))
+
+        self.verticalLayout_2.addWidget(self.label)
+
+
+        self.gridLayout.addLayout(self.verticalLayout_2, 30, 3, 4, 4)
+
+        self.ffilelabel1 = QLabel(self.page)
+        self.ffilelabel1.setObjectName(u"ffilelabel1")
+        self.ffilelabel1.setMinimumSize(QSize(89, 22))
+        self.ffilelabel1.setMaximumSize(QSize(89, 22))
+
+        self.gridLayout.addWidget(self.ffilelabel1, 31, 0, 1, 1)
+
+        self.mftmainlabel = QLabel(self.page)
+        self.mftmainlabel.setObjectName(u"mftmainlabel")
+        sizePolicy3.setHeightForWidth(self.mftmainlabel.sizePolicy().hasHeightForWidth())
+        self.mftmainlabel.setSizePolicy(sizePolicy3)
+        self.mftmainlabel.setMinimumSize(QSize(89, 0))
+        self.mftmainlabel.setMaximumSize(QSize(89, 16777215))
+
+        self.gridLayout.addWidget(self.mftmainlabel, 37, 7, 1, 1)
+
+        self.horizontalLayout_21 = QHBoxLayout()
+        self.horizontalLayout_21.setSpacing(0)
+        self.horizontalLayout_21.setObjectName(u"horizontalLayout_21")
+        self.horizontalLayout_21.setContentsMargins(10, -1, -1, -1)
+        self.mftlabel4 = QLabel(self.page)
+        self.mftlabel4.setObjectName(u"mftlabel4")
+        sizePolicy1.setHeightForWidth(self.mftlabel4.sizePolicy().hasHeightForWidth())
+        self.mftlabel4.setSizePolicy(sizePolicy1)
+        self.mftlabel4.setMinimumSize(QSize(55, 20))
+        self.mftlabel4.setMaximumSize(QSize(55, 20))
+
+        self.horizontalLayout_21.addWidget(self.mftlabel4)
+
+        self.mftchkb = QCheckBox(self.page)
+        self.mftchkb.setObjectName(u"mftchkb")
+        sizePolicy1.setHeightForWidth(self.mftchkb.sizePolicy().hasHeightForWidth())
+        self.mftchkb.setSizePolicy(sizePolicy1)
+        self.mftchkb.setMinimumSize(QSize(21, 16))
+        self.mftchkb.setMaximumSize(QSize(21, 16))
+        self.mftchkb.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+
+        self.horizontalLayout_21.addWidget(self.mftchkb)
+
+
+        self.gridLayout.addLayout(self.horizontalLayout_21, 37, 5, 1, 1)
+
+        self.gridLayout_5 = QGridLayout()
+        self.gridLayout_5.setObjectName(u"gridLayout_5")
+        self.gridLayout_5.setSizeConstraint(QLayout.SizeConstraint.SetMaximumSize)
+        self.gridLayout_5.setHorizontalSpacing(0)
+        self.ffilelabel3 = QLabel(self.page)
+        self.ffilelabel3.setObjectName(u"ffilelabel3")
+
+        self.gridLayout_5.addWidget(self.ffilelabel3, 0, 2, 1, 1)
+
+        self.horizontalLayout_9 = QHBoxLayout()
+        self.horizontalLayout_9.setSpacing(0)
+        self.horizontalLayout_9.setObjectName(u"horizontalLayout_9")
+        self.horizontalLayout_9.setSizeConstraint(QLayout.SizeConstraint.SetMaximumSize)
+        self.ffilecb = QPushButton(self.page)
+        self.ffilecb.setObjectName(u"ffilecb")
+        sizePolicy1.setHeightForWidth(self.ffilecb.sizePolicy().hasHeightForWidth())
+        self.ffilecb.setSizePolicy(sizePolicy1)
+        self.ffilecb.setMinimumSize(QSize(89, 22))
+        self.ffilecb.setMaximumSize(QSize(89, 22))
+
+        self.horizontalLayout_9.addWidget(self.ffilecb)
+
+
+        self.gridLayout_5.addLayout(self.horizontalLayout_9, 1, 0, 1, 1)
+
+        self.ffileb = QPushButton(self.page)
+        self.ffileb.setObjectName(u"ffileb")
+        sizePolicy1.setHeightForWidth(self.ffileb.sizePolicy().hasHeightForWidth())
+        self.ffileb.setSizePolicy(sizePolicy1)
+        self.ffileb.setMinimumSize(QSize(89, 22))
+        self.ffileb.setMaximumSize(QSize(89, 22))
+
+        self.gridLayout_5.addWidget(self.ffileb, 0, 0, 1, 1)
+
+        self.sffile = QSpinBox(self.page)
+        self.sffile.setObjectName(u"sffile")
+        sizePolicy1.setHeightForWidth(self.sffile.sizePolicy().hasHeightForWidth())
+        self.sffile.setSizePolicy(sizePolicy1)
+        self.sffile.setMaximum(2147483647)
+
+        self.gridLayout_5.addWidget(self.sffile, 0, 1, 1, 1)
+
+        self.combffileout = QComboBox(self.page)
+        self.combffileout.addItem("")
+        self.combffileout.addItem("")
+        self.combffileout.setObjectName(u"combffileout")
+        sizePolicy3.setHeightForWidth(self.combffileout.sizePolicy().hasHeightForWidth())
+        self.combffileout.setSizePolicy(sizePolicy3)
+        self.combffileout.setMinimumSize(QSize(82, 22))
+        self.combffileout.setMaximumSize(QSize(16777215, 24))
+        self.combffileout.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+
+        self.gridLayout_5.addWidget(self.combffileout, 1, 1, 1, 1)
+
+
+        self.gridLayout.addLayout(self.gridLayout_5, 33, 0, 1, 2)
+
+        self.combftimeout = QComboBox(self.page)
+        self.combftimeout.addItem("")
+        self.combftimeout.addItem(u"Desktop")
+        self.combftimeout.setObjectName(u"combftimeout")
+        sizePolicy1.setHeightForWidth(self.combftimeout.sizePolicy().hasHeightForWidth())
+        self.combftimeout.setSizePolicy(sizePolicy1)
+        self.combftimeout.setMinimumSize(QSize(82, 22))
+        self.combftimeout.setMaximumSize(QSize(16777215, 22))
+
+        self.gridLayout.addWidget(self.combftimeout, 11, 1, 1, 1)
 
         self.addButton = QPushButton(self.page)
         self.addButton.setObjectName(u"addButton")
         self.addButton.setMinimumSize(QSize(89, 22))
         self.addButton.setMaximumSize(QSize(89, 22))
 
-        self.gridLayout.addWidget(self.addButton, 7, 7, 1, 1)
+        self.gridLayout.addWidget(self.addButton, 8, 6, 1, 1)
 
-        self.downloadButton = QPushButton(self.page)
-        self.downloadButton.setObjectName(u"downloadButton")
-        self.downloadButton.setEnabled(True)
+        self.ftimebf = QPushButton(self.page)
+        self.ftimebf.setObjectName(u"ftimebf")
+        sizePolicy1.setHeightForWidth(self.ftimebf.sizePolicy().hasHeightForWidth())
+        self.ftimebf.setSizePolicy(sizePolicy1)
+        self.ftimebf.setMinimumSize(QSize(89, 0))
+        self.ftimebf.setMaximumSize(QSize(89, 22))
 
-        self.gridLayout.addWidget(self.downloadButton, 7, 5, 1, 1)
+        self.gridLayout.addWidget(self.ftimebf, 8, 0, 1, 1)
+
+        self.horizontalLayout_14 = QHBoxLayout()
+        self.horizontalLayout_14.setSpacing(0)
+        self.horizontalLayout_14.setObjectName(u"horizontalLayout_14")
+        self.horizontalLayout_14.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
+        self.basedirButton = QPushButton(self.page)
+        self.basedirButton.setObjectName(u"basedirButton")
+        sizePolicy1.setHeightForWidth(self.basedirButton.sizePolicy().hasHeightForWidth())
+        self.basedirButton.setSizePolicy(sizePolicy1)
+        self.basedirButton.setMinimumSize(QSize(82, 22))
+        self.basedirButton.setMaximumSize(QSize(16777215, 22))
+        self.basedirButton.setCursor(QCursor(Qt.CursorShape.CrossCursor))
+        self.basedirButton.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.basedirButton.setFlat(False)
+
+        self.horizontalLayout_14.addWidget(self.basedirButton)
+
+        self.sbasediridx = QSpinBox(self.page)
+        self.sbasediridx.setObjectName(u"sbasediridx")
+        sizePolicy1.setHeightForWidth(self.sbasediridx.sizePolicy().hasHeightForWidth())
+        self.sbasediridx.setSizePolicy(sizePolicy1)
+        self.sbasediridx.setMaximumSize(QSize(34, 20))
+        self.sbasediridx.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
+        self.sbasediridx.setMaximum(0)
+
+        self.horizontalLayout_14.addWidget(self.sbasediridx)
+
+        self.horizontalSpacer_9 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+
+        self.horizontalLayout_14.addItem(self.horizontalSpacer_9)
+
+
+        self.gridLayout.addLayout(self.horizontalLayout_14, 8, 1, 1, 1)
+
+        self.ilabel = QLabel(self.page)
+        self.ilabel.setObjectName(u"ilabel")
+
+        self.gridLayout.addWidget(self.ilabel, 6, 5, 1, 1)
+
+        self.horizontalLayout_12 = QHBoxLayout()
+        self.horizontalLayout_12.setSpacing(0)
+        self.horizontalLayout_12.setObjectName(u"horizontalLayout_12")
+        self.horizontalLayout_12.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+        self.jpgcr = QLabel(self.page)
+        self.jpgcr.setObjectName(u"jpgcr")
+        sizePolicy1.setHeightForWidth(self.jpgcr.sizePolicy().hasHeightForWidth())
+        self.jpgcr.setSizePolicy(sizePolicy1)
+        self.jpgcr.setMinimumSize(QSize(250, 250))
+        self.jpgcr.setMaximumSize(QSize(250, 250))
+        self.jpgcr.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+
+        self.horizontalLayout_12.addWidget(self.jpgcr)
+
+
+        self.gridLayout.addLayout(self.horizontalLayout_12, 6, 8, 10, 1)
+
+        self.diffchka = QCheckBox(self.page)
+        self.diffchka.setObjectName(u"diffchka")
+        self.diffchka.setMinimumSize(QSize(141, 20))
+        self.diffchka.setMaximumSize(QSize(141, 20))
+
+        self.gridLayout.addWidget(self.diffchka, 36, 0, 1, 1)
+
+        self.horizontalLayout_8 = QHBoxLayout()
+        self.horizontalLayout_8.setSpacing(0)
+        self.horizontalLayout_8.setObjectName(u"horizontalLayout_8")
+        self.horizontalLayout_8.setContentsMargins(-1, -1, 0, -1)
+        self.ntbrowseb = QPushButton(self.page)
+        self.ntbrowseb.setObjectName(u"ntbrowseb")
+        sizePolicy1.setHeightForWidth(self.ntbrowseb.sizePolicy().hasHeightForWidth())
+        self.ntbrowseb.setSizePolicy(sizePolicy1)
+        self.ntbrowseb.setMinimumSize(QSize(89, 0))
+
+        self.horizontalLayout_8.addWidget(self.ntbrowseb)
+
+        self.ntlineEDIT = QLineEdit(self.page)
+        self.ntlineEDIT.setObjectName(u"ntlineEDIT")
+        sizePolicy4 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        sizePolicy4.setHorizontalStretch(0)
+        sizePolicy4.setVerticalStretch(0)
+        sizePolicy4.setHeightForWidth(self.ntlineEDIT.sizePolicy().hasHeightForWidth())
+        self.ntlineEDIT.setSizePolicy(sizePolicy4)
+
+        self.horizontalLayout_8.addWidget(self.ntlineEDIT)
+
+
+        self.gridLayout.addLayout(self.horizontalLayout_8, 14, 0, 1, 5)
+
+        self.combt = QComboBox(self.page)
+        self.combt.addItem("")
+        self.combt.addItem("")
+        self.combt.setObjectName(u"combt")
+        sizePolicy.setHeightForWidth(self.combt.sizePolicy().hasHeightForWidth())
+        self.combt.setSizePolicy(sizePolicy)
+        self.combt.setMaximumSize(QSize(100, 22))
+
+        self.gridLayout.addWidget(self.combt, 13, 5, 1, 1)
+
+        self.rmvButton = QPushButton(self.page)
+        self.rmvButton.setObjectName(u"rmvButton")
+        self.rmvButton.setMinimumSize(QSize(89, 22))
+        self.rmvButton.setMaximumSize(QSize(89, 22))
+
+        self.gridLayout.addWidget(self.rmvButton, 9, 6, 1, 1)
+
+        self.horizontalLayout_10 = QHBoxLayout()
+        self.horizontalLayout_10.setSpacing(0)
+        self.horizontalLayout_10.setObjectName(u"horizontalLayout_10")
+        self.horizontalLayout_10.setSizeConstraint(QLayout.SizeConstraint.SetMinAndMaxSize)
+        self.horizontalLayout_10.setContentsMargins(-1, -1, 0, -1)
+        self.stimeb = QPushButton(self.page)
+        self.stimeb.setObjectName(u"stimeb")
+        sizePolicy1.setHeightForWidth(self.stimeb.sizePolicy().hasHeightForWidth())
+        self.stimeb.setSizePolicy(sizePolicy1)
+        self.stimeb.setMinimumSize(QSize(89, 0))
+        self.stimeb.setMaximumSize(QSize(89, 22))
+
+        self.horizontalLayout_10.addWidget(self.stimeb)
+
+        self.ftimeb = QPushButton(self.page)
+        self.ftimeb.setObjectName(u"ftimeb")
+        sizePolicy1.setHeightForWidth(self.ftimeb.sizePolicy().hasHeightForWidth())
+        self.ftimeb.setSizePolicy(sizePolicy1)
+        self.ftimeb.setMinimumSize(QSize(89, 0))
+        self.ftimeb.setMaximumSize(QSize(89, 22))
+
+        self.horizontalLayout_10.addWidget(self.ftimeb)
+
+
+        self.gridLayout.addLayout(self.horizontalLayout_10, 11, 0, 1, 1)
+
+        self.combd = QComboBox(self.page)
+        self.combd.addItem("")
+        self.combd.setObjectName(u"combd")
+        sizePolicy1.setHeightForWidth(self.combd.sizePolicy().hasHeightForWidth())
+        self.combd.setSizePolicy(sizePolicy1)
+        self.combd.setMinimumSize(QSize(100, 22))
+        self.combd.setMaximumSize(QSize(100, 22))
+
+        self.gridLayout.addWidget(self.combd, 8, 5, 1, 1)
+
+        self.widget = QWidget(self.page)
+        self.widget.setObjectName(u"widget")
+        sizePolicy.setHeightForWidth(self.widget.sizePolicy().hasHeightForWidth())
+        self.widget.setSizePolicy(sizePolicy)
+        self.widget.setMinimumSize(QSize(50, 50))
+
+        self.gridLayout.addWidget(self.widget, 4, 8, 2, 1)
+
+        self.ftimelabel1 = QLabel(self.page)
+        self.ftimelabel1.setObjectName(u"ftimelabel1")
+        sizePolicy1.setHeightForWidth(self.ftimelabel1.sizePolicy().hasHeightForWidth())
+        self.ftimelabel1.setSizePolicy(sizePolicy1)
+
+        self.gridLayout.addWidget(self.ftimelabel1, 10, 1, 1, 1)
+
+        self.horizontalLayout_3 = QHBoxLayout()
+        self.horizontalLayout_3.setSpacing(0)
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.horizontalLayout_3.setContentsMargins(0, 0, 0, -1)
+        self.horizontalLayout_7 = QHBoxLayout()
+        self.horizontalLayout_7.setSpacing(0)
+        self.horizontalLayout_7.setObjectName(u"horizontalLayout_7")
+        self.horizontalLayout_7.setSizeConstraint(QLayout.SizeConstraint.SetMinAndMaxSize)
+        self.ffilet = QLineEdit(self.page)
+        self.ffilet.setObjectName(u"ffilet")
+        sizePolicy4.setHeightForWidth(self.ffilet.sizePolicy().hasHeightForWidth())
+        self.ffilet.setSizePolicy(sizePolicy4)
+        self.ffilet.setMinimumSize(QSize(300, 24))
+
+        self.horizontalLayout_7.addWidget(self.ffilet)
+
+        self.combffile = QComboBox(self.page)
+        self.combffile.addItem("")
+        self.combffile.setObjectName(u"combffile")
+        sizePolicy5 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        sizePolicy5.setHorizontalStretch(0)
+        sizePolicy5.setVerticalStretch(0)
+        sizePolicy5.setHeightForWidth(self.combffile.sizePolicy().hasHeightForWidth())
+        self.combffile.setSizePolicy(sizePolicy5)
+        self.combffile.setMinimumSize(QSize(82, 22))
+        self.combffile.setMaximumSize(QSize(275, 22))
+        self.combffile.setStyleSheet(u"")
+        self.combffile.setEditable(True)
+        self.combffile.setInsertPolicy(QComboBox.InsertPolicy.InsertAtTop)
+        self.combffile.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+
+        self.horizontalLayout_7.addWidget(self.combffile)
+
+        self.horizontalLayout_4 = QHBoxLayout()
+        self.horizontalLayout_4.setSpacing(0)
+        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
+        self.horizontalLayout_4.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
+        self.ffileb2 = QToolButton(self.page)
+        self.ffileb2.setObjectName(u"ffileb2")
+        self.ffileb2.setMinimumSize(QSize(21, 22))
+        self.ffileb2.setMaximumSize(QSize(21, 22))
+
+        self.horizontalLayout_4.addWidget(self.ffileb2)
+
+        self.ffilelabel2 = QLabel(self.page)
+        self.ffilelabel2.setObjectName(u"ffilelabel2")
+        sizePolicy6 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+        sizePolicy6.setHorizontalStretch(0)
+        sizePolicy6.setVerticalStretch(0)
+        sizePolicy6.setHeightForWidth(self.ffilelabel2.sizePolicy().hasHeightForWidth())
+        self.ffilelabel2.setSizePolicy(sizePolicy6)
+        self.ffilelabel2.setMinimumSize(QSize(61, 22))
+        self.ffilelabel2.setMaximumSize(QSize(61, 22))
+
+        self.horizontalLayout_4.addWidget(self.ffilelabel2)
+
+
+        self.horizontalLayout_7.addLayout(self.horizontalLayout_4)
+
+
+        self.horizontalLayout_3.addLayout(self.horizontalLayout_7)
+
+
+        self.gridLayout.addLayout(self.horizontalLayout_3, 32, 0, 1, 3)
+
+        self.verticalLayout = QVBoxLayout()
+        self.verticalLayout.setSpacing(0)
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.verticalLayout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
+        self.verticalLayout.setContentsMargins(0, -1, -1, -1)
+        self.textEdit = QTextEdit(self.page)
+        self.textEdit.setObjectName(u"textEdit")
+        sizePolicy1.setHeightForWidth(self.textEdit.sizePolicy().hasHeightForWidth())
+        self.textEdit.setSizePolicy(sizePolicy1)
+        self.textEdit.setMinimumSize(QSize(533, 229))
+        self.textEdit.setMaximumSize(QSize(533, 259))
+
+        self.verticalLayout.addWidget(self.textEdit)
+
+        self.progressBAR = QProgressBar(self.page)
+        self.progressBAR.setObjectName(u"progressBAR")
+        sizePolicy1.setHeightForWidth(self.progressBAR.sizePolicy().hasHeightForWidth())
+        self.progressBAR.setSizePolicy(sizePolicy1)
+        self.progressBAR.setMinimumSize(QSize(533, 22))
+        self.progressBAR.setMaximumSize(QSize(533, 22))
+        self.progressBAR.setValue(0)
+
+        self.verticalLayout.addWidget(self.progressBAR)
+
+
+        self.gridLayout.addLayout(self.verticalLayout, 28, 8, 10, 1)
+
+        self.difflabel = QLabel(self.page)
+        self.difflabel.setObjectName(u"difflabel")
+        self.difflabel.setMinimumSize(QSize(51, 16))
+        self.difflabel.setMaximumSize(QSize(51, 16))
+
+        self.gridLayout.addWidget(self.difflabel, 35, 0, 1, 1)
 
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setSpacing(0)
@@ -167,279 +776,14 @@ class Ui_MainWindow(object):
         self.horizontalLayout.addWidget(self.toolrtb)
 
 
-        self.gridLayout.addLayout(self.horizontalLayout, 1, 9, 1, 1)
+        self.gridLayout.addLayout(self.horizontalLayout, 1, 8, 1, 1)
 
-        self.diffchka = QCheckBox(self.page)
-        self.diffchka.setObjectName(u"diffchka")
-        self.diffchka.setMinimumSize(QSize(141, 20))
-        self.diffchka.setMaximumSize(QSize(141, 20))
+        self.queryButton = QPushButton(self.page)
+        self.queryButton.setObjectName(u"queryButton")
+        self.queryButton.setMinimumSize(QSize(89, 0))
+        self.queryButton.setMaximumSize(QSize(89, 22))
 
-        self.gridLayout.addWidget(self.diffchka, 36, 0, 1, 1)
-
-        self.mftlabel2 = QLabel(self.page)
-        self.mftlabel2.setObjectName(u"mftlabel2")
-        sizePolicy1.setHeightForWidth(self.mftlabel2.sizePolicy().hasHeightForWidth())
-        self.mftlabel2.setSizePolicy(sizePolicy1)
-
-        self.gridLayout.addWidget(self.mftlabel2, 36, 8, 1, 1)
-
-        self.horizontalLayout_12 = QHBoxLayout()
-        self.horizontalLayout_12.setSpacing(0)
-        self.horizontalLayout_12.setObjectName(u"horizontalLayout_12")
-        self.horizontalLayout_12.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
-        self.jpgcr = QLabel(self.page)
-        self.jpgcr.setObjectName(u"jpgcr")
-        sizePolicy1.setHeightForWidth(self.jpgcr.sizePolicy().hasHeightForWidth())
-        self.jpgcr.setSizePolicy(sizePolicy1)
-        self.jpgcr.setMinimumSize(QSize(250, 250))
-        self.jpgcr.setMaximumSize(QSize(250, 250))
-        self.jpgcr.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-
-        self.horizontalLayout_12.addWidget(self.jpgcr)
-
-
-        self.gridLayout.addLayout(self.horizontalLayout_12, 6, 9, 9, 1)
-
-        self.diffchkb = QCheckBox(self.page)
-        self.diffchkb.setObjectName(u"diffchkb")
-        sizePolicy1.setHeightForWidth(self.diffchkb.sizePolicy().hasHeightForWidth())
-        self.diffchkb.setSizePolicy(sizePolicy1)
-        self.diffchkb.setMinimumSize(QSize(157, 20))
-        self.diffchkb.setMaximumSize(QSize(157, 20))
-
-        self.gridLayout.addWidget(self.diffchkb, 37, 0, 1, 1)
-
-        self.horizontalLayout_18 = QHBoxLayout()
-        self.horizontalLayout_18.setSpacing(0)
-        self.horizontalLayout_18.setObjectName(u"horizontalLayout_18")
-        self.ntbrowseb2 = QPushButton(self.page)
-        self.ntbrowseb2.setObjectName(u"ntbrowseb2")
-        sizePolicy1.setHeightForWidth(self.ntbrowseb2.sizePolicy().hasHeightForWidth())
-        self.ntbrowseb2.setSizePolicy(sizePolicy1)
-        self.ntbrowseb2.setMinimumSize(QSize(89, 0))
-
-        self.horizontalLayout_18.addWidget(self.ntbrowseb2)
-
-        self.ntbrowseb3 = QPushButton(self.page)
-        self.ntbrowseb3.setObjectName(u"ntbrowseb3")
-        sizePolicy1.setHeightForWidth(self.ntbrowseb3.sizePolicy().hasHeightForWidth())
-        self.ntbrowseb3.setSizePolicy(sizePolicy1)
-        self.ntbrowseb3.setMinimumSize(QSize(89, 0))
-
-        self.horizontalLayout_18.addWidget(self.ntbrowseb3)
-
-
-        self.gridLayout.addLayout(self.horizontalLayout_18, 14, 0, 1, 1)
-
-        self.combt = QComboBox(self.page)
-        self.combt.addItem("")
-        self.combt.addItem("")
-        self.combt.setObjectName(u"combt")
-        sizePolicy.setHeightForWidth(self.combt.sizePolicy().hasHeightForWidth())
-        self.combt.setSizePolicy(sizePolicy)
-        self.combt.setMaximumSize(QSize(100, 22))
-
-        self.gridLayout.addWidget(self.combt, 12, 6, 1, 1)
-
-        self.verticalSpacer_2 = QSpacerItem(20, 75, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
-
-        self.gridLayout.addItem(self.verticalSpacer_2, 30, 3, 1, 1)
-
-        self.combftimeout = QComboBox(self.page)
-        self.combftimeout.addItem("")
-        self.combftimeout.addItem(u"Desktop")
-        self.combftimeout.setObjectName(u"combftimeout")
-        sizePolicy1.setHeightForWidth(self.combftimeout.sizePolicy().hasHeightForWidth())
-        self.combftimeout.setSizePolicy(sizePolicy1)
-        self.combftimeout.setMinimumSize(QSize(82, 22))
-        self.combftimeout.setMaximumSize(QSize(16777215, 22))
-
-        self.gridLayout.addWidget(self.combftimeout, 10, 1, 1, 1)
-
-        self.horizontalLayout_3 = QHBoxLayout()
-        self.horizontalLayout_3.setSpacing(0)
-        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
-        self.horizontalLayout_3.setContentsMargins(0, 0, 0, -1)
-        self.horizontalLayout_7 = QHBoxLayout()
-        self.horizontalLayout_7.setSpacing(0)
-        self.horizontalLayout_7.setObjectName(u"horizontalLayout_7")
-        self.horizontalLayout_7.setSizeConstraint(QLayout.SizeConstraint.SetMinAndMaxSize)
-        self.ffilet = QLineEdit(self.page)
-        self.ffilet.setObjectName(u"ffilet")
-        sizePolicy2 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        sizePolicy2.setHorizontalStretch(0)
-        sizePolicy2.setVerticalStretch(0)
-        sizePolicy2.setHeightForWidth(self.ffilet.sizePolicy().hasHeightForWidth())
-        self.ffilet.setSizePolicy(sizePolicy2)
-        self.ffilet.setMinimumSize(QSize(300, 24))
-
-        self.horizontalLayout_7.addWidget(self.ffilet)
-
-        self.combffile = QComboBox(self.page)
-        self.combffile.addItem("")
-        self.combffile.setObjectName(u"combffile")
-        sizePolicy3 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        sizePolicy3.setHorizontalStretch(0)
-        sizePolicy3.setVerticalStretch(0)
-        sizePolicy3.setHeightForWidth(self.combffile.sizePolicy().hasHeightForWidth())
-        self.combffile.setSizePolicy(sizePolicy3)
-        self.combffile.setMinimumSize(QSize(82, 22))
-        self.combffile.setMaximumSize(QSize(275, 22))
-        self.combffile.setStyleSheet(u"")
-        self.combffile.setEditable(True)
-        self.combffile.setInsertPolicy(QComboBox.InsertPolicy.InsertAtTop)
-        self.combffile.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-
-        self.horizontalLayout_7.addWidget(self.combffile)
-
-        self.horizontalLayout_4 = QHBoxLayout()
-        self.horizontalLayout_4.setSpacing(0)
-        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
-        self.horizontalLayout_4.setSizeConstraint(QLayout.SizeConstraint.SetDefaultConstraint)
-        self.ffileb2 = QToolButton(self.page)
-        self.ffileb2.setObjectName(u"ffileb2")
-        self.ffileb2.setMinimumSize(QSize(21, 22))
-        self.ffileb2.setMaximumSize(QSize(21, 22))
-
-        self.horizontalLayout_4.addWidget(self.ffileb2)
-
-        self.ffilelabel2 = QLabel(self.page)
-        self.ffilelabel2.setObjectName(u"ffilelabel2")
-        sizePolicy4 = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
-        sizePolicy4.setHorizontalStretch(0)
-        sizePolicy4.setVerticalStretch(0)
-        sizePolicy4.setHeightForWidth(self.ffilelabel2.sizePolicy().hasHeightForWidth())
-        self.ffilelabel2.setSizePolicy(sizePolicy4)
-        self.ffilelabel2.setMinimumSize(QSize(61, 22))
-        self.ffilelabel2.setMaximumSize(QSize(61, 22))
-
-        self.horizontalLayout_4.addWidget(self.ffilelabel2)
-
-
-        self.horizontalLayout_7.addLayout(self.horizontalLayout_4)
-
-
-        self.horizontalLayout_3.addLayout(self.horizontalLayout_7)
-
-        self.horizontalSpacer_7 = QSpacerItem(73, 20, QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
-
-        self.horizontalLayout_3.addItem(self.horizontalSpacer_7)
-
-
-        self.gridLayout.addLayout(self.horizontalLayout_3, 32, 0, 1, 4)
-
-        self.mftlabel1 = QLabel(self.page)
-        self.mftlabel1.setObjectName(u"mftlabel1")
-        sizePolicy1.setHeightForWidth(self.mftlabel1.sizePolicy().hasHeightForWidth())
-        self.mftlabel1.setSizePolicy(sizePolicy1)
-        self.mftlabel1.setMinimumSize(QSize(89, 0))
-        self.mftlabel1.setMaximumSize(QSize(89, 16777215))
-
-        self.gridLayout.addWidget(self.mftlabel1, 35, 7, 1, 1)
-
-        self.ftimebf = QPushButton(self.page)
-        self.ftimebf.setObjectName(u"ftimebf")
-        sizePolicy1.setHeightForWidth(self.ftimebf.sizePolicy().hasHeightForWidth())
-        self.ftimebf.setSizePolicy(sizePolicy1)
-        self.ftimebf.setMinimumSize(QSize(89, 0))
-        self.ftimebf.setMaximumSize(QSize(89, 22))
-
-        self.gridLayout.addWidget(self.ftimebf, 7, 0, 1, 1)
-
-        self.mftmainlabel = QLabel(self.page)
-        self.mftmainlabel.setObjectName(u"mftmainlabel")
-        sizePolicy5 = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        sizePolicy5.setHorizontalStretch(0)
-        sizePolicy5.setVerticalStretch(0)
-        sizePolicy5.setHeightForWidth(self.mftmainlabel.sizePolicy().hasHeightForWidth())
-        self.mftmainlabel.setSizePolicy(sizePolicy5)
-        self.mftmainlabel.setMinimumSize(QSize(89, 0))
-        self.mftmainlabel.setMaximumSize(QSize(89, 16777215))
-
-        self.gridLayout.addWidget(self.mftmainlabel, 37, 8, 1, 1)
-
-        self.rmvButton = QPushButton(self.page)
-        self.rmvButton.setObjectName(u"rmvButton")
-        self.rmvButton.setMinimumSize(QSize(89, 22))
-        self.rmvButton.setMaximumSize(QSize(89, 22))
-
-        self.gridLayout.addWidget(self.rmvButton, 8, 7, 1, 1)
-
-        self.horizontalLayout_14 = QHBoxLayout()
-        self.horizontalLayout_14.setSpacing(0)
-        self.horizontalLayout_14.setObjectName(u"horizontalLayout_14")
-        self.basedirButton = QPushButton(self.page)
-        self.basedirButton.setObjectName(u"basedirButton")
-        self.basedirButton.setMinimumSize(QSize(82, 22))
-        self.basedirButton.setMaximumSize(QSize(16777215, 22))
-        self.basedirButton.setCursor(QCursor(Qt.CursorShape.CrossCursor))
-        self.basedirButton.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        self.basedirButton.setFlat(False)
-
-        self.horizontalLayout_14.addWidget(self.basedirButton)
-
-        self.sbasediridx = QSpinBox(self.page)
-        self.sbasediridx.setObjectName(u"sbasediridx")
-        sizePolicy1.setHeightForWidth(self.sbasediridx.sizePolicy().hasHeightForWidth())
-        self.sbasediridx.setSizePolicy(sizePolicy1)
-        self.sbasediridx.setMaximumSize(QSize(34, 20))
-        self.sbasediridx.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
-        self.sbasediridx.setMaximum(0)
-
-        self.horizontalLayout_14.addWidget(self.sbasediridx)
-
-        self.horizontalSpacer_10 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.horizontalLayout_14.addItem(self.horizontalSpacer_10)
-
-
-        self.gridLayout.addLayout(self.horizontalLayout_14, 7, 1, 1, 1)
-
-        self.resetButton = QPushButton(self.page)
-        self.resetButton.setObjectName(u"resetButton")
-        self.resetButton.setMaximumSize(QSize(89, 22))
-
-        self.gridLayout.addWidget(self.resetButton, 4, 8, 1, 1)
-
-        self.mftbrowseb = QPushButton(self.page)
-        self.mftbrowseb.setObjectName(u"mftbrowseb")
-        sizePolicy1.setHeightForWidth(self.mftbrowseb.sizePolicy().hasHeightForWidth())
-        self.mftbrowseb.setSizePolicy(sizePolicy1)
-        self.mftbrowseb.setMinimumSize(QSize(89, 0))
-        self.mftbrowseb.setMaximumSize(QSize(89, 16777215))
-
-        self.gridLayout.addWidget(self.mftbrowseb, 35, 8, 1, 1)
-
-        self.dlabel = QLabel(self.page)
-        self.dlabel.setObjectName(u"dlabel")
-
-        self.gridLayout.addWidget(self.dlabel, 6, 5, 1, 1)
-
-        self.horizontalLayout_8 = QHBoxLayout()
-        self.horizontalLayout_8.setSpacing(0)
-        self.horizontalLayout_8.setObjectName(u"horizontalLayout_8")
-        self.horizontalLayout_8.setContentsMargins(-1, -1, 0, -1)
-        self.ntbrowseb = QPushButton(self.page)
-        self.ntbrowseb.setObjectName(u"ntbrowseb")
-        sizePolicy1.setHeightForWidth(self.ntbrowseb.sizePolicy().hasHeightForWidth())
-        self.ntbrowseb.setSizePolicy(sizePolicy1)
-        self.ntbrowseb.setMinimumSize(QSize(89, 0))
-
-        self.horizontalLayout_8.addWidget(self.ntbrowseb)
-
-        self.ntlineEDIT = QLineEdit(self.page)
-        self.ntlineEDIT.setObjectName(u"ntlineEDIT")
-        sizePolicy2.setHeightForWidth(self.ntlineEDIT.sizePolicy().hasHeightForWidth())
-        self.ntlineEDIT.setSizePolicy(sizePolicy2)
-
-        self.horizontalLayout_8.addWidget(self.ntlineEDIT)
-
-
-        self.gridLayout.addLayout(self.horizontalLayout_8, 13, 0, 1, 6)
-
-        self.horizontalSpacer_4 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.gridLayout.addItem(self.horizontalSpacer_4, 12, 3, 1, 1)
+        self.gridLayout.addWidget(self.queryButton, 5, 0, 1, 1)
 
         self.horizontalLayout_11 = QHBoxLayout()
         self.horizontalLayout_11.setSpacing(0)
@@ -467,322 +811,14 @@ class Ui_MainWindow(object):
         self.horizontalLayout_11.addWidget(self.ftimesecondsl)
 
 
-        self.gridLayout.addLayout(self.horizontalLayout_11, 9, 0, 1, 1)
+        self.gridLayout.addLayout(self.horizontalLayout_11, 10, 0, 1, 1)
 
-        self.ntsb = QPushButton(self.page)
-        self.ntsb.setObjectName(u"ntsb")
-        sizePolicy1.setHeightForWidth(self.ntsb.sizePolicy().hasHeightForWidth())
-        self.ntsb.setSizePolicy(sizePolicy1)
-        self.ntsb.setMinimumSize(QSize(89, 0))
-        self.ntsb.setMaximumSize(QSize(89, 16777215))
+        self.ntlabel = QLabel(self.page)
+        self.ntlabel.setObjectName(u"ntlabel")
+        sizePolicy1.setHeightForWidth(self.ntlabel.sizePolicy().hasHeightForWidth())
+        self.ntlabel.setSizePolicy(sizePolicy1)
 
-        self.gridLayout.addWidget(self.ntsb, 13, 6, 1, 1)
-
-        self.verticalLayout = QVBoxLayout()
-        self.verticalLayout.setSpacing(0)
-        self.verticalLayout.setObjectName(u"verticalLayout")
-        self.verticalLayout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
-        self.verticalLayout.setContentsMargins(0, -1, -1, -1)
-        self.textEdit = QTextEdit(self.page)
-        self.textEdit.setObjectName(u"textEdit")
-        sizePolicy1.setHeightForWidth(self.textEdit.sizePolicy().hasHeightForWidth())
-        self.textEdit.setSizePolicy(sizePolicy1)
-        self.textEdit.setMinimumSize(QSize(533, 229))
-        self.textEdit.setMaximumSize(QSize(533, 259))
-
-        self.verticalLayout.addWidget(self.textEdit)
-
-        self.progressBAR = QProgressBar(self.page)
-        self.progressBAR.setObjectName(u"progressBAR")
-        sizePolicy1.setHeightForWidth(self.progressBAR.sizePolicy().hasHeightForWidth())
-        self.progressBAR.setSizePolicy(sizePolicy1)
-        self.progressBAR.setMinimumSize(QSize(533, 22))
-        self.progressBAR.setMaximumSize(QSize(533, 22))
-        self.progressBAR.setValue(0)
-
-        self.verticalLayout.addWidget(self.progressBAR)
-
-
-        self.gridLayout.addLayout(self.verticalLayout, 27, 9, 11, 1)
-
-        self.mftrange = QSpinBox(self.page)
-        self.mftrange.setObjectName(u"mftrange")
-        sizePolicy5.setHeightForWidth(self.mftrange.sizePolicy().hasHeightForWidth())
-        self.mftrange.setSizePolicy(sizePolicy5)
-        self.mftrange.setMinimumSize(QSize(89, 0))
-        self.mftrange.setMaximumSize(QSize(89, 22))
-        self.mftrange.setMinimum(1)
-        self.mftrange.setSingleStep(1)
-        self.mftrange.setStepType(QAbstractSpinBox.StepType.DefaultStepType)
-        self.mftrange.setValue(24)
-        self.mftrange.setDisplayIntegerBase(10)
-
-        self.gridLayout.addWidget(self.mftrange, 36, 7, 1, 1)
-
-        self.horizontalLayout_19 = QHBoxLayout()
-        self.horizontalLayout_19.setSpacing(0)
-        self.horizontalLayout_19.setObjectName(u"horizontalLayout_19")
-        self.horizontalLayout_19.setContentsMargins(10, -1, -1, -1)
-        self.mftlabel3 = QLabel(self.page)
-        self.mftlabel3.setObjectName(u"mftlabel3")
-        sizePolicy1.setHeightForWidth(self.mftlabel3.sizePolicy().hasHeightForWidth())
-        self.mftlabel3.setSizePolicy(sizePolicy1)
-        self.mftlabel3.setMinimumSize(QSize(55, 20))
-        self.mftlabel3.setMaximumSize(QSize(55, 20))
-
-        self.horizontalLayout_19.addWidget(self.mftlabel3)
-
-        self.mftchka = QCheckBox(self.page)
-        self.mftchka.setObjectName(u"mftchka")
-        sizePolicy1.setHeightForWidth(self.mftchka.sizePolicy().hasHeightForWidth())
-        self.mftchka.setSizePolicy(sizePolicy1)
-        self.mftchka.setMinimumSize(QSize(21, 16))
-        self.mftchka.setMaximumSize(QSize(21, 16))
-        self.mftchka.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-
-        self.horizontalLayout_19.addWidget(self.mftchka)
-
-
-        self.gridLayout.addLayout(self.horizontalLayout_19, 36, 6, 1, 1)
-
-        self.ilabel = QLabel(self.page)
-        self.ilabel.setObjectName(u"ilabel")
-
-        self.gridLayout.addWidget(self.ilabel, 6, 6, 1, 1)
-
-        self.mftsearchb = QPushButton(self.page)
-        self.mftsearchb.setObjectName(u"mftsearchb")
-        self.mftsearchb.setMinimumSize(QSize(89, 22))
-        self.mftsearchb.setMaximumSize(QSize(89, 22))
-
-        self.gridLayout.addWidget(self.mftsearchb, 37, 7, 1, 1)
-
-        self.diffchkc = QCheckBox(self.page)
-        self.diffchkc.setObjectName(u"diffchkc")
-        self.diffchkc.setEnabled(True)
-
-        self.gridLayout.addWidget(self.diffchkc, 37, 1, 1, 1)
-
-        self.horizontalLayout_21 = QHBoxLayout()
-        self.horizontalLayout_21.setSpacing(0)
-        self.horizontalLayout_21.setObjectName(u"horizontalLayout_21")
-        self.horizontalLayout_21.setContentsMargins(10, -1, -1, -1)
-        self.mftlabel4 = QLabel(self.page)
-        self.mftlabel4.setObjectName(u"mftlabel4")
-        sizePolicy1.setHeightForWidth(self.mftlabel4.sizePolicy().hasHeightForWidth())
-        self.mftlabel4.setSizePolicy(sizePolicy1)
-        self.mftlabel4.setMinimumSize(QSize(55, 20))
-        self.mftlabel4.setMaximumSize(QSize(55, 20))
-
-        self.horizontalLayout_21.addWidget(self.mftlabel4)
-
-        self.mftchkb = QCheckBox(self.page)
-        self.mftchkb.setObjectName(u"mftchkb")
-        sizePolicy1.setHeightForWidth(self.mftchkb.sizePolicy().hasHeightForWidth())
-        self.mftchkb.setSizePolicy(sizePolicy1)
-        self.mftchkb.setMinimumSize(QSize(21, 16))
-        self.mftchkb.setMaximumSize(QSize(21, 16))
-        self.mftchkb.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-
-        self.horizontalLayout_21.addWidget(self.mftchkb)
-
-
-        self.gridLayout.addLayout(self.horizontalLayout_21, 37, 6, 1, 1)
-
-        self.verticalLayout_4 = QVBoxLayout()
-        self.verticalLayout_4.setSpacing(0)
-        self.verticalLayout_4.setObjectName(u"verticalLayout_4")
-        self.verticalLayout_4.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
-        self.jpgv = QLabel(self.page)
-        self.jpgv.setObjectName(u"jpgv")
-        sizePolicy1.setHeightForWidth(self.jpgv.sizePolicy().hasHeightForWidth())
-        self.jpgv.setSizePolicy(sizePolicy1)
-        self.jpgv.setMinimumSize(QSize(533, 300))
-        self.jpgv.setMaximumSize(QSize(533, 300))
-        self.jpgv.setPixmap(QPixmap(u"../mnt/mnt/mnt/sda3/mnt/sda3/Untitled Folder/Qinst/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/.designer/mnt/sdb1/ventoy/Themes/background.png"))
-        self.jpgv.setScaledContents(True)
-
-        self.verticalLayout_4.addWidget(self.jpgv)
-
-        self.horizontalLayout_6 = QHBoxLayout()
-        self.horizontalLayout_6.setSpacing(0)
-        self.horizontalLayout_6.setObjectName(u"horizontalLayout_6")
-        self.horizontalLayout_6.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
-        self.horizontalLayout_6.setContentsMargins(-1, -1, 0, -1)
-        self.gridLayout_3 = QGridLayout()
-        self.gridLayout_3.setSpacing(0)
-        self.gridLayout_3.setObjectName(u"gridLayout_3")
-        self.tomlb = QToolButton(self.page)
-        self.tomlb.setObjectName(u"tomlb")
-        self.tomlb.setMinimumSize(QSize(89, 21))
-        self.tomlb.setMaximumSize(QSize(89, 22))
-
-        self.gridLayout_3.addWidget(self.tomlb, 0, 1, 1, 1)
-
-        self.jpgb = QPushButton(self.page)
-        self.jpgb.setObjectName(u"jpgb")
-        self.jpgb.setEnabled(True)
-        sizePolicy1.setHeightForWidth(self.jpgb.sizePolicy().hasHeightForWidth())
-        self.jpgb.setSizePolicy(sizePolicy1)
-        self.jpgb.setMinimumSize(QSize(89, 0))
-        self.jpgb.setMaximumSize(QSize(89, 16777215))
-
-        self.gridLayout_3.addWidget(self.jpgb, 0, 0, 1, 1)
-
-        self.horizontalSpacer_8 = QSpacerItem(355, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
-
-        self.gridLayout_3.addItem(self.horizontalSpacer_8, 0, 2, 1, 1)
-
-
-        self.horizontalLayout_6.addLayout(self.gridLayout_3)
-
-
-        self.verticalLayout_4.addLayout(self.horizontalLayout_6)
-
-        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
-
-        self.verticalLayout_4.addItem(self.verticalSpacer)
-
-
-        self.gridLayout.addLayout(self.verticalLayout_4, 3, 9, 1, 1)
-
-        self.stimebf = QPushButton(self.page)
-        self.stimebf.setObjectName(u"stimebf")
-        sizePolicy1.setHeightForWidth(self.stimebf.sizePolicy().hasHeightForWidth())
-        self.stimebf.setSizePolicy(sizePolicy1)
-        self.stimebf.setMinimumSize(QSize(89, 0))
-        self.stimebf.setMaximumSize(QSize(89, 16777215))
-
-        self.gridLayout.addWidget(self.stimebf, 8, 0, 1, 1)
-
-        self.horizontalLayout_10 = QHBoxLayout()
-        self.horizontalLayout_10.setSpacing(0)
-        self.horizontalLayout_10.setObjectName(u"horizontalLayout_10")
-        self.horizontalLayout_10.setSizeConstraint(QLayout.SizeConstraint.SetMinAndMaxSize)
-        self.horizontalLayout_10.setContentsMargins(-1, -1, 0, -1)
-        self.stimeb = QPushButton(self.page)
-        self.stimeb.setObjectName(u"stimeb")
-        sizePolicy1.setHeightForWidth(self.stimeb.sizePolicy().hasHeightForWidth())
-        self.stimeb.setSizePolicy(sizePolicy1)
-        self.stimeb.setMinimumSize(QSize(89, 0))
-        self.stimeb.setMaximumSize(QSize(89, 22))
-
-        self.horizontalLayout_10.addWidget(self.stimeb)
-
-        self.ftimeb = QPushButton(self.page)
-        self.ftimeb.setObjectName(u"ftimeb")
-        sizePolicy1.setHeightForWidth(self.ftimeb.sizePolicy().hasHeightForWidth())
-        self.ftimeb.setSizePolicy(sizePolicy1)
-        self.ftimeb.setMinimumSize(QSize(89, 0))
-        self.ftimeb.setMaximumSize(QSize(89, 22))
-
-        self.horizontalLayout_10.addWidget(self.ftimeb)
-
-
-        self.gridLayout.addLayout(self.horizontalLayout_10, 10, 0, 1, 1)
-
-        self.ffilelabel1 = QLabel(self.page)
-        self.ffilelabel1.setObjectName(u"ffilelabel1")
-        self.ffilelabel1.setMinimumSize(QSize(89, 22))
-        self.ffilelabel1.setMaximumSize(QSize(89, 22))
-
-        self.gridLayout.addWidget(self.ffilelabel1, 31, 0, 1, 1)
-
-        self.queryButton = QPushButton(self.page)
-        self.queryButton.setObjectName(u"queryButton")
-        self.queryButton.setMinimumSize(QSize(89, 0))
-        self.queryButton.setMaximumSize(QSize(89, 22))
-
-        self.gridLayout.addWidget(self.queryButton, 4, 0, 1, 1)
-
-        self.verticalSpacer_3 = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
-
-        self.gridLayout.addItem(self.verticalSpacer_3, 11, 6, 1, 1)
-
-        self.hudt = QTextEdit(self.page)
-        self.hudt.setObjectName(u"hudt")
-        self.hudt.setStyleSheet(u"QTextEdit {\n"
-"    background-color: black;\n"
-"    color: #00FF00;\n"
-"    font-family: Consolas, Courier, monospace;\n"
-"    font-size: 12pt;\n"
-"}")
-
-        self.gridLayout.addWidget(self.hudt, 3, 0, 1, 9)
-
-        self.gridLayout_5 = QGridLayout()
-        self.gridLayout_5.setObjectName(u"gridLayout_5")
-        self.gridLayout_5.setSizeConstraint(QLayout.SizeConstraint.SetMaximumSize)
-        self.gridLayout_5.setHorizontalSpacing(0)
-        self.ffileb = QPushButton(self.page)
-        self.ffileb.setObjectName(u"ffileb")
-        sizePolicy1.setHeightForWidth(self.ffileb.sizePolicy().hasHeightForWidth())
-        self.ffileb.setSizePolicy(sizePolicy1)
-        self.ffileb.setMinimumSize(QSize(89, 22))
-        self.ffileb.setMaximumSize(QSize(89, 22))
-
-        self.gridLayout_5.addWidget(self.ffileb, 0, 0, 1, 1)
-
-        self.horizontalSpacer_11 = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        self.gridLayout_5.addItem(self.horizontalSpacer_11, 1, 2, 1, 1)
-
-        self.horizontalLayout_9 = QHBoxLayout()
-        self.horizontalLayout_9.setSpacing(0)
-        self.horizontalLayout_9.setObjectName(u"horizontalLayout_9")
-        self.horizontalLayout_9.setSizeConstraint(QLayout.SizeConstraint.SetMaximumSize)
-        self.ffilecb = QPushButton(self.page)
-        self.ffilecb.setObjectName(u"ffilecb")
-        sizePolicy1.setHeightForWidth(self.ffilecb.sizePolicy().hasHeightForWidth())
-        self.ffilecb.setSizePolicy(sizePolicy1)
-        self.ffilecb.setMinimumSize(QSize(89, 22))
-        self.ffilecb.setMaximumSize(QSize(89, 22))
-
-        self.horizontalLayout_9.addWidget(self.ffilecb)
-
-
-        self.gridLayout_5.addLayout(self.horizontalLayout_9, 1, 0, 1, 1)
-
-        self.combffileout = QComboBox(self.page)
-        self.combffileout.addItem("")
-        self.combffileout.addItem("")
-        self.combffileout.setObjectName(u"combffileout")
-        sizePolicy5.setHeightForWidth(self.combffileout.sizePolicy().hasHeightForWidth())
-        self.combffileout.setSizePolicy(sizePolicy5)
-        self.combffileout.setMinimumSize(QSize(82, 22))
-        self.combffileout.setMaximumSize(QSize(16777215, 24))
-        self.combffileout.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-
-        self.gridLayout_5.addWidget(self.combffileout, 1, 1, 1, 1)
-
-        self.sffile = QSpinBox(self.page)
-        self.sffile.setObjectName(u"sffile")
-        self.sffile.setMaximum(2147483647)
-
-        self.gridLayout_5.addWidget(self.sffile, 0, 1, 1, 1)
-
-        self.ffilelabel3 = QLabel(self.page)
-        self.ffilelabel3.setObjectName(u"ffilelabel3")
-
-        self.gridLayout_5.addWidget(self.ffilelabel3, 0, 2, 1, 1)
-
-
-        self.gridLayout.addLayout(self.gridLayout_5, 33, 0, 1, 2)
-
-        self.difflabel = QLabel(self.page)
-        self.difflabel.setObjectName(u"difflabel")
-        self.difflabel.setMinimumSize(QSize(51, 16))
-        self.difflabel.setMaximumSize(QSize(51, 16))
-
-        self.gridLayout.addWidget(self.difflabel, 35, 0, 1, 1)
-
-        self.widget = QWidget(self.page)
-        self.widget.setObjectName(u"widget")
-        sizePolicy.setHeightForWidth(self.widget.sizePolicy().hasHeightForWidth())
-        self.widget.setSizePolicy(sizePolicy)
-        self.widget.setMinimumSize(QSize(50, 50))
-
-        self.gridLayout.addWidget(self.widget, 30, 4, 3, 5)
+        self.gridLayout.addWidget(self.ntlabel, 13, 0, 1, 1)
 
 
         self.gridLayout_7.addLayout(self.gridLayout, 0, 0, 1, 1)
@@ -943,6 +979,23 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout_16.addItem(self.horizontalSpacer_5)
 
+        self.dbprevlabel = QLabel(self.page_2)
+        self.dbprevlabel.setObjectName(u"dbprevlabel")
+        sizePolicy1.setHeightForWidth(self.dbprevlabel.sizePolicy().hasHeightForWidth())
+        self.dbprevlabel.setSizePolicy(sizePolicy1)
+
+        self.horizontalLayout_16.addWidget(self.dbprevlabel)
+
+        self.dbchkb = QCheckBox(self.page_2)
+        self.dbchkb.setObjectName(u"dbchkb")
+        sizePolicy1.setHeightForWidth(self.dbchkb.sizePolicy().hasHeightForWidth())
+        self.dbchkb.setSizePolicy(sizePolicy1)
+        self.dbchkb.setMinimumSize(QSize(21, 16))
+        self.dbchkb.setMaximumSize(QSize(21, 16))
+        self.dbchkb.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+
+        self.horizontalLayout_16.addWidget(self.dbchkb)
+
 
         self.gridLayout_2.addLayout(self.horizontalLayout_16, 2, 4, 1, 1)
 
@@ -981,11 +1034,8 @@ class Ui_MainWindow(object):
 
         self.dbprogressBAR = QProgressBar(self.page_2)
         self.dbprogressBAR.setObjectName(u"dbprogressBAR")
-        sizePolicy6 = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        sizePolicy6.setHorizontalStretch(0)
-        sizePolicy6.setVerticalStretch(0)
-        sizePolicy6.setHeightForWidth(self.dbprogressBAR.sizePolicy().hasHeightForWidth())
-        self.dbprogressBAR.setSizePolicy(sizePolicy6)
+        sizePolicy2.setHeightForWidth(self.dbprogressBAR.sizePolicy().hasHeightForWidth())
+        self.dbprogressBAR.setSizePolicy(sizePolicy2)
         self.dbprogressBAR.setMinimumSize(QSize(451, 22))
         self.dbprogressBAR.setValue(24)
 
@@ -1008,7 +1058,7 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 1627, 33))
+        self.menubar.setGeometry(QRect(0, 0, 1578, 33))
         self.menuRecent_changes = QMenu(self.menubar)
         self.menuRecent_changes.setObjectName(u"menuRecent_changes")
         self.menuHelp = QMenu(self.menubar)
@@ -1048,17 +1098,22 @@ class Ui_MainWindow(object):
         self.menuComm.addAction(self.actionDiag1)
         self.menuComm.addSeparator()
         self.menuComm.addAction(self.actionWatchdog)
-        self.menuComm.addAction(self.actionLogging)
         self.menuComm.addSeparator()
+        self.menuComm.addSeparator()
+        self.menuComm.addAction(self.actionFile_creation_log)
+        self.menuComm.addAction(self.actionLogging)
         self.menuTool.addAction(self.actionCalculator)
+        self.menuTool.addAction(self.actionScientific_calculator)
         self.menuTool.addAction(self.actionClear_history)
         self.menuTool.addAction(self.actionHistoryv)
+        self.menuTool.addSeparator()
+        self.menuTool.addAction(self.actionDrive_read_test)
 
         self.retranslateUi(MainWindow)
 
         self.stackedWidget.setCurrentIndex(0)
-        self.combffile.setCurrentIndex(0)
         self.basedirButton.setDefault(True)
+        self.combffile.setCurrentIndex(0)
 
 
         QMetaObject.connectSlotsByName(MainWindow)
@@ -1114,37 +1169,36 @@ class Ui_MainWindow(object):
         self.actionClear_history.setText(QCoreApplication.translate("MainWindow", u"Clear History View", None))
         self.actionHistoryv.setText(QCoreApplication.translate("MainWindow", u"History View", None))
         self.actionWatchdog.setText(QCoreApplication.translate("MainWindow", u"Watchdog", None))
+        self.actionDrive_read_test.setText(QCoreApplication.translate("MainWindow", u"Drive Read Test", None))
+        self.actionFile_creation_log.setText(QCoreApplication.translate("MainWindow", u"File Creation Log", None))
 #if QT_CONFIG(shortcut)
-        self.actionWatchdog.setShortcut(QCoreApplication.translate("MainWindow", u"F10", None))
+        self.actionFile_creation_log.setShortcut(QCoreApplication.translate("MainWindow", u"F10", None))
 #endif // QT_CONFIG(shortcut)
-        self.ftimelabel1.setText(QCoreApplication.translate("MainWindow", u"Output", None))
-        self.ntlabel.setText(QCoreApplication.translate("MainWindow", u"Newer than", None))
-        self.combd.setItemText(0, QCoreApplication.translate("MainWindow", u"C:\\", None))
-
-#if QT_CONFIG(tooltip)
-        self.combd.setToolTip(QCoreApplication.translate("MainWindow", u"drive which to search for new files", None))
-#endif // QT_CONFIG(tooltip)
-        self.addButton.setText(QCoreApplication.translate("MainWindow", u"Add", None))
-#if QT_CONFIG(tooltip)
-        self.downloadButton.setToolTip(QCoreApplication.translate("MainWindow", u"scan for new files by folder mtime", None))
-#endif // QT_CONFIG(tooltip)
-        self.downloadButton.setText(QCoreApplication.translate("MainWindow", u"Downloads", None))
-        self.toollftb.setText(QCoreApplication.translate("MainWindow", u"1", None))
-        self.toolhomeb.setText(QCoreApplication.translate("MainWindow", u"2", None))
-        self.toolrtb.setText(QCoreApplication.translate("MainWindow", u"3", None))
-#if QT_CONFIG(shortcut)
-        self.toolrtb.setShortcut(QCoreApplication.translate("MainWindow", u"F4", None))
-#endif // QT_CONFIG(shortcut)
-#if QT_CONFIG(tooltip)
-        self.diffchka.setToolTip(QCoreApplication.translate("MainWindow", u"create tsv sheet from specified search", None))
-#endif // QT_CONFIG(tooltip)
-        self.diffchka.setText(QCoreApplication.translate("MainWindow", u"Postop file doctrine", None))
-        self.mftlabel2.setText(QCoreApplication.translate("MainWindow", u"(Range) Hrs", None))
-        self.jpgcr.setText(QCoreApplication.translate("MainWindow", u"TextLabel", None))
+        self.actionScientific_calculator.setText(QCoreApplication.translate("MainWindow", u"Scientific Calculator", None))
 #if QT_CONFIG(tooltip)
         self.diffchkb.setToolTip(QCoreApplication.translate("MainWindow", u"scan idx and append diff file", None))
 #endif // QT_CONFIG(tooltip)
         self.diffchkb.setText(QCoreApplication.translate("MainWindow", u"Postop scan idx", None))
+#if QT_CONFIG(tooltip)
+        self.diffchkc.setToolTip(QCoreApplication.translate("MainWindow", u"Show miss rate and other metric differences in diff file", None))
+#endif // QT_CONFIG(tooltip)
+        self.diffchkc.setText(QCoreApplication.translate("MainWindow", u"Symmetrics", None))
+        self.diffchkd.setText(QCoreApplication.translate("MainWindow", u"Include previous scans", None))
+        self.mftlabel2.setText(QCoreApplication.translate("MainWindow", u"(Range) Hrs", None))
+        self.mftlabel3.setText(QCoreApplication.translate("MainWindow", u"RamDisk", None))
+#if QT_CONFIG(tooltip)
+        self.mftchka.setToolTip(QCoreApplication.translate("MainWindow", u"where to do any work save or temp file location", None))
+#endif // QT_CONFIG(tooltip)
+        self.mftchka.setText("")
+#if QT_CONFIG(tooltip)
+        self.stimebf.setToolTip(QCoreApplication.translate("MainWindow", u"by time output desktop", None))
+#endif // QT_CONFIG(tooltip)
+        self.stimebf.setText(QCoreApplication.translate("MainWindow", u"Filtered", None))
+        self.jpgv.setText("")
+        self.tomlb.setText(QCoreApplication.translate("MainWindow", u"Settings", None))
+        self.resetButton.setText(QCoreApplication.translate("MainWindow", u"Defaults", None))
+        self.jpgb.setText(QCoreApplication.translate("MainWindow", u"Custom", None))
+        self.stopButton.setText(QCoreApplication.translate("MainWindow", u"Stop", None))
 #if QT_CONFIG(tooltip)
         self.ntbrowseb2.setToolTip(QCoreApplication.translate("MainWindow", u"search newer than a folder", None))
 #endif // QT_CONFIG(tooltip)
@@ -1153,90 +1207,97 @@ class Ui_MainWindow(object):
         self.ntbrowseb3.setToolTip(QCoreApplication.translate("MainWindow", u"search newer than a folder", None))
 #endif // QT_CONFIG(tooltip)
         self.ntbrowseb3.setText(QCoreApplication.translate("MainWindow", u"Explorer", None))
+        self.ntsb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
+        self.mftrange.setSuffix("")
+        self.mftrange.setPrefix("")
+#if QT_CONFIG(tooltip)
+        self.downloadButton.setToolTip(QCoreApplication.translate("MainWindow", u"scan for new files by folder mtime", None))
+#endif // QT_CONFIG(tooltip)
+        self.downloadButton.setText(QCoreApplication.translate("MainWindow", u"Downloads", None))
+#if QT_CONFIG(tooltip)
+        self.hudt.setToolTip(QCoreApplication.translate("MainWindow", u"hudt", None))
+#endif // QT_CONFIG(tooltip)
+        self.mftsearchb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
+#if QT_CONFIG(tooltip)
+        self.mftlabel1.setToolTip(QCoreApplication.translate("MainWindow", u"convert to csv", None))
+#endif // QT_CONFIG(tooltip)
+        self.mftlabel1.setText(QCoreApplication.translate("MainWindow", u"Import Mft", None))
+#if QT_CONFIG(tooltip)
+        self.mftbrowseb.setToolTip(QCoreApplication.translate("MainWindow", u"convert raw mft to csv", None))
+#endif // QT_CONFIG(tooltip)
+        self.mftbrowseb.setText(QCoreApplication.translate("MainWindow", u"Browse", None))
+        self.dlabel.setText(QCoreApplication.translate("MainWindow", u"Find", None))
+        self.label.setText("")
+        self.ffilelabel1.setText(QCoreApplication.translate("MainWindow", u"Find file", None))
+        self.mftmainlabel.setText(QCoreApplication.translate("MainWindow", u"System Mft", None))
+        self.mftlabel4.setText(QCoreApplication.translate("MainWindow", u"Save Mft", None))
+#if QT_CONFIG(tooltip)
+        self.mftchkb.setToolTip(QCoreApplication.translate("MainWindow", u"dump raw mft", None))
+#endif // QT_CONFIG(tooltip)
+        self.mftchkb.setText("")
+        self.ffilelabel3.setText(QCoreApplication.translate("MainWindow", u"(Range)", None))
+        self.ffilecb.setText(QCoreApplication.translate("MainWindow", u"Compress", None))
+        self.ffileb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
+        self.combffileout.setItemText(0, QCoreApplication.translate("MainWindow", u"AppData", None))
+        self.combffileout.setItemText(1, QCoreApplication.translate("MainWindow", u"Desktop", None))
+
+        self.combftimeout.setItemText(0, QCoreApplication.translate("MainWindow", u"AppData", None))
+
+#if QT_CONFIG(tooltip)
+        self.combftimeout.setToolTip(QCoreApplication.translate("MainWindow", u"unfiltered search output", None))
+#endif // QT_CONFIG(tooltip)
+        self.addButton.setText(QCoreApplication.translate("MainWindow", u"Add", None))
+#if QT_CONFIG(tooltip)
+        self.ftimebf.setToolTip(QCoreApplication.translate("MainWindow", u"output desktop", None))
+#endif // QT_CONFIG(tooltip)
+        self.ftimebf.setText(QCoreApplication.translate("MainWindow", u"5 Min Filtered", None))
+#if QT_CONFIG(tooltip)
+        self.basedirButton.setToolTip(QCoreApplication.translate("MainWindow", u"change target drive or basedir", None))
+#endif // QT_CONFIG(tooltip)
+        self.basedirButton.setText(QCoreApplication.translate("MainWindow", u"C:\\", None))
+        self.ilabel.setText(QCoreApplication.translate("MainWindow", u"Index", None))
+        self.jpgcr.setText(QCoreApplication.translate("MainWindow", u"TextLabel", None))
+#if QT_CONFIG(tooltip)
+        self.diffchka.setToolTip(QCoreApplication.translate("MainWindow", u"create tsv sheet from specified search", None))
+#endif // QT_CONFIG(tooltip)
+        self.diffchka.setText(QCoreApplication.translate("MainWindow", u"Postop file doctrine", None))
+#if QT_CONFIG(tooltip)
+        self.ntbrowseb.setToolTip(QCoreApplication.translate("MainWindow", u"newer than a file", None))
+#endif // QT_CONFIG(tooltip)
+        self.ntbrowseb.setText(QCoreApplication.translate("MainWindow", u"Browse", None))
         self.combt.setItemText(0, QCoreApplication.translate("MainWindow", u"Filtered", None))
         self.combt.setItemText(1, QCoreApplication.translate("MainWindow", u"Unfiltered", None))
 
 #if QT_CONFIG(tooltip)
         self.combt.setToolTip(QCoreApplication.translate("MainWindow", u"default apply filter", None))
 #endif // QT_CONFIG(tooltip)
-        self.combftimeout.setItemText(0, QCoreApplication.translate("MainWindow", u"AppData", None))
+        self.rmvButton.setText(QCoreApplication.translate("MainWindow", u"Remove", None))
+        self.stimeb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
+        self.ftimeb.setText(QCoreApplication.translate("MainWindow", u"5 Min Search", None))
+        self.combd.setItemText(0, QCoreApplication.translate("MainWindow", u"C:\\", None))
 
 #if QT_CONFIG(tooltip)
-        self.combftimeout.setToolTip(QCoreApplication.translate("MainWindow", u"unfiltered search output", None))
+        self.combd.setToolTip(QCoreApplication.translate("MainWindow", u"drive which to search for new files", None))
 #endif // QT_CONFIG(tooltip)
+        self.ftimelabel1.setText(QCoreApplication.translate("MainWindow", u"Output", None))
         self.combffile.setItemText(0, "")
 
         self.combffile.setCurrentText("")
         self.ffileb2.setText(QCoreApplication.translate("MainWindow", u"+", None))
         self.ffilelabel2.setText(QCoreApplication.translate("MainWindow", u"Extension", None))
-#if QT_CONFIG(tooltip)
-        self.mftlabel1.setToolTip(QCoreApplication.translate("MainWindow", u"convert to csv", None))
-#endif // QT_CONFIG(tooltip)
-        self.mftlabel1.setText(QCoreApplication.translate("MainWindow", u"Import Mft", None))
-#if QT_CONFIG(tooltip)
-        self.ftimebf.setToolTip(QCoreApplication.translate("MainWindow", u"output desktop", None))
-#endif // QT_CONFIG(tooltip)
-        self.ftimebf.setText(QCoreApplication.translate("MainWindow", u"5 Min Filtered", None))
-        self.mftmainlabel.setText(QCoreApplication.translate("MainWindow", u"System Mft", None))
-        self.rmvButton.setText(QCoreApplication.translate("MainWindow", u"Remove", None))
-#if QT_CONFIG(tooltip)
-        self.basedirButton.setToolTip(QCoreApplication.translate("MainWindow", u"change target drive or basedir", None))
-#endif // QT_CONFIG(tooltip)
-        self.basedirButton.setText(QCoreApplication.translate("MainWindow", u"C:\\", None))
-        self.resetButton.setText(QCoreApplication.translate("MainWindow", u"Stop Defaults", None))
-#if QT_CONFIG(tooltip)
-        self.mftbrowseb.setToolTip(QCoreApplication.translate("MainWindow", u"convert raw mft to csv", None))
-#endif // QT_CONFIG(tooltip)
-        self.mftbrowseb.setText(QCoreApplication.translate("MainWindow", u"Browse", None))
-        self.dlabel.setText(QCoreApplication.translate("MainWindow", u"Find", None))
-#if QT_CONFIG(tooltip)
-        self.ntbrowseb.setToolTip(QCoreApplication.translate("MainWindow", u"newer than a file", None))
-#endif // QT_CONFIG(tooltip)
-        self.ntbrowseb.setText(QCoreApplication.translate("MainWindow", u"Browse", None))
-        self.ftimesecondsl.setText(QCoreApplication.translate("MainWindow", u"Seconds", None))
-        self.ntsb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
-        self.mftrange.setSuffix("")
-        self.mftrange.setPrefix("")
-        self.mftlabel3.setText(QCoreApplication.translate("MainWindow", u"RamDisk", None))
-#if QT_CONFIG(tooltip)
-        self.mftchka.setToolTip(QCoreApplication.translate("MainWindow", u"where to do any work save or temp file location", None))
-#endif // QT_CONFIG(tooltip)
-        self.mftchka.setText("")
-        self.ilabel.setText(QCoreApplication.translate("MainWindow", u"Index", None))
-        self.mftsearchb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
-#if QT_CONFIG(tooltip)
-        self.diffchkc.setToolTip(QCoreApplication.translate("MainWindow", u"Show miss rate and other metric differences in diff file", None))
-#endif // QT_CONFIG(tooltip)
-        self.diffchkc.setText(QCoreApplication.translate("MainWindow", u"Symmetrics", None))
-        self.mftlabel4.setText(QCoreApplication.translate("MainWindow", u"Save Mft", None))
-#if QT_CONFIG(tooltip)
-        self.mftchkb.setToolTip(QCoreApplication.translate("MainWindow", u"dump raw mft", None))
-#endif // QT_CONFIG(tooltip)
-        self.mftchkb.setText("")
-        self.jpgv.setText("")
-        self.tomlb.setText(QCoreApplication.translate("MainWindow", u"Settings", None))
-        self.jpgb.setText(QCoreApplication.translate("MainWindow", u"Custom", None))
-#if QT_CONFIG(tooltip)
-        self.stimebf.setToolTip(QCoreApplication.translate("MainWindow", u"by time output desktop", None))
-#endif // QT_CONFIG(tooltip)
-        self.stimebf.setText(QCoreApplication.translate("MainWindow", u"Filtered", None))
-        self.stimeb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
-        self.ftimeb.setText(QCoreApplication.translate("MainWindow", u"5 Min Search", None))
-        self.ffilelabel1.setText(QCoreApplication.translate("MainWindow", u"Find file", None))
+        self.difflabel.setText(QCoreApplication.translate("MainWindow", u"Options", None))
+        self.toollftb.setText(QCoreApplication.translate("MainWindow", u"1", None))
+        self.toolhomeb.setText(QCoreApplication.translate("MainWindow", u"2", None))
+        self.toolrtb.setText(QCoreApplication.translate("MainWindow", u"3", None))
+#if QT_CONFIG(shortcut)
+        self.toolrtb.setShortcut(QCoreApplication.translate("MainWindow", u"F4", None))
+#endif // QT_CONFIG(shortcut)
 #if QT_CONFIG(tooltip)
         self.queryButton.setToolTip(QCoreApplication.translate("MainWindow", u"info and statistics from searches and filter hits", None))
 #endif // QT_CONFIG(tooltip)
         self.queryButton.setText(QCoreApplication.translate("MainWindow", u"Query", None))
-#if QT_CONFIG(tooltip)
-        self.hudt.setToolTip(QCoreApplication.translate("MainWindow", u"hudt", None))
-#endif // QT_CONFIG(tooltip)
-        self.ffileb.setText(QCoreApplication.translate("MainWindow", u"Search", None))
-        self.ffilecb.setText(QCoreApplication.translate("MainWindow", u"Compress", None))
-        self.combffileout.setItemText(0, QCoreApplication.translate("MainWindow", u"AppData", None))
-        self.combffileout.setItemText(1, QCoreApplication.translate("MainWindow", u"Desktop", None))
-
-        self.ffilelabel3.setText(QCoreApplication.translate("MainWindow", u"(Range)", None))
-        self.difflabel.setText(QCoreApplication.translate("MainWindow", u"Options", None))
+        self.ftimesecondsl.setText(QCoreApplication.translate("MainWindow", u"Seconds", None))
+        self.ntlabel.setText(QCoreApplication.translate("MainWindow", u"Newer than", None))
         self.dbmainlabel.setText(QCoreApplication.translate("MainWindow", u"Status: Offline", None))
 #if QT_CONFIG(tooltip)
         self.dbmainb1.setToolTip(QCoreApplication.translate("MainWindow", u"remove cache items from logs and stats table", None))
@@ -1261,6 +1322,11 @@ class Ui_MainWindow(object):
 #endif // QT_CONFIG(tooltip)
         self.dbmainb2.setText(QCoreApplication.translate("MainWindow", u"Super Impose", None))
         self.dbmainb4.setText(QCoreApplication.translate("MainWindow", u"Set Hardlinks", None))
+        self.dbprevlabel.setText(QCoreApplication.translate("MainWindow", u"previous", None))
+#if QT_CONFIG(tooltip)
+        self.dbchkb.setToolTip(QCoreApplication.translate("MainWindow", u"Show miss rate in difference file ect", None))
+#endif // QT_CONFIG(tooltip)
+        self.dbchkb.setText("")
         self.dbidxb3.setText(QCoreApplication.translate("MainWindow", u"Scan IDX", None))
         self.dbidxb1.setText(QCoreApplication.translate("MainWindow", u"Clear IDX", None))
         self.dbidxb2.setText(QCoreApplication.translate("MainWindow", u"Build IDX", None))

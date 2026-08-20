@@ -107,9 +107,8 @@ def import_key(argv):
         return 1
 
 
-# setup keypair for user
 def genkey(appdata_local, usr, email, name, dbtarget, cache_f, cache_s, flth, tempd, passphrase=None):
-
+    ''' setup keypair for user '''
     if not passphrase:
         passphrase = getpass.getpass("Enter passphrase for new GPG key: ")
     p = passphrase
@@ -172,8 +171,14 @@ def genkey(appdata_local, usr, email, name, dbtarget, cache_f, cache_s, flth, te
     return True
 
 
-# required for batch deleting keys
+def create_cipher_key(opt, r_email):
+    cipher_key = os.urandom(32)  # random 256-bit
+
+    subprocess.run(['gpg', '-e', '-r', r_email, '-o', opt], input=cipher_key, check=True)
+
+
 def get_key_fingerprint(email):
+    # required for batch deleting keys
     cmd = ["gpg", "--list-keys", "--with-colons", email]
     result = subprocess.run(
         cmd,

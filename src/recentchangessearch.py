@@ -1,5 +1,5 @@
 #! python3
-#   Windows 10 / 11                                                                7/20/2026
+#   Windows 10 / 11                                                                08/10/2026
 #   recentchanges. Developer buddy      recentchanges/ recentchanges search
 #   Provide ease of pattern finding ie what files to block we can do this a number of ways
 #   1) if a file was there (many as in more than a few) and another search lists them as deleted its either a sys file or not but unwanted nontheless
@@ -47,6 +47,7 @@ from .logs import setup_logger
 from .pstsrg import main as pst_srg
 from .pyfunctions import cache_clear_patterns
 from .pyfunctions import cprint
+from .pyfunctions import fmt
 from .pyfunctions import user_path
 from .recentchangessearchparser import build_parser
 from .rntchangesfunctions import build_tsv
@@ -193,7 +194,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
         # summary if the drive is unkown its detected and the toml is updated
         cache_s, _, suffix, driveTYPE = setup_drive_cache(
-            basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, cache_s_str, driveTYPE_frm, usr, email, compLVL, j_settings=j_settings
+            basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, cache_s_str, driveTYPE_frm, usr, email, j_settings=j_settings
         )
         if not cache_s or not suffix:
             return 1
@@ -250,7 +251,6 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
     filtered = False
     validrlt = None
     valid_data = False
-    dcr = True  # means to remove after encrypting. and backwards for this script dcr True is meant to mean leave open
 
     flnm = ""
     parseflnm = ""
@@ -264,8 +264,6 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
     proval = 20  # progress
     endval = 30
-
-    fmt = "%Y-%m-%d %H:%M:%S"
 
     usrDIR = find_user_folder("Desktop")
     if usrDIR is None:
@@ -479,7 +477,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
         deduped = list(seen.values())
 
         # inclusions from this script /  sort -u
-        exclude_patterns = get_runtime_exclude_list(appdata_local, usrDIR, moduleNAME, flth, dbtarget, cache_f, cache_s, gnupg_home, str(log_file), dbopt=dbopt)
+        exclude_patterns = get_runtime_exclude_list(appdata_local, usrDIR, moduleNAME, flth, dbtarget, cache_f, cache_s, gnupg_home, str(log_file))
 
         def filepath_included(filepath, exclude_patterns):
             filepath = filepath.lower()
@@ -632,12 +630,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
             #     endval = 75
 
             if iqt:
-                dcr = True  # leave open as its called from the app
                 print(f"Progress: {proval}", flush=True)
-            # elif not scanIDX:
-            #     dcr = False
-            else:
-                dcr = False
 
             # pass some analytics into pstsrg
             el = end - start
@@ -648,7 +641,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
             dbopt, data = pst_srg(
                 dbopt, dbtarget, sortcomplete, complete, rout, created, cachermPATTERNS, user_setting, logging_values,
-                total_time, total_files, dcr=dcr, iqt=iqt, strt=proval, endp=endval
+                total_time, total_files, iqt=iqt, strt=proval, endp=endval
             )
             # dbopt return from pst_srg is either path, encr_error, new_profile or None
             proval = endval + 1
@@ -779,9 +772,9 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
                     print("Total unique files in logs:", unique_files)
         print()
 
-        # removed below to handle scan idx after this script in qt as scanning a profile index from commandline is unecessary hence
-        # why its removed from the script. Makes it less complex and its a feature that wouldnt be used because there is a gui
-        #
+        # removed below to handle scan idx in qt as scanning a profile index from commandline is unecessary hence
+        # why its removed from the script. Makes it less complex and its a feature that wouldnt be used because
+        # there is a gui
 
         # Scan system index. If it is from the command line and a new profile was just made dont scan it.
         # Encryption failure dont scan as there is a problem.
@@ -791,7 +784,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
         #   append to old or use new default
         #   diff_file = diff_file if diffrlt else get_diff_file(appdata_local, usrDIR, moduleNAME)
 
-        #   rlt = scan_system(appdata_local, dbopt, dbtarget, basedir, usr, diff_file, cache_s, email, analytics, show_diff, compLVL, dcr=dcr, iqt=iqt, strt=proval, endp=endval)
+        #   rlt = scan_system(appdata_local, dbopt, dbtarget, basedir, usr, cache_s, email, diff_file, analytics, show_diff, show_previous, iqt=iqt, strt=proval, endp=endval)
         #   if commandline, turn off so doesnt scan every time. autoIDX permissive to auto scan
         #   if not iqt and not autoIDX:
         #       # update_toml_values({'diagnostics': {'scanIDX': False}}, toml_file)

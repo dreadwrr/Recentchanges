@@ -175,6 +175,7 @@ class SCalculator(QtWidgets.QWidget):
                 self.decimal_set(decimals)
 
             except ImportError:
+                self.logger("mpmath package not installed using float")
                 self.is_mpmath = False
 
         if 0 <= sci_threshold <= 20:

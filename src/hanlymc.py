@@ -1,10 +1,10 @@
 import math
 import os
-import sqlite3
+import sqlcipher3
 from datetime import datetime, timedelta
 from pathlib import Path
-from .logs import emit_log
 from . import logs
+from .pyfunctions import fmt
 from .pyfunctions import insert_sys_entry
 from .pyfunctions import is_valid_datetime
 from .pyfunctions import is_integer
@@ -14,7 +14,7 @@ from .pyfunctions import parse_datetime
 from .pysql import clear_conn
 from .pysql import get_recent_changes
 from .pysql import get_recent_sys
-# hybrid analysis 11/19/2025 updated 07/20/2026
+# hybrid analysis 11/19/2025 updated 08/10/2026
 
 
 def target_change(label, entry, recent_sym, previous_sym, link_target, previous_target):
@@ -69,7 +69,7 @@ def stealth(filename, label, entry, recent_size, previous_size, recent_entropy, 
                     )
 
 
-def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tables, id_to_mime, cachermPATTERNS, show_progress=False, logger=None, strt=65, endp=90):
+def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tables, id_to_mime, cachermPATTERNS, p, show_progress=False, logger=None, strt=65, endp=90):
 
     results, sys_records, log_entries = [], [], []
     if logger:
@@ -77,15 +77,13 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
     if not ps:
         sys_tables = ()
 
-    fmt = "%Y-%m-%d %H:%M:%S"
-
     time_period = 5  # days for a file that isnt regularly updated. 5 default
     time_delta = datetime.now() - timedelta(days=time_period)
 
     dbit = False
     csum = False
-
-    conn = sqlite3.connect(dbopt)
+    conn = sqlcipher3.connect(dbopt)
+    conn.execute(f'PRAGMA key = "x\'{p.hex()}\'"')
     cur = None
     try:
         with conn:
@@ -112,7 +110,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                             prog_v = strt + round(delta_v * (steps[current_step] / total_e))  # single core
                             print(f"Progress: {prog_v}%", flush=True)
                         else:
-                            emit_log("prog", x, logs.WORKER_LOG_Q)  # multi
+                            logs.emit_log("prog", x, logs.WORKER_LOG_Q)  # multi
                             x = 0
                         current_step += 1  # end progress
 
@@ -124,7 +122,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
 
                 if len(record) < 18:
 
-                    emit_log("DEBUG", f"sortcomplete entry malformed.  less than required 18 : {record}", logs.WORKER_LOG_Q, logger=logger)
+                    logs.emit_log("DEBUG", f"sortcomplete entry malformed.  less than required 18 : {record}", logs.WORKER_LOG_Q, logger=logger)
                     continue
 
                 entry = {"cerr": [], "flag": [], "scr": [], "sys": [], "dcp": []}
@@ -132,7 +130,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                 recent_timestamp = parse_datetime(record[0], fmt)
                 if not recent_timestamp:
 
-                    emit_log("DEBUG", f"missing timestamp on parsed entry: {record}", logs.WORKER_LOG_Q, logger=logger)
+                    logs.emit_log("DEBUG", f"missing timestamp on parsed entry: {record}", logs.WORKER_LOG_Q, logger=logger)
                     continue
 
                 filename = record[1]
@@ -163,19 +161,20 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                         if (
                             (recent_timestamp > previous_timestamp)
                             or (recent_ctime and previous_sysctime and recent_ctime > previous_sysctime)
-                            or not (previous_sysctime or previous[5])
+                            or (recent_ctime and not previous_sysctime)
                             or (record[5] and previous[5] and record[5] != previous[5])
+                            or (record[5] and not previous[5])
                         ):
                             insert_sys_entry(entry, record, recent_sys, sys_records)
 
                     else:
-                        emit_log("ERROR", f"recent sys entry missing mtime skipping recent_sys: {recent_sys}", logs.WORKER_LOG_Q, logger=logger)
+                        logs.emit_log("ERROR", f"recent sys entry missing mtime skipping recent_sys: {recent_sys}", logs.WORKER_LOG_Q, logger=logger)
 
                 elif ps and recent_sys:
-                    emit_log("DEBUG", f"recent sys entry less than required length 16 : recent_sys: {recent_sys}", logs.WORKER_LOG_Q, logger=logger)
+                    logs.emit_log("DEBUG", f"recent sys entry less than required length 16 : recent_sys: {recent_sys}", logs.WORKER_LOG_Q, logger=logger)
 
                 if previous is None or len(previous) < 16:
-                    emit_log("DEBUG", f"previous record less than required length 16. previous: {previous}", logs.WORKER_LOG_Q, logger=logger)
+                    logs.emit_log("DEBUG", f"previous record less than required length 16. previous: {previous}", logs.WORKER_LOG_Q, logger=logger)
                     continue
                 if checksum:
 
@@ -193,7 +192,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                     valid_checksums = (record[5] is not None and previous[5] is not None)
 
                     # if not record[5] or not previous[5]:
-                    #   emit_log("DEBUG", f"No checksum for file {record} \n recent {previous}", logs.WORKER_LOG_Q, logger=logger)
+                    #   logs.emit_log("DEBUG", f"No checksum for file {record} \n recent {previous}", logs.WORKER_LOG_Q, logger=logger)
                     #   continue
 
                     if not os.path.isfile(filename):
@@ -203,7 +202,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
 
                     if logging_values[1] == "DEBUG":
                         if recent_size is None or previous_size is None:
-                            emit_log("DEBUG", f"invalid format detected size not an integer record: {record} and previous: {previous}", logs.WORKER_LOG_Q, logger=logger)
+                            logs.emit_log("DEBUG", f"invalid format detected size not an integer record: {record} and previous: {previous}", logs.WORKER_LOG_Q, logger=logger)
 
                 if not is_sys:
                     previous_timestamp = parse_datetime(previous[0], fmt)
@@ -235,7 +234,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                             #     a_ino = st.st_ino
                             #     owner_domain = file_owner(file_path, logs.WORKER_LOG_Q, logger=logger)
                             #     if owner_domain in (None, "Nosuchfile"):
-                            #          emit_log("DEBUG", f""hanly failed to convert convert uid to user name for user {st.st_uid} line: {record}", logs.WORKER_LOG_Q, log_entries, logger=logger)
+                            #          logs.emit_log("DEBUG", f""hanly failed to convert convert uid to user name for user {st.st_uid} line: {record}", logs.WORKER_LOG_Q, log_entries, logger=logger)
                             #          entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
                             #          results.append(entry)
                             #          continue
@@ -255,7 +254,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                             #     ctime_str = epoch_to_date(a_ctime).replace(microsecond=0)
                             #     ln 211
                             # else:
-                            #     emit_log("DEBUG", f"Skipping {file_path} couldnt stat in ha current record {record} \n previous record {previous}", logs.WORKER_LOG_Q, log_entries, logger=logger)
+                            #     logs.emit_log("DEBUG", f"Skipping {file_path} couldnt stat in ha current record {record} \n previous record {previous}", logs.WORKER_LOG_Q, log_entries, logger=logger)
                             #     continue
                             if is_valid_datetime(record[4], fmt):  # access time format check
                                 previous_mtime_us = previous[15]
@@ -369,7 +368,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                         f"current inode {record[3]} previous {previous[3]}, current timestamp {recent_timestamp} previous"
                         + f"{previous_timestamp} \n original {previous} \n current {record}"
                     )
-                    emit_log("DEBUG", em, logs.WORKER_LOG_Q, logger=logger)
+                    logs.emit_log("DEBUG", em, logs.WORKER_LOG_Q, logger=logger)
     finally:
         clear_conn(conn, cur)
 
@@ -378,6 +377,6 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
             # prog_v = round(delta_v) + strt
             print(f"Progress: {endp}%", flush=True)  # :.2f
         else:
-            emit_log("prog", x, logs.WORKER_LOG_Q)
+            logs.emit_log("prog", x, logs.WORKER_LOG_Q)
 
     return results, sys_records, log_entries, csum

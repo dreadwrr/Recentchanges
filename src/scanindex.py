@@ -1,8 +1,7 @@
-# Scan index                                                           07/19/2026
+# Scan index                                                           08/03/2026
 import os
 from .dirwalkerfunctions import meta_sys
 from . import logs
-from .logs import emit_log
 
 
 def scan_index(chunk, id_to_mime, is_sym, i, num_chunks, show_progress=False, algo="md5", strt=0, endp=100):
@@ -20,7 +19,7 @@ def scan_index(chunk, id_to_mime, is_sym, i, num_chunks, show_progress=False, al
 
     sys_data, link_data, ent_data, mime_data, nsf_records, log_entries = [], [], [], [], [], []
 
-    x, y = 0, 0
+    x, y, z = 0, 0, 0
 
     current_step = 0
     # incr = 10
@@ -30,15 +29,15 @@ def scan_index(chunk, id_to_mime, is_sym, i, num_chunks, show_progress=False, al
     for record in chunk:
         c += 1
         r += 1
-        if len(record) < 17:
-            emit_log("DEBUG", f"scan_index  record length less than required 17. skipping {record}", logs.WORKER_LOG_Q)
+        if len(record) < 18:
+            logs.emit_log("DEBUG", f"scan_index  record length less than required 17. skipping {record}", logs.WORKER_LOG_Q)
             continue
         file_path = record[1]
         try:
             if dbit:
 
                 if current_step < step_len and c >= steps[current_step]:
-                    emit_log("prog", r, logs.WORKER_LOG_Q)
+                    logs.emit_log("prog", r, logs.WORKER_LOG_Q)
                     r = 0
                     current_step += 1
 
@@ -62,9 +61,10 @@ def scan_index(chunk, id_to_mime, is_sym, i, num_chunks, show_progress=False, al
                 previous_target = record[14]
                 previous_count = record[17]
                 if not previous_md5:
-                    emit_log("DEBUG", f"Previous hash was missing attempting to run checksum. file:  {file_path}", logs.WORKER_LOG_Q)
-                rlt, status = meta_sys(file_path, previous_md5, previous_entropy, previous_mime_id, previous_symlink, previous_target, previous_count,
-                                       is_sym, sys_data, link_data, ent_data, mime_data, id_to_mime, algo, logs.WORKER_LOG_Q)  # append meta data to sys_data
+                    logs.emit_log("DEBUG", f"Previous hash was missing attempting to run checksum. file:  {file_path}", logs.WORKER_LOG_Q)
+
+                rlt, status, size = meta_sys(file_path, previous_md5, previous_entropy, previous_mime_id, previous_symlink, previous_target,
+                                             previous_count, is_sym, sys_data, link_data, ent_data, mime_data, id_to_mime, algo, logs.WORKER_LOG_Q)  # append meta data to sys_data
                 if not rlt:
                     if rlt is False and status == "Nosuchfile":
                         x -= 1
@@ -75,7 +75,9 @@ def scan_index(chunk, id_to_mime, is_sym, i, num_chunks, show_progress=False, al
                             x -= 1
                             y += 1
                             nsf_records.append(record)
-                    # emit_log("DEBUG", f"status: {status}, Hash skipped {file_path} . record: {record}", logs.WORKER_LOG_Q)
+                    # logs.emit_log("DEBUG", f"status: {status}, Hash skipped {file_path} . record: {record}", logs.WORKER_LOG_Q)
+
+                z += size
             else:
                 y += 1
                 nsf_records.append(record)
@@ -84,9 +86,9 @@ def scan_index(chunk, id_to_mime, is_sym, i, num_chunks, show_progress=False, al
                 f"scan_index Encountered an error chunk {i}\\{num_chunks} processing record {c} of {len(chunk)}, "
                 + f"file {file_path}, line: {record}: {type(e).__name__} {e}"
             )
-            emit_log("ERROR", em, logs.WORKER_LOG_Q)
+            logs.emit_log("ERROR", em, logs.WORKER_LOG_Q)
             raise
 
     if dbit and current_step <= len(steps) - 1:
-        emit_log("prog", r, logs.WORKER_LOG_Q)
-    return sys_data, link_data, ent_data, mime_data, nsf_records, log_entries, x, y, c
+        logs.emit_log("prog", r, logs.WORKER_LOG_Q)
+    return sys_data, link_data, ent_data, mime_data, nsf_records, log_entries, x, y, z

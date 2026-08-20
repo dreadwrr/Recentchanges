@@ -4,6 +4,9 @@ import re
 from datetime import datetime
 
 
+fmt = "%Y-%m-%d %H:%M:%S"
+
+
 def suppress_list(escaped_user, suppress_list):
     compiled = [re.compile(re.escape(p)) for p in suppress_list]
     return compiled

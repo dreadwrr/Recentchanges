@@ -23,7 +23,9 @@ def output_mft(exe_path: str, target: str):
         [exe_path, target],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True
+        text=True,
+        encoding="utf-8",
+        errors='ignore'
     )
 
     assert proc.stdout is not None
@@ -89,7 +91,7 @@ def build_tuple(proc):
             record = next(csv.reader(io.StringIO(line)))
         except Exception:
             continue
-        if len(record) > 15:
+        if len(record) > 16:
             if record[12] == "[DIR]":
                 continue
             try:

@@ -1,5 +1,6 @@
 import os
-import sqlite3
+import sqlcipher3
+import subprocess
 import wmi
 import traceback
 from PySide6.QtWidgets import QApplication
@@ -9,11 +10,10 @@ from .config import set_json_settings
 from .config import update_dict
 from .config import update_toml_values
 from .gpgcrypto import decr
-from .gpgcrypto import encr
 from .qtfunctions import window_prompt
 from .pysql import clear_conn
+from .pysql import create_conn
 from .pysql import table_exists
-from .pyfunctions import cnc
 from .rntchangesfunctions import name_of
 from .rntchangesfunctions import removefile
 
@@ -205,7 +205,7 @@ def get_drive_from_partguid(partguid: str) -> str | None:
 #         return data[0]
 #     return data
 
-def get_drive_type(drive):
+def get_drive_type(drive_letter):
     # drive = os.path.splitdrive(basedir)[0].upper()
     c = wmi.WMI()
     index = {}
@@ -213,16 +213,20 @@ def get_drive_type(drive):
         for partition in phy_disk.associators('Win32_DiskDriveToDiskPartition'):
             for log_disk in partition.associators('Win32_LogicalDiskToPartition'):
                 index[log_disk.Caption] = phy_disk.Index
+
+    drive = drive_letter + ":"
     # it is a ramdisk because it isnt listed
     if drive not in index:
         return "SSD"
+
     ws = wmi.WMI(namespace='root/Microsoft/Windows/Storage')
     disks = ws.MSFT_PhysicalDisk(DeviceId=str(index[drive]))
     for disk in disks:
         if disk.MediaType == 4:
-            print("SSD")
+            return "SSD"
         if disk.BusType == 7:
-            print("USB")
+            return "USB"
+    return "HDD"
 
 
 def current_drive_type_model_check(root_dir="C:\\"):
@@ -317,24 +321,22 @@ def current_drive_type_model_check(root_dir="C:\\"):
             else:
                 print("Tried to use RotationRate and is not available")
 
-        # if we still dont know try a quick check
+        # if we still dont know
         if not drive_type:
-            data = get_drive_type(drive_letter)
-            if data:
-                if data["MediaType"] == "SSD":
-                    return drive_id_model, model_type, data["MediaType"]
-                elif data["MediaType"] == "USB":
-                    return drive_id_model, data["MediaType"], "SSD"
 
-            # failing all else prompt the user to save on having to perform
-            # a speed test which are unreliable time consuming puts wear on
-            # the drive and then leads to including unecessary packages
+            drive_type = get_drive_type(drive_letter)
+            if drive_type == "SSD":
+                return drive_id_model, model_type, "SSD"
+            elif drive_type == "USB":
+                return drive_id_model, "USB", "SSD"
+
+            # failing all else prompt the user
             drive_type = "HDD"
             parent = None
             app_inst = QApplication.instance()
             if app_inst:
                 parent = QApplication.activeWindow()
-                uinpt = window_prompt(parent, "Drive type", f"Is {root_dir} ssd", "Yes", "No")
+                uinpt = window_prompt(parent, "Drive type", f"Is {root_dir} ssd (Y/N):", "Yes", "No")
                 if uinpt:
                     drive_type = "SSD"
             else:
@@ -350,14 +352,16 @@ def current_drive_type_model_check(root_dir="C:\\"):
 
         return drive_id_model, model_type, drive_type
 
-    except Exception:
+    except Exception as e:
+        print("err", e)
         return None
 
 
-# check by model type, pnp description or rotation. if not run read test fall back to write test. if all fails set to HDD.
-# user can set in config file config.toml for basedir. user can set in usrprofile.toml for index drive.
-# Newer HDD drives have RotationRate in wmi. Older or legacy drives do not.
 def setup_drive_settings(basedir, key, driveTYPE, toml_file, user_json=None, j_settings=None, idx_drive=False, lclapp_data=None):
+    '''
+        check by model type, pnp description or rotation. if fails set to HDD.
+        user can set in config file config.toml for basedir and in usrprofile.toml for index drive.
+        Newer HDD drives have RotationRate in wmi. Older or legacy drives do not. '''
 
     if driveTYPE:
         return driveTYPE
@@ -369,7 +373,7 @@ def setup_drive_settings(basedir, key, driveTYPE, toml_file, user_json=None, j_s
 
     drive_id_model, model_type, drive_type = drive_info
     if drive_type is None:
-        print("Couldnt determine speed defaulting to HDD. change in config.toml to SSD", toml_file)
+        print("Couldnt determine speed defaulting to HDD. see driveTYPE in config.toml", toml_file)
         drive_type = "HDD"
 
     if basedir == "C:\\" and toml_file and not idx_drive:
@@ -379,11 +383,10 @@ def setup_drive_settings(basedir, key, driveTYPE, toml_file, user_json=None, j_s
     # if its a basedir we only want to put the info in the usrprofile.json if we have it. This is used for diagnostics to return more info about settings in ui.
     # if we were to put the wrong info in usrprofile.json and config.toml the user would have to update two config files which is unlikely.
     #
-    # if its an idx_drive we need this info regardless as usrprofile.toml is where its info is stored. 'drive_type' and 'drive_model'
+    # if its an idx_drive we need this info regardless as usrprofile.json is where its info is stored. 'drive_type' and 'drive_model'
     if user_json:
-        if idx_drive or model_type:
-            if model_type is None:
-                model_type = "Unknown"
+        if idx_drive or model_type != "Unknown":
+
             if key and j_settings is not None:
 
                 update_dict({"idx_suffix": key, "drive_id_model": drive_id_model, "mount_of_index": basedir, "model_type": model_type, "drive_type": drive_type}, j_settings, basedir)
@@ -397,7 +400,7 @@ def setup_drive_settings(basedir, key, driveTYPE, toml_file, user_json=None, j_s
     return drive_type
 
 
-def get_cache_files(basedir, dbopt, dbtarget, cache_s, json_file, user, email, compLVL, j_settings=None, partguid=None, iqt=False):
+def get_cache_files(basedir, dbopt, dbtarget, cache_s, json_file, user, email, j_settings=None, partguid=None, iqt=False):
 
     suffix = "c"
     cache_file = systimeche = None
@@ -499,7 +502,7 @@ def get_cache_files(basedir, dbopt, dbtarget, cache_s, json_file, user, email, c
                                 moi = drive_info.get("mount_of_index")
                                 if moi:
 
-                                    conn = sqlite3.connect(dbopt)
+                                    conn = create_conn(dbopt, dbtarget, email)
                                     cur = conn.cursor()
 
                                     for table in table_list:
@@ -524,18 +527,11 @@ def get_cache_files(basedir, dbopt, dbtarget, cache_s, json_file, user, email, c
                                     conn.close()
                                     cur = conn = None
 
-                                    nc = cnc(dbopt, compLVL)
-                                    if encr(dbopt, dbtarget, email, no_compression=nc, dcr=iqt):  # leave open for gui
-                                        # rename any cache file
-                                        if os.path.isfile(old_cache_s):
-                                            os.rename(old_cache_s, new_cache_s)
-                                        update_dict(None, j_settings, drive)  # remove the old
-                                    else:
-                                        removefile(dbopt)
-                                        print(f"Reencryption failed on updating guid for drive {basedir}.\n")
-                                        print("If unable to resolve reset json file and clear gpgs")
+                                    if os.path.isfile(old_cache_s):
+                                        os.rename(old_cache_s, new_cache_s)
+                                    update_dict(None, j_settings, drive)  # remove the old
 
-                        except sqlite3.Error as e:
+                        except sqlcipher3.Error as e:
                             if conn:
                                 conn.rollback()
                             removefile(dbopt)
@@ -572,22 +568,26 @@ def get_cache_files(basedir, dbopt, dbtarget, cache_s, json_file, user, email, c
     return cache_file, systimeche, suffix
 
 
-def setup_drive_cache(basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, cache_s, driveTYPE, usr, email, compLVL, j_settings=None, partguid=None, iqt=False):
+def setup_drive_cache(basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, cache_s, driveTYPE, usr, email, j_settings=None, partguid=None, iqt=False):
 
     if driveTYPE:
         if driveTYPE.lower() not in ('hdd', 'ssd'):
             print(f"Incorrect setting driveTYPE: {driveTYPE} in config: {toml_file}")
             return None, None, None, None
 
-    cache_s, systimeche, suffix = get_cache_files(basedir, dbopt, dbtarget, cache_s, json_file, usr, email, compLVL, j_settings, partguid, iqt)  # confirm the guid and build the cache_s and suffix
+    cache_s, systimeche, suffix = get_cache_files(basedir, dbopt, dbtarget, cache_s, json_file, usr, email, j_settings, partguid, iqt)  # confirm the guid and build the cache_s and suffix
     if not suffix:
         return None, None, None, None
 
     saved_dt = None
     if j_settings:
-        dtype = j_settings.get(suffix, {}).get("drive_type")
+        dtype = j_settings.get(basedir, {}).get("drive_type")
         if dtype in ("HDD", "SSD"):
             saved_dt = dtype
+
+        # case where user changed the drive in toml but has no entry in json. set it to None so type can be detected
+        if not dtype:
+            driveTYPE = None
 
     if driveTYPE in ("HDD", "SSD"):
         if saved_dt and saved_dt != driveTYPE:
@@ -603,3 +603,24 @@ def setup_drive_cache(basedir, appdata_local, dbopt, dbtarget, json_file, toml_f
         return None, None, None, None
 
     return cache_s, systimeche, suffix, driveTYPE
+
+
+def perform_read_test(basedir, excluded_paths):
+    drive = parse_drive(basedir)
+
+    try:
+        result = subprocess.run(
+            ["winsat", "disk", "-drive", drive, "-seq", "-read"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        print(result.stdout)
+        return result.returncode
+
+    except subprocess.CalledProcessError as e:
+        print(f"WinSAT failed with exit code {e.returncode}")
+        print(e.stdout or "")
+        print(e.stderr or "")
+        return e.returncode

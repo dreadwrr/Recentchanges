@@ -10,7 +10,7 @@ import win32file
 from collections import Counter
 from .logs import emit_log
 from .pyfunctions import epoch_to_date
-# 07/20/2026
+# 08/20/2026
 
 
 def find_link_target(file_path, log_q=None, log_entries=None, logger=None):
@@ -70,7 +70,7 @@ def set_stat(line, checks, file_dt, file_st, file_us, inode, log_q=None, logger=
     mtime = file_dt
     mtime_us = file_us
 
-    creation_time = file_st.st_birthtime
+    creation_time = getattr(file_st, "st_birthtime", file_st.st_ctime)
     c_time = epoch_to_date(creation_time)
     size_int = file_st.st_size
 
@@ -124,7 +124,7 @@ def magic_entropy(file_path: str, header: bytearray, counts: Counter, total_size
 
 
 def get_hash_func(algo="md5"):
-    if algo == "blake2":
+    if "blake" in algo:
         return hashlib.blake2b(digest_size=32)
     return hashlib.md5()
 
@@ -141,7 +141,7 @@ def calculate_checksum(file_path, mtime, mod_time, inode, size_int, prev_hash=No
     try:
         hash_func = get_hash_func(algo)
         with open(file_path, 'rb') as f:
-            while chunk := f.read(8192):
+            while chunk := f.read(1024 * 1024):  # 8192
                 hash_func.update(chunk)
                 counts.update(chunk)
                 save_header(chunk, header)
@@ -237,6 +237,14 @@ def goahead(file_path, log_q=None, log_entries=None, logger=None):
     except OSError as e:
         emit_log("DEBUG", f"goahead Skipping: {file_path} {type(e).__name__} error: {e} \n", log_q, log_entries, logger)
     return None
+
+
+def get_stat(entry, log_q=None, log_entries=None, logger=None):
+    try:
+        return entry.stat(follow_symlinks=False)
+    except OSError as e:
+        emit_log("DEBUG", f"OSError cannot stat  {type(e).__name__} {e} : {entry}", log_q, log_entries, logger)
+        return None
 
 
 def hlink_count(st=None, file_path=None, log_q=None, log_entries=None, logger=None):

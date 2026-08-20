@@ -39,11 +39,17 @@ class PassphraseDialog(QDialog):
 
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+
+        self.password_input.setFocus()  # begin win 2026/07/31
         self.main_layout.addWidget(self.password_input)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+
+        ok = buttons.button(QDialogButtonBox.StandardButton.Ok)  # begin win 2026/07/31
+        ok.setDefault(True)  # begin win 2026/07/31
+
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         self.main_layout.addWidget(buttons)
@@ -96,13 +102,13 @@ class FastColorText(QPlainTextEdit):
         )
 
     def insert_colored_text(self, text, color):
-        fmt = QTextCharFormat()
+        ft = QTextCharFormat()
         if color:
-            fmt.setForeground(color)
+            ft.setForeground(color)
 
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.MoveOperation.End)
-        cursor.insertText(text, fmt)
+        cursor.insertText(text, ft)
         self.setTextCursor(cursor)
 
 

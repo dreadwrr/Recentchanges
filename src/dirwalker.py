@@ -1,9 +1,9 @@
-#   build first to find the files then distribute round-robin to multiprocessing            07/19/2026
+#   build first to find the files then distribute round-robin to multiprocessing            08/20/2026
 # to hash. This was found to be the fastest as other methods have too much overhead
 
 # scan the important files for modified with same mtime or spoofed timestamp
-# this is done with os.scandir recursion multiprocessing. If caching is enabled the
-# system directory mtimes are stored in gpg cache file.
+# this is done with os.scandir recursion multiprocessing. system directory mtimes
+# are stored in gpg cache file.
 
 # find created or downloads button use the cache to find files created or downloaded
 # for fast search results of new files on the system
@@ -14,7 +14,6 @@ import multiprocessing
 import os
 import queue
 import random
-import sqlite3
 import sys
 import time
 import threading
@@ -31,20 +30,19 @@ from .dirwalkerfunctions import collect_files
 from .dirwalkerfunctions import create_profile_baseline
 from .dirwalkerfunctions import decr_cache
 from .dirwalkerfunctions import EXEC_EXTN
+from .dirwalkerfunctions import fill_filterout_list
 from .dirwalkerfunctions import get_base_folders
+from .dirwalkerfunctions import get_config_data
 from .dirwalkerfunctions import get_drive_type
+from .dirwalkerfunctions import get_extension_tup
 from .dirwalkerfunctions import get_filter_tup
 from .dirwalkerfunctions import output_diff
 from .dirwalkerparser import build_dwalk_parser
 from .dirwalkersrg import create_new_index
 from .dirwalkersrg import db_sys_changes
 from .dirwalkersrg import differences_db
-from .dirwalkersrg import hardlinks
 from .dirwalkersrg import save_db
 from .dirwalkersrg import sync_db
-from .dirwalkerwin import get_config_data
-from .dirwalkerwin import get_extension_tup
-from .gpgcrypto import encr
 from .gpgcrypto import encrm
 from .gpgcrypto import dict_string
 from .gpgcrypto import dict_to_list_sys
@@ -57,29 +55,24 @@ from .logs import write_logs_to_logger
 from .pyfunctions import convert_mime_to_int
 from .pyfunctions import cprint
 from .pyfunctions import epoch_to_str
-from .pysql import clear_conn
+from .pyfunctions import fmt
 from .qtdrivefunctions import get_idx_tables
-from .qtdrivefunctions import parse_systimeche
-from .pyfunctions import cnc
 from .rntchangesfunctions import display
 from .rntchangesfunctions import name_of
 from .scancreated import scan_created
 from .scanindex import scan_index
 
 
-# Globals
-fmt = "%Y-%m-%d %H:%M:%S"
+def find_created(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, dtype, tempdir, gnupg_home, dspEDITOR, dspPATH, analytics=True):
+    '''
+        Find downloads
 
+        The following uses cache built from a system index to find created files or downloads. Potentially being faster than
+        the find command or a powershell search. It will update the cache with new directory modified times. Also, any new directories. The
+        cache is a list of all directories on the system. The directory mtime is updated. dir mtime is updated when files are added, removed or renamed only.
 
-# Find downloads
-#
-# The following uses cache built from a system index to find created files or downloads. Potentially being faster than
-# the find command or a powershell search. It will update the cache with new directory modified times. Also, any new directories. The
-# cache is a list of all directories on the system. The directory mtime is updated. dir mtime is updated when files are added, removed or renamed only.
-#
-# Drive index find downloads
-# systimeche.gpg aka cache_s
-def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, gnupg_home, cache_s, dspEDITOR, dspPATH, email, analytics=True, compLVL=200):
+        Drive index find downloads
+        systimeche.gpg aka cache_s '''
 
     cfr_src = decr_cache(cache_s)
     if not cfr_src:
@@ -97,39 +90,12 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
     ll_level = config_data.ll_level
     moduleNAME = config['paths']['moduleNAME']
 
-    exclDIRS += nogo
+    filterout_list, dtype = fill_filterout_list('downloads', appdata_local, basedir, dtype, dbtarget, cache_s, gnupg_home, exclDIRS, nogo, filterout_list, None, user, usrDIR, config, config_data, None)
 
-    filterout_list = [os.path.join(basedir, d) for d in filterout_list]
-
-    if basedir == "C:\\":
-
-        # sensitivity adjust
-        # left out for speed so dont have to glob. these are intermittent runtime files so doesnt effect anything
-        # search_archive = os.path.join(appdata_local, f"{moduleNAME}_MDY_*")  # windows
-        # search_archive = os.path.join("/tmp", f"{moduleNAME}_MDY_*")  # linux
-        # excluded = glob.glob(search_archive)
-        # search_exclude = [
-        #     str(Path(f).relative_to(Path(f).anchor))
-        #     for f in excluded
-        # ]
-        # exclDIRS += search_exclude
-
-        moduleNAME = config['paths']['moduleNAME']
-        download_results = os.path.join(usrDIR, moduleNAME + 'x')  # desktop
-        # pst_data linux or app install windows
-        flth_frm = appdata_local / "flth.csv"  # filter hits
-        cache_f_frm = os.path.join(appdata_local, "ctimecache.gpg")
-        cache_s_frm, _ = parse_systimeche(basedir, cache_s)
-        cache_s_frm = os.path.join(appdata_local, cache_s_frm)
-        filterout_list.append(str(flth_frm))
-        filterout_list.append(download_results)
-        filterout_list.append(cache_f_frm)
-        filterout_list.append(cache_s_frm)
-
-    exclDIRS_fullpath = set(os.path.join(basedir, d) for d in exclDIRS)
+    excluded_paths = set(os.path.join(basedir, d) for d in exclDIRS)
     filter_tup = get_filter_tup(filterout_list)
 
-    base_folders, root_count = get_base_folders(basedir, exclDIRS_fullpath)
+    base_folders, root_count = get_base_folders(basedir, excluded_paths)
     if root_count <= 1:
         print(f"Unable to read base folders of drive {basedir} the drive could be empty or check permissions")
         return 1
@@ -145,11 +111,6 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
     logging_values = (appdata_local, ll_level, tempdir)
     logroot = setup_logger(log_file, logging_values[1], "DOWNLOADS")
 
-    if dtype not in ("HDD", "SSD"):
-        dtype = config_data.driveTYPE
-        json_file = config_data.json_file
-        print("driveTYPE for drive", basedir, " was null check json file", json_file)
-
     if dtype.lower() == "hdd":
 
         show_progress = True
@@ -158,9 +119,9 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
             i = num_chunks = 1
 
             all_sys, systime_results, _, _ = scan_created(
-                base_folders, basedir, exclDIRS_fullpath, filter_tup, cfr_src, root_count, i, num_chunks, show_progress, logroot, strt, endp
+                base_folders, basedir, excluded_paths, filter_tup, cfr_src, root_count, i, num_chunks, show_progress, logroot, strt, endp
             )
-
+            end = time.time()
             prog_v = endp
         except Exception as e:
             emsg = f"find_created error in scan_created while finding downloads serially: {e} {type(e).__name__}"
@@ -171,12 +132,14 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
     else:
         random.shuffle(base_folders)
         len_basefolders = len(base_folders)
+
+        # numpy is already used by pandas and available
         # num_chunks = max(1, min(len_basefolders, multiprocessing.cpu_count(), 8))
         # chunks = [list(map(str, c)) for c in np.array_split(base_folders, num_chunks)]
 
-        # manual. numpy is already used by pandas and available
-        # max_workers = min(8, os.cpu_count() or 4)
+        # manual
         min_chunk_size = 2
+        # max_workers = min(8, os.cpu_count() or 4)
         max_workers = max(1, min(8, os.cpu_count() or 4, len_basefolders // min_chunk_size))
         chunk_size = max(1, (len_basefolders + max_workers - 1) // max_workers)
         chunks = [base_folders[i:i + chunk_size] for i in range(0, len_basefolders, chunk_size)]
@@ -191,7 +154,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
 
             futures = [
                 executor.submit(
-                    scan_created, chunk, basedir, exclDIRS_fullpath, filter_tup, cfr_src, root_count, i, num_chunks, False
+                    scan_created, chunk, basedir, excluded_paths, filter_tup, cfr_src, root_count, i, num_chunks, False
                 )
                 for i, chunk in enumerate(chunks)
             ]
@@ -221,10 +184,10 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
                     logroot.error(emsg, exc_info=True)
                     rlt = 1
                     break
-
+        end = time.time()
         write_logs_to_logger(all_logs, logroot)
+
     prog_v += incr
-    end = time.time()
 
     if rlt == 0:
         if analytics:
@@ -262,8 +225,6 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
 
                     data_to_write = dict_to_list_sys(cfr_src)
 
-                    # look into optimizating the double loop <---
-
                     for row in data_to_write:
                         for k, v in row.items():
                             if not isinstance(v, str):
@@ -287,19 +248,15 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
                         ))
                     # insert/update database
                     # del_keys is to remove db entries for deleted folders if wanting to maintain but no need
-                    if sync_db(dbopt, basedir, cache_s, None, None, None, None, key_upt, from_idx=True):
-                        nc = cnc(dbopt, compLVL)
-                        if encr(dbopt, dbtarget, email, no_compression=nc, dcr=True):
-                            nc = cnc(cache_s, compLVL)
-                            if encrm(ctarget, cache_s, email, no_compression=nc):
+                    if sync_db(dbopt, dbtarget, email, basedir, cache_s, None, None, None, None, key_upt, from_idx=True):
 
-                                print(f"Progress: {prog_v:.2f}%", flush=True)
-                            else:
-                                rlt = 1
-                                print(f"Cache reencryption failed {cache_s} find_created dirwalker.py")
+                        if encrm(ctarget, cache_s, email):
 
+                            print(f"Progress: {prog_v:.2f}%", flush=True)
                         else:
                             rlt = 1
+                            print(f"Cache reencryption failed {cache_s} find_created dirwalker.py")
+
                     else:
                         rlt = 1
             except Exception as e:
@@ -308,33 +265,28 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
                 logging.error(err_m, exc_info=True)
 
         # output results
+
         t = 0
         if all_sys:
-
-            # 3 files used by find created. results file, database gpg (dbtarget) and a gpg file for exclusions
-
-            # temp_dir = tempfile.mkdtemp()
-            output_file = f'{moduleNAME}xcreated.txt'
-            temp_f = os.path.join(tempdir, output_file)
-
-            local_gpg = os.path.join(gnupg_home, "random_seed")
-            # local_gpg = os.path.join(appdata_local, "gpg", "gnupghome", "random_seed")
-            # local_gpg = os.path.join(home_dir, ".gnupg", "random_seed")  # linux
-
             all_sys.sort(key=lambda x: x[1])
+            # 2 files used by find created. results file and a gpg file for exclusions
+            output_file = f'{moduleNAME}xcreated.txt'
+            temp_f = os.path.join(tempdir, output_file)  # temp_dir = tempfile.mkdtemp()
+            local_gpg = os.path.join(gnupg_home, "random_seed")  # os.path.join(appdata_local, "gpg", "gnupghome", "random_seed") or os.path.join(home_dir, ".gnupg", "random_seed")
 
             with open(temp_f, "w", encoding="utf-8") as f:
                 for entry in all_sys:
                     if len(entry) >= 2:
                         full_path = entry[0]
 
-                        if full_path not in (temp_f, dbopt, dbtarget, local_gpg):
+                        if full_path not in (temp_f, dbopt, local_gpg):
                             t += 1
                             mod_time = epoch_to_str(entry[1])
                             print(f'{mod_time} {full_path}', file=f)
                             print(full_path, mod_time)
 
             if t > 0:
+                print('')
                 # print(f"RESULT: {temp_f}")
                 display(dspEDITOR, temp_f, True, dspPATH)
             else:
@@ -346,26 +298,27 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, dtype, tempdir, 
     return rlt
 
 
-#  Build IDX system profile
-#
-# uses os.scandir to first find the applicable files then split and send to workers
-# to hash the system profile. A cache file systimeche.gpg is made of all the directories
-# on the system.
-#
-# System profile and cache file. or index drive for cache file
-#
-# How dirwalker was developed
-# 1 base_folders = get_base_folders() random.shuffle(base_folders). bad load balancing
-# 2 get all directories randomize sort split. was found to be same and slower. Also bad load balancing.
-# all_dirs = collect_dirs()
-# all_dirs.sort(key=lambda x: x[1], reverse=True)
-# chunks = split_dirs_for_workers(all_dirs, num_chunks)
-# chunks = [ [dir_path for dir_path, _ in chunk] for chunk in chunks ]
-# num_chunks = max(1, multiprocessing.cpu_count())
-# chunks = split_dirs_for_workers(all_dirs, num_chunks)
-#
-# 3
-def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, analytics=False, idx_drive=False, gnupghome=None, compLVL=200, iqt=False, strt=0, endp=100):
+def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, gnupghome, analytics=False, idx_drive=False, iqt=False, strt=0, endp=100):
+    '''
+        Build IDX system profile
+
+        uses os.scandir to first find the applicable files then split and send to workers
+        to hash the system profile. A cache file systimeche.gpg is made of all the directories
+        on the system.
+
+        System profile and cache file. or index drive for cache file
+
+        How dirwalker was developed
+        1 base_folders = get_base_folders() random.shuffle(base_folders). bad load balancing
+        2 get all directories randomize sort split. was found to be same and slower. Also bad load balancing.
+        all_dirs = collect_dirs()
+        all_dirs.sort(key=lambda x: x[1], reverse=True)
+        chunks = split_dirs_for_workers(all_dirs, num_chunks)
+        chunks = [ [dir_path for dir_path, _ in chunk] for chunk in chunks ]
+        num_chunks = max(1, multiprocessing.cpu_count())
+        chunks = split_dirs_for_workers(all_dirs, num_chunks)
+
+        3 using the following implementation below '''
 
     appdata_local = Path(appdata_local)
     config_data = get_config_data(appdata_local, user)
@@ -391,13 +344,9 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
 
     deltav = endp - strt
     proval = deltav * .15 + strt
-    # if iqt:
-    #     print(f"Progress: {strt}%", flush=True)  # used to stop password prompt in gui
 
-    parsedsys = []
+    parsedsys, all_files = [], []
     dir_data = {}
-
-    all_files = []
 
     paths_tup, extn_tup = (), ()
 
@@ -407,66 +356,19 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
 
     # proteus shield it is a custom profile from config. use collect_files to find the files and then build the directory cache at the same time
 
-    # handle inclusions exclDIRS suppress_list get converted to tuples after
-    exclDIRS += nogo
+    filterout_list, driveTYPE = fill_filterout_list('build', appdata_local, basedir, driveTYPE, dbtarget, cache_s, gnupghome, exclDIRS, nogo, filterout_list,
+                                                    extension, user, usrDIR, config, config_data, is_noextension)
 
-    # filter out
-    filterout_list = [os.path.join(basedir, d) for d in filterout_list]
-    if basedir == "C:\\":
-
-        # handle exclusions
-        # Windows temp folder
-        exclude_temp = f"Users\\{user}\\AppData\\Local\\Temp"
-        if exclude_temp not in exclDIRS:
-            exclDIRS.append(exclude_temp)
-
-        # biggest exclude is gnupg\\random_seed and any runtime files
-        # windows is primarily tempdir from qt app. these files are intermittent so are not
-        # a problem
-        # tempdir\\'{moduleNAME}xcreated.txt'
-        # tempdir\\'{moduleNAME}xfindfiles.txt'
-        moduleNAME = config['paths']['moduleNAME']
-
-        download_results = os.path.join(usrDIR, moduleNAME + "x")
-        filterout_list.append(download_results)
-        # filterout_list.append(str(file_out))  # linux
-        if '.gpg' in extension:
-
-            cache_f_frm = os.path.join(appdata_local, "ctimecache.gpg")
-            cache_s_frm, _ = parse_systimeche(basedir, cache_s)
-            cache_s_frm = os.path.join(appdata_local, cache_s_frm)
-
-            filterout_list.append(cache_f_frm)
-            filterout_list.append(cache_s_frm)
-            filterout_list.append(dbtarget)
-
-        if ".csv" in extension:
-
-            flth_frm = appdata_local / "flth.csv"
-            filterout_list.append(str(flth_frm))
-
-        if ".db" in extension:
-            filterout_list.append(dbopt)
-
-        if is_noextension and gnupghome:
-
-            file_exclude = os.path.join(gnupghome, "random_seed")
-            if file_exclude not in filterout_list:
-                filterout_list.append(file_exclude)
-    else:
-        # use drive type stored for basedir != "C:\\"
-        json_file = config_data.json_file
-        driveTYPE = get_drive_type(basedir, driveTYPE, cache_s, json_file)
-
-    exclDIRS_fullpath = set(os.path.join(basedir, d) for d in exclDIRS)
+    excluded_paths = set(os.path.join(basedir, d) for d in exclDIRS)
     filter_tup = get_filter_tup(filterout_list)
 
     logging_values = (log_file, ll_level, appdata_local)
     rootlogger = setup_logger(log_file, logging_values[1], "BUILDIDX")
     logger = logging.getLogger("COLLECTFILES")
+
     start = time.time()
     all_files, dir_data, log_entries, max_depth, r, j = collect_files(
-        basedir, exclDIRS_fullpath, filter_tup, exec_tup, extn_tup,
+        basedir, excluded_paths, filter_tup, exec_tup, extn_tup,
         paths_tup, is_noextension, is_exec, is_sym, logger
     )
     end = time.time()
@@ -499,10 +401,10 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
     # if its a drive index make it and return early
     if idx_drive:
         res = create_new_index(
-            dbopt, dbtarget, basedir, cache_s, email, user, None, dir_data, idx_drive=idx_drive, compLVL=compLVL,
-            dcr=True, error_message="Reencryption failed drive idxcache not saved."
-        )  # weigh is 60%
-        prog_v = deltav * .60 + proval  # 75%
+            dbopt, dbtarget, basedir, cache_s, email, user, None, dir_data, idx_drive=idx_drive,
+            error_message="Reencryption failed drive idxcache not saved."
+        )
+        prog_v = deltav * .60 + proval  # changed to 60%
         if iqt:
             print(f"Progress: {prog_v}%")
         if res == 0:
@@ -512,10 +414,6 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
         elif res == 4:
             return 52  # likely encryption failure database integrity is fine
         return res
-
-    if r == 0:
-        print("failed to build profile an error occured there were no matched files. exitting")
-        return 1
 
     endval = deltav * .90 + strt
 
@@ -530,7 +428,7 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
 
     if total < batch_size or driveTYPE.lower() == "hdd":
 
-        start = time.time()
+        start = time.time()  # start = time.perf_counter() maybe change to this for output MB/s
         log_q = queue.SimpleQueue()
         init_process_worker(log_q)
         try:
@@ -622,18 +520,22 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
 
     end = time.time()
     proval = endval
+
     if rlt == 0:
 
         # save system profile
+
         if parsedsys:
+
             if analytics:
                 el = end - start
-                print(f'Search took {el:.3f} seconds')
+                if el:
+                    print("")
+                    print("{:.3f} s".format(el))
 
-            # flatten dict of dicts and store. save cache file and store in db
             rlt = create_new_index(
-                dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, dir_data, idx_drive=False, compLVL=compLVL,
-                dcr=True, error_message="Reencryption failed sys idxcache not saved."
+                dbopt, dbtarget, basedir, cache_s, email, user, parsedsys, dir_data, idx_drive=False,
+                error_message="Reencryption failed sys idxcache not saved."
             )
             if rlt == 0:
 
@@ -657,12 +559,11 @@ def index_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
     return rlt
 
 
-# Scan IDX
-#
-# get the index from sys table recent.db and find differences
+def scan_system(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, diff_file, analytics=True, showDiff=False, showPrevious=False, iqt=False, strt=0, endp=100):
+    '''
+        Scan IDX
 
-
-def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_s, email, analytics=True, showDiff=False, compLVL=200, dcr=False, iqt=False, strt=0, endp=100):
+        get the index from sys table recent.db and find differences '''
 
     scan_start_dt = datetime.now()
 
@@ -676,23 +577,22 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
 
     log_file = config_data.log_file
     driveTYPE = config_data.driveTYPE
-
-    if basedir != "C:\\":
-        json_file = config_data.json_file
-        driveTYPE = get_drive_type(basedir, driveTYPE, cache_s, json_file)
-
     ll_level = config_data.ll_level
 
     config = config_data.config
     checkMETHOD = config['diagnostics']['checkMETHOD']
     is_sym = config['shield']['sym']
 
+    if basedir != "C:\\":
+        json_file = config_data.json_file
+        driveTYPE = get_drive_type(basedir, driveTYPE, cache_s, json_file)
+
     sys_tables, cache_table, _ = get_idx_tables(basedir, cache_s)
 
     if iqt:
         print(f"Progress: {strt}%")
 
-    recent_sys, mime_hashmap, id_to_mime = db_sys_changes(dbopt, sys_tables)  # retrieve profile from db
+    recent_sys, mime_hashmap, id_to_mime = db_sys_changes(dbopt, dbtarget, email, sys_tables)  # retrieve profile from db
 
     if recent_sys is None:  # error
         print("\nThere was no return retrieving profile from db_sys_changes in scan_system indicating a problem. if having problems delete recent.gpg")
@@ -712,18 +612,18 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
     nfs_records = []  # files that no longer exist
     x = 0
     y = 0
-
-    logging_values = (appdata_local, ll_level)
-    logger = setup_logger(log_file, logging_values[1], "SCANIDX")
-
+    c = 0
     total = len(recent_sys)
-    batch_size = 500
+    batch_size = 10000  # 500
     deltav = endp - strt
     endval = deltav * .9 + strt
 
     show_progress = False
     if iqt:
         show_progress = True
+
+    logging_values = (appdata_local, ll_level)
+    logger = setup_logger(log_file, logging_values[1], "SCANIDX")
 
     # get the instanteous change for checksum entropy mime and nsf for the files
 
@@ -739,7 +639,7 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
             tlog = threading.Thread(target=logging_worker, args=(log_q, total, strt, endval, show_progress, logger), daemon=True)
             tlog.start()
 
-            all_sys, link_change, ent_change, mime_change, nfs_records, log_entries, x, y, _ = scan_index(recent_sys, is_sym, i, num_chunks, show_progress, checkMETHOD, strt, endval)
+            all_sys, link_change, ent_change, mime_change, nfs_records, log_entries, x, y, c = scan_index(recent_sys, id_to_mime, is_sym, i, num_chunks, show_progress, checkMETHOD, strt, endval)
             if log_entries:
                 logs_to_queue(log_entries, log_q)
 
@@ -783,7 +683,7 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
                 for future in as_completed(futures):
 
                     try:
-                        sys_data, link_data, ent_data, mime_data, results, log_entries, x_c, y_c, _ = future.result()
+                        sys_data, link_data, ent_data, mime_data, results, log_entries, x_, y_, c_ = future.result()
                         if sys_data:
                             all_sys.extend(sys_data)
                         if link_data:
@@ -796,12 +696,9 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
                             nfs_records.extend(results)
                         if log_entries:
                             logs_to_queue(log_entries, log_q)
-                        x += x_c
-                        y += y_c
-
-                        # if iqt:
-                        #     percent = strt + round((deltav) * done / total)
-                        #     print(f"Progress: {percent}%", flush=True)
+                        x += x_
+                        y += y_
+                        c += c_
 
                     except BrokenProcessPool as e:
                         emit_log("ERROR", f"fault while scanning idx. aborted {e} \n{traceback.format_exc()}", log_q)
@@ -835,7 +732,7 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
         if all_sys:
             all_sys.sort(key=lambda x: x[0])
             all_sys, new_mime_rows, _ = convert_mime_to_int(all_sys, mime_hashmap, id_to_mime)
-        # cant sort this here as has row pairs. sorted in output_diff.
+        # cant sort this here as has row pairs. sorted in output_diff
         # if link_change:
         #     link_change.sort(key=lambda x: x[0])
         if ent_change:
@@ -845,27 +742,31 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
 
         # get previous scans
 
-        prev_scans, link_diff, ent_diff, mime_diff, dir_diff, new_diff = differences_db(dbopt, basedir, all_sys, sys_tables, cache_table, systimeche, showDiff, scan_start)
-        prev_scans = prev_scans or {}
+        prev_scans, link_diff, ent_diff, mime_diff, dir_diff, new_diff = differences_db(dbopt, dbtarget, email, basedir, all_sys, sys_tables, cache_table, systimeche, showDiff, scan_start)
+        prev_scans = prev_scans if showPrevious and prev_scans else {}
         for scantime, rows in prev_scans.items():
             prev_scans[scantime] = [tuple(row.values())[3:] for row in rows]
 
-        if analytics:
-            el = end - start
-            print(f'Search took {el:.3f} seconds\n')
-        if x != 0:
-            p = (y / x) * 100
-            if p > 30:
-                cmsg = f"\nThe sys index had over 30% miss rate recommend rebuild index: {p:.2f}%"
-
         if all_sys:
-            prev_scans[scan_start] = [tuple(row) for row in all_sys]  # add current scan to previous
-            # Insert changes
 
-            if not save_db(dbopt, dbtarget, basedir, cache_s, email, user, None, None, all_sys, new_mime_rows, keys=None, idx_drive=False, compLVL=compLVL, dcr=dcr):
+            prev_scans[scan_start] = [tuple(row) for row in all_sys]  # add current scan to previous. but what if there isnt previous?
+
+            if analytics:
+                el = end - start
+                if el:
+                    print("")
+                    print("{:.3f} s".format(el))
+
+            if x != 0:
+                p = (y / x) * 100
+                if p > 30:
+                    cmsg = f"\nThe sys index had over 30% miss rate recommend rebuild index: {p:.2f}%"
+
+            # insert changes
+
+            if not save_db(dbopt, dbtarget, basedir, cache_s, email, user, None, None, all_sys, new_mime_rows, keys=None, idx_drive=False):
                 rlt = 1
                 print(f"Failed to insert profile changes into {sys_tables[1]} table in scan_system")
-            # change_perm(dbtarget, uid, gid, 0o644)
 
         else:
             print(f'No results found for sys index scan system{' multiprocessing' if driveTYPE.lower() == "ssd" else ''}.')
@@ -889,80 +790,27 @@ def scan_system(appdata_local, dbopt, dbtarget, basedir, user, diff_file, cache_
     return rlt
 
 
-# update the hardlink state for all files in the logs table. Any files that no longer exist are NULL and
-# is useful to see that those file dont exist in the database viewer
-
-def set_hardlinks(appdata_local, dbopt, dbtarget, basedir, user, tempdir, email, compLVL=200):
-    """ Update hardlinks """
-
-    appdata_local = Path(appdata_local)
-    config_data = get_config_data(appdata_local, user)
-    log_file = config_data.log_file
-    ll_level = config_data.ll_level
-    # tempdir = Path(tempdir)
-    logging_values = (appdata_local, ll_level, tempdir)
-    logger = setup_logger(log_file, logging_values[1], "HARDLINKS")
-
-    rlt = 1
-
-    if os.path.isfile(dbopt):
-        conn = cur = None
-        try:
-            conn = sqlite3.connect(dbopt)
-            cur = conn.cursor()
-
-            sts = hardlinks(basedir, dbopt, dbtarget, conn, cur, logger)
-            if sts:
-                cur.close()
-                conn.close()
-                cur = conn = None
-
-                nc = cnc(dbopt, compLVL)
-                rlt = encr(dbopt, dbtarget, email, no_compression=nc, dcr=True)
-                if rlt:
-                    print("Progress: 100.00%", flush=True)
-                    rlt = 0
-
-        finally:
-            clear_conn(conn, cur)
-
-    else:
-        print("dirwalker.py could not find dbopt: ", dbopt)
-
-    return rlt
-
-
 def main_entry(argv):
     parser = build_dwalk_parser()
     args = parser.parse_args(argv)
 
-    if args.action == "hardlink":
+    if args.action == "downloads":
         calling_args = [
-            args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.tempdir, args.email,
-            args.compLVL
+            args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.cache_s, args.email,
+            args.dtype, args.tempdir, args.gnupghome, args.dspEDITOR, args.dspPATH, args.analytics
         ]
-        sys.exit(set_hardlinks(*calling_args))
-
-    elif args.action == "scan":
-        calling_args = [
-            args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.diff_file, args.cache_s,
-            args.email, args.analytics, args.showDiff, args.compLVL, args.dcr, args.iqt, args.strt,
-            args.endp
-        ]
-        sys.exit(scan_system(*calling_args))
+        sys.exit(find_created(*calling_args))
 
     elif args.action == "build":
         calling_args = [
             args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.cache_s, args.email,
-            args.analytics, args.idx_drive, args.gnupghome, args.compLVL, args.iqt, args.strt,
-            args.endp
+            args.gnupghome, args.analytics, args.idx_drive, args.iqt, args.strt, args.endp
         ]
         sys.exit(index_system(*calling_args))
 
-    elif args.action == "downloads":
+    elif args.action == "scan":
         calling_args = [
-            args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.dtype, args.tempdir,
-            args.gnupghome, args.cache_s, args.dspEDITOR, args.dspPATH, args.email, args.analytics,
-            args.compLVL
+            args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.cache_s, args.email,
+            args.diff_file, args.analytics, args.showDiff, args.showPrevious, args.iqt, args.strt, args.endp
         ]
-        sys.exit(find_created(*calling_args))
+        sys.exit(scan_system(*calling_args))

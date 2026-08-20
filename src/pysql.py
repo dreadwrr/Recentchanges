@@ -1,6 +1,10 @@
+import os
+import sqlcipher3
 import sqlite3
 import traceback
-# 07/19/2026
+from .gpgkeymanagement import create_cipher_key
+from .gpgcrypto import get_cipher_key
+# 08/10/2026
 
 
 # 07/16/2026 added file shannon. column entropy beside checksum as requires no overhead
@@ -149,11 +153,29 @@ def create_table_cache(c, table, unique_columns):
     c.execute(f'CREATE INDEX IF NOT EXISTS idx_cache_idx_count_modified_time ON {table} (idx_count, modified_time)')  # composite
 
 
-def create_db(database, sys_tables, action=None):
+def create_conn(database, key_file, email, key=None):
+
+    if not key:
+        if not os.path.isfile(key_file):
+            create_cipher_key(key_file, email)
+        p = get_cipher_key(key_file)
+    else:
+        p = key
+    if p:
+        conn = sqlcipher3.connect(database)
+        conn.execute(f'PRAGMA key = "x\'{p.hex()}\'"')
+        p = None
+        return conn
+    else:
+        raise RuntimeError("Find out why not decrypting. If unable to fix call: recentchanges reset  . unable to decrypt file:", key_file)
+
+
+def create_db(database, key_file, sys_tables, email, action=None):
 
     print('Initializing database...')
 
-    conn = sqlite3.connect(database)
+    conn = create_conn(database, key_file, email)
+
     c = conn.cursor()
 
     create_logs_table(c, ('timestamp', 'filename', 'creationtime', 'checksum'), ['mtime_us INTEGER'])
@@ -191,14 +213,14 @@ def create_db(database, sys_tables, action=None):
         ''',
         '''
         CREATE TABLE IF NOT EXISTS analytics (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
+            id INTEGER PRIMARY KEY CHECK (id=1),
             total_files INTEGER NOT NULL DEFAULT 0,
             total_time INTEGER NOT NULL DEFAULT 0,
             last_start INTEGER
         )
         '''
     ]
-    # sys and sys2 table
+
     for sql in tables:
         c.execute(sql)
 
@@ -207,7 +229,6 @@ def create_db(database, sys_tables, action=None):
     INSERT OR IGNORE INTO extn (id, extension, timestamp, notes)
     VALUES (1, '', '', '')
     ''')
-
     conn.commit()
     if action:
         return (conn)
@@ -216,7 +237,7 @@ def create_db(database, sys_tables, action=None):
 
 
 def query_database(dbopt, sql, params=None, iqt=False):
-
+    """ not in use """
     conn = cur = None
     try:
         conn = sqlite3.connect(dbopt)
@@ -237,7 +258,7 @@ def query_database(dbopt, sql, params=None, iqt=False):
 
 
 def execute_query(dbopt, sql, params=None, iqt=False):
-
+    """ not in use """
     conn = cur = None
     try:
         conn = sqlite3.connect(dbopt)
@@ -304,7 +325,7 @@ def insert_cache(log, table, conn):
         with conn:
             conn.executemany(sql, log)
         return True
-    except sqlite3.Error as e:
+    except sqlcipher3.Error as e:
         print(f"insert failed for table {table} in insert_cache dirwalker: {e}")
     return False
 
@@ -328,7 +349,7 @@ def update_cache(keys, conn, table):
             '''
             c.executemany(sql, keys)
             return True
-    except sqlite3.Error as e:
+    except sqlcipher3.Error as e:
         print(f"Error updating {table} table: {e} {type(e).__name__}")
     return False
 
@@ -409,16 +430,16 @@ def table_has_data(conn, table_name):
     return res
 
 
-def dbtable_has_data(dbopt, table_name):
+def dbtable_has_data(dbopt, dbtarget, email, table_name):
     conn = None
     cur = None
     try:
-        conn = sqlite3.connect(dbopt)
+        conn = create_conn(dbopt, dbtarget, email)
         return table_has_data(conn, table_name)
 
-    except sqlite3.OperationalError:
+    except sqlcipher3.OperationalError:
         return False
-    except (sqlite3.Error, Exception) as e:
+    except (sqlcipher3.Error, Exception) as e:
         print(f"Problem with {dbopt}:", e)
         return False
     finally:
@@ -464,6 +485,33 @@ def clear_sys_profile(conn, cur, basedir, sys_tables, cache_table, systimeche, l
         return False
 
 
+def table_exists(conn, table_name):
+    c = conn.cursor()
+    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+    if not c.fetchone():
+        c.close()
+        return False
+    return True
+
+
+def clear_table(table, conn, cur, quiet=False):
+    try:
+        cur.execute(f"DELETE FROM {table}")
+        try:
+            cur.execute("DELETE FROM sqlite_sequence WHERE name=?", (table,))
+        except sqlcipher3.OperationalError:
+            pass
+        conn.commit()
+        if not quiet:
+            print(f"{table} table cleared.")
+        return True
+    except sqlcipher3.Error as e:
+        if conn:
+            conn.rollback()
+        print(f"clear_table problem while clearing table {table} {type(e).__name__}: {e}")
+    return False
+
+
 def dbclear_sys_profile(dbopt, sys_tables, cache_table, systimeche):
     """ Template not currently used """
     # Drop system time table
@@ -482,8 +530,6 @@ def dbclear_sys_profile(dbopt, sys_tables, cache_table, systimeche):
         conn.commit()
 
         return True
-    except sqlite3.OperationalError as e:
-        print(f"OperationalError {dbopt} connection problem {fn}: {e}")
     except (sqlite3.Error, Exception) as e:
         if conn:
             conn.rollback()
@@ -496,8 +542,7 @@ def dbclear_sys_profile(dbopt, sys_tables, cache_table, systimeche):
 def dbtable_exists(dbopt, table_name):
     """ Template not currently used """
     fn = "dbtable_exists"
-    conn = None
-    cur = None
+    conn = cur = None
     try:
         conn = sqlite3.connect(dbopt)
         return table_exists(conn, table_name)
@@ -509,36 +554,6 @@ def dbtable_exists(dbopt, table_name):
         return False
     finally:
         clear_conn(conn, cur)
-
-
-def table_exists(conn, table_name):
-    c = conn.cursor()
-    c.execute("""
-        SELECT name FROM sqlite_master
-        WHERE type='table' AND name=?
-    """, (table_name,))
-    if not c.fetchone():
-        c.close()
-        return False
-    return True
-
-
-def clear_table(table, conn, cur, quiet=False):
-    try:
-        cur.execute(f"DELETE FROM {table}")
-        try:
-            cur.execute("DELETE FROM sqlite_sequence WHERE name=?", (table,))
-        except sqlite3.OperationalError:
-            pass
-        conn.commit()
-        if not quiet:
-            print(f"{table} table cleared.")
-        return True
-    except sqlite3.Error as e:
-        if conn:
-            conn.rollback()
-        print(f"clear_table problem while clearing table {table} {type(e).__name__}: {e}")
-    return False
 
 
 def dbclear_table(dbopt, table_name):
@@ -570,7 +585,7 @@ def rmv_table(table, conn, cur, quiet=False):
         if not quiet:
             print(f"{table} table cleared.")
         return True
-    except sqlite3.Error as e:
+    except sqlcipher3.Error as e:
         conn.rollback()
         print(f"problem while removing table {table}", e)
     return False
@@ -642,7 +657,7 @@ def collision_check(xdata, cerr, sys_tables, c, ps):
             """
         )
         colcheck = c.fetchall()
-    except sqlite3.DatabaseError as e:
+    except sqlcipher3.DatabaseError as e:
         print(f"Database error in collision detection: {type(e).__name__} : {e}")
         return csum
 
@@ -836,7 +851,7 @@ def increment_f(conn, c, sys_tables, records, logger=None):
         with conn:
             c.executemany(sql_insert, records)
         return True
-    except sqlite3.OperationalError as e:
+    except sqlcipher3.OperationalError as e:
         err = f"increment_f failed to insert changes in sys_b {e}"
         print(err)
         if logger:

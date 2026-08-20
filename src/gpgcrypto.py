@@ -10,6 +10,17 @@ from typing import Any
 from src.pyfunctions import cnc
 
 
+def get_cipher_key(src: str) -> str | None:
+    """ return raw 32 bytes """
+    try:
+        result = subprocess.run(['gpg', '--decrypt', src], capture_output=True, check=True)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        err_msg = e.stderr.decode().strip() if e.stderr else str(e)
+        print(f"[ERROR] could not get cipher key: {err_msg}")
+        return None
+
+
 def encr_cache(cfr, cache_f, email, compLVL):
     data_to_write = dict_to_list(cfr)
     ctarget = dict_string(data_to_write)
@@ -307,10 +318,10 @@ def gpg_can_decrypt(dbtarget):
     cmd = ["gpg", "--decrypt", "--dry-run", dbtarget]
     result = subprocess.run(
         cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
+        capture_output=True,
+        text=True
     )
-    return result.returncode == 0
+    return result.returncode == 0, result.stderr
 
 
 # prepare for file output
