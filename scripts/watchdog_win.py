@@ -20,7 +20,7 @@ from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
 from PySide6.QtGui import QIcon
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
-from src.dirwalkerwin import get_config_data
+from src.dirwalkerfunctions import get_config_data
 from src.pyfunctions import suppress_list
 from src.rntchangesfunctions import get_runtime_exclude_list
 from src.rntchangesfunctions import is_excluded
