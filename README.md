@@ -13,9 +13,9 @@ Uses included GPG or can use gpg4win <br><br>
 Features: <br>
 - Scientific calculator
 - Python watchdog package
-- Check for hash collisions during search when using md5 checksums
+- Checks for hash collisions when using md5 checksums
 - Save encrypted notes
-- Alarm clock supports .mp3, .wav or .ogg files
+- Alarm clock with can play .mp3, .wav and .ogg files
 - Select from a number of fonts or install your own. also 5 themes unix, wb (white on black), solar, monochrome or modern
 - Quick commands displays saved commands for easy reference
 - Create a custom crest with a .png image file max size 255 x 333
