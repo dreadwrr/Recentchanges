@@ -15,7 +15,7 @@ Uses included GPG or can use gpg4win <br><br>
 
 Features: <br>
 - Scientific calculator
-- Look for created files with xRC Python Watchdog
+- With xRC look for created files with python watchdog
 - Check for hash collisions during search (when using md5 checksum)
 - Save encrypted notes
 - Custom alarm clock that plays .mp3, .wav and .ogg files or beeps
@@ -30,7 +30,7 @@ A new feature find new files fast with a  drive index that is stored in a .gpg c
 Scan the system index independently with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
 or faked modified time.  <br><br>
 
-Add to path from settings buttom <br>
+Add to path from settings button <br>
 Commands: <br>
 ./recentchanges <br>
 ./recentchanges search <br>
