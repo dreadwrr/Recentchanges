@@ -126,22 +126,22 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
     supbrwLIST = config['diagnostics']['supbrwLIST']
     suppress = config['diagnostics']['suppress']
     postop = config['diagnostics']['postop']
-    ps = config['shield']['proteusSHIELD']  # proteus shield
-    compLVL = config['logs']['compLVL']
-    moduleNAME = config['paths']['moduleNAME']
-    archivesrh = config['search']['archivesrh']
-    basedir = config['search']['drive']  # main drive for search
-    ll_level = config['logs']['logLEVEL']
-    log_file = config['logs']['userLOG']
-    exclDIRS = user_path(config['search']['exclDIRS'], usr)
-    driveTYPE_frm = config['search']['driveTYPE']
-    pwrshell = config['search']['pwrshell']
     dspEDITOR = config['display']['dspEDITOR']
     if dspEDITOR:
         dspEDITOR = multi_value(dspEDITOR)
     dspPATH_frm = config['display']['dspPATH']
+    compLVL = config['logs']['compLVL']
+    ll_level = config['logs']['logLEVEL']
+    log_file = config['logs']['userLOG']
+    moduleNAME = config['paths']['moduleNAME']
+    archivesrh = config['search']['archivesrh']
+    basedir = config['search']['drive']  # main drive for search
+    exclDIRS = user_path(config['search']['exclDIRS'], usr)
+    driveTYPE_frm = config['search']['driveTYPE']
+    pwrshell = config['search']['pwrshell']
     xRC = config['search']['xRC']
     _time = config['search']['_time']
+    ps = config['shield']['proteusSHIELD']  # proteus shield
 
     escaped_user = re.escape(usr)
 

@@ -77,6 +77,9 @@ class ProcessHandler(QObject):
         return self.process.state() == QProcess.ProcessState.Running
 
     def stop(self):
+        # prevent closing process while between the ranges to avoid any gpg corruption if encryption is interupted and also possible
+        # zombie processes from multiprocessing. so close at next opportunity
+
         # pstsrg done normally  90%
         # POSTOP                85% pstsrg done
         # scanIDX               80% pstsrg done
@@ -94,6 +97,7 @@ class ProcessHandler(QObject):
                 elif self.is_scanIDX:
                     self.ranges["pstsrg"] = (65, 80)
             else:
+                # allow it to close anywhere. before was not at all
                 self.ranges = {
                     "build": (-1, -1),
                     "scan": (-1, -1)

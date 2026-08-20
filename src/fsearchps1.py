@@ -10,7 +10,6 @@ from .fsearchfunctions import get_cached
 from .fsearchfunctions import file_owner
 from .fsearchfunctions import parse_iso
 from . import logs
-from .logs import emit_log
 from .pyfunctions import fmt
 # Powershell Parallel SORTCOMPLETE search and ctime hashing
 
@@ -25,7 +24,7 @@ def process_ps1(line, checksum, filetype, search_start_dt, cache_f, algo="md5", 
     checks = entropy = mime = cam = last_modified = target = None
 
     if len(line) < 11:
-        emit_log("DEBUG", f"process_ps1 record length less than required 11. skipping: {line}", logs.WORKER_LOG_Q, logger=logger)
+        logs.emit_log("DEBUG", f"process_ps1 record length less than required 11. skipping: {line}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     mod_time, access_time, c_time, _, sym, _, size, owner, domain, mode, file_path = line  # inode, hardlink
@@ -46,7 +45,7 @@ def process_ps1(line, checksum, filetype, search_start_dt, cache_f, algo="md5", 
     try:
         size = int(size)
     except (TypeError, ValueError) as e:
-        emit_log("ERROR", f"process_ps1 from pwrshell  {e} {type(e).__name__} size: {size} line:{line}", logs.WORKER_LOG_Q, logger=logger)
+        logs.emit_log("ERROR", f"process_ps1 from pwrshell  {e} {type(e).__name__} size: {size} line:{line}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     c_time = parse_iso(c_time, logs.WORKER_LOG_Q, logger=logger)
@@ -105,7 +104,7 @@ def process_ps1(line, checksum, filetype, search_start_dt, cache_f, algo="md5", 
         owner, domain = owner_domain if owner_domain else (None, None)
 
     if mtime is None:
-        emit_log("DEBUG", f"no mtime from calculate checksum: {file_path} mtime={mtime}", logs.WORKER_LOG_Q, logger=logger)
+        logs.emit_log("DEBUG", f"no mtime from calculate checksum: {file_path} mtime={mtime}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     if c_time and c_time > mtime:
@@ -113,10 +112,10 @@ def process_ps1(line, checksum, filetype, search_start_dt, cache_f, algo="md5", 
         mtime = c_time
         cam = "y"
     elif not c_time:
-        emit_log("DEBUG", f"creation time was None at casmod check: {file_path} : {line}", logs.WORKER_LOG_Q, logger=logger)
+        logs.emit_log("DEBUG", f"creation time was None at casmod check: {file_path} : {line}", logs.WORKER_LOG_Q, logger=logger)
 
     if mtime < search_start_dt:
-        emit_log("DEBUG", f"Warning system cache conflict: {file_path} mtime={mtime} < cutoff={search_start_dt}", logs.WORKER_LOG_Q, logger=logger)
+        logs.emit_log("DEBUG", f"Warning system cache conflict: {file_path} mtime={mtime} < cutoff={search_start_dt}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     atime = parse_iso(access_time, logs.WORKER_LOG_Q, logger=logger)

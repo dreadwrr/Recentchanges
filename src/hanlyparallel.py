@@ -142,7 +142,7 @@ def hanly_parallel(drive_type, rout, created, scr, cerr, parsed, id_to_mime, cac
 
     start = time.perf_counter()
     if len_parsed < 80 or drive_type.lower() == "hdd":
-        # print("aa")
+
         # avoid starting the queue and use logging directly to avoid overhead
 
         # log_q = queue.SimpleQueue()

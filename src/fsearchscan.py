@@ -2,7 +2,6 @@
 import os
 from datetime import datetime
 from . import logs
-from .logs import emit_log
 from .fileops import calculate_checksum
 from .fileops import find_link_target
 from .fileops import set_stat
@@ -30,7 +29,7 @@ def process_scan(line, checksum, file_type, search_start_dt, cache_f, algo="md5"
     file_st = None
 
     if len(line) < 11:
-        emit_log("DEBUG", f"process_scan record length less than required 2. skipping: {line}", logs.WORKER_LOG_Q, logger=logger)
+        logs.emit_log("DEBUG", f"process_scan record length less than required 2. skipping: {line}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     mod_time, access_time, c_time, inode, sym, hardlink, size, owner, domain, mode, file_path = line
@@ -58,7 +57,7 @@ def process_scan(line, checksum, file_type, search_start_dt, cache_f, algo="md5"
             return None, log_entries
 
         if not c_time:
-            emit_log("DEBUG", f"process_scan file no creation time from py32win file: {file_path} line: {line}", logs.WORKER_LOG_Q, logger=logger)
+            logs.emit_log("DEBUG", f"process_scan file no creation time from py32win file: {file_path} line: {line}", logs.WORKER_LOG_Q, logger=logger)
 
     # if xRC access_time isnt stored so do a small initial stat before checksum
     if not access_time:
@@ -66,16 +65,16 @@ def process_scan(line, checksum, file_type, search_start_dt, cache_f, algo="md5"
             st = os.lstat(file_path)
             access_time = st.st_atime
         except PermissionError:
-            emit_log("DEBUG", f"Permission denied could not get access time entry : {line}", logs.WORKER_LOG_Q, logger=logger)
+            logs.emit_log("DEBUG", f"Permission denied could not get access time entry : {line}", logs.WORKER_LOG_Q, logger=logger)
             return None, log_entries
         except OSError as e:
-            emit_log("DEBUG", f"Error stating access time Skipping entry : {line} {type(e).__name__} err: {e}", logs.WORKER_LOG_Q, logger=logger)
+            logs.emit_log("DEBUG", f"Error stating access time Skipping entry : {line} {type(e).__name__} err: {e}", logs.WORKER_LOG_Q, logger=logger)
             return None, log_entries
 
     try:
         size = int(size)
     except (TypeError, ValueError) as e:
-        emit_log("ERROR", f"process_scan from find  {e} {type(e).__name__} size: {size} line:{line}", logs.WORKER_LOG_Q, logger=logger)
+        logs.emit_log("ERROR", f"process_scan from find  {e} {type(e).__name__} size: {size} line:{line}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     mtime_us = normalize_timestamp(mod_time)
@@ -125,9 +124,9 @@ def process_scan(line, checksum, file_type, search_start_dt, cache_f, algo="md5"
 
     if not mode:
         mode = default_mode(sym)
-        emit_log("DEBUG", f"missing mode setting default line: {line}", logs.WORKER_LOG_Q, logger=logger)
+        logs.emit_log("DEBUG", f"missing mode setting default line: {line}", logs.WORKER_LOG_Q, logger=logger)
     if mtime is None:
-        emit_log("DEBUG", f"process line no mtime from calculate checksum: {file_path} mtime={mtime}", logs.WORKER_LOG_Q, logger=logger)
+        logs.emit_log("DEBUG", f"process line no mtime from calculate checksum: {file_path} mtime={mtime}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     if c_time and c_time > mtime:
@@ -135,9 +134,9 @@ def process_scan(line, checksum, file_type, search_start_dt, cache_f, algo="md5"
         mtime = c_time
         cam = "y"
     elif not c_time:
-        emit_log("DEBUG", f"creation time was None at casmod check: {file_path} : {line}", logs.WORKER_LOG_Q, logger=logger)
+        logs.emit_log("DEBUG", f"creation time was None at casmod check: {file_path} : {line}", logs.WORKER_LOG_Q, logger=logger)
     if mtime < search_start_dt:
-        emit_log("DEBUG", f"Warning system cache conflict: {file_path} mtime={mtime} < cutoff={search_start_dt}", logs.WORKER_LOG_Q, logger=logger)
+        logs.emit_log("DEBUG", f"Warning system cache conflict: {file_path} mtime={mtime} < cutoff={search_start_dt}", logs.WORKER_LOG_Q, logger=logger)
         return None, log_entries
 
     atime = epoch_to_date(access_time)
