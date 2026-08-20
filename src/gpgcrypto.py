@@ -89,7 +89,7 @@ def decrm(src: str, quiet=False) -> str | None:
             return None
     else:
         print('No such .gpg file')
-        return None
+        return False
 
 
 def encr(database, opt, email, no_compression=False, dcr=False):

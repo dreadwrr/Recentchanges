@@ -732,7 +732,7 @@ def user_data_to_database(notes, saved_history, logger, dbopt, dbtarget, email, 
         conn = create_conn(dbopt, dbtarget, email)
         cur = conn.cursor()
         res = commit_note_history(logger, notes, saved_history, email, cur)  # save last used drive index to json
-
+        conn.commit()
     except (FileNotFoundError, Exception) as e:
         logger.appendPlainText(f"unable to save user data save_user_data err:{type(e).__name__} {e}")
     finally:
@@ -807,7 +807,6 @@ def user_data_from_database(logger, textEdit, combffile, extensions, dbopt, key_
             if cur:
                 row = cur.fetchone()
                 if row and row[0]:
-
                     # logging.getLogger('gnupg').setLevel(logging.CRITICAL)
                     # gpg = gnupg.GPG()
                     encrypted_blob = row[0]

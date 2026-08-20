@@ -376,7 +376,6 @@ def main(localappdata, action, filename, extension, basedir, usr, dspEDITOR, dsp
                 cache_s, _ = os.path.splitext(cache_s)  # to match index drives as well as cache_s it is `systimeche`
 
                 gnupg_home = None
-                # exclude certain files from .rar/.zip. app inclusions and temp work area
 
                 arch_exclude = get_runtime_exclude_list(
                     localappdata, usrDIR, moduleNAME, flth, dbtarget, cache_f, cache_s,
