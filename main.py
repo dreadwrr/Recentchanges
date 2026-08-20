@@ -1,10 +1,10 @@
-# 06/18/2026               Qt gui windows 11                  Developer buddy 5.0
+# 08/20/2026               Qt gui windows 11                  Developer buddy 6.5
 import glob
 import logging
 import multiprocessing
 import os
+import re
 import shutil
-import sqlite3
 import subprocess
 import sys
 # 05/30/2026 this can bypass prevent cp1252 unicode error
@@ -19,11 +19,9 @@ import win32api
 from pathlib import Path
 from PySide6.QtCore import Qt, Slot, Signal, QThread, QTimer, QSortFilterProxyModel, QSize
 from PySide6.QtGui import QStandardItemModel, QStandardItem, QIcon, QPixmap, QImage
-from PySide6.QtSql import QSqlQuery
-from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QMainWindow, QVBoxLayout, QMenu, QHeaderView, QStyle, QHBoxLayout, QDialog, QLabel, QPushButton
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QMainWindow, QVBoxLayout, QMenu, QHeaderView, QStyle, QHBoxLayout, QDialog, QLabel, QPushButton, QInputDialog
 from src.alarmclock import AlarmClock
 from src.calculator import SCalculator
-from src.clearworker import ClearWorker
 from src.config import dump_j_settings
 from src.config import dump_toml
 from src.config import load_toml
@@ -35,16 +33,19 @@ from src.configfunctions import check_config
 from src.configfunctions import find_gnupg_home
 from src.configfunctions import find_user_folder
 from src.configfunctions import get_config
+from src.dbmexec import DBMexec
 from src.dbworkerstream import DbWorkerIncremental
 from src.dirwalkerfunctions import create_profile_baseline
 from src.dirwalkerfunctions import EXEC_EXTN
+from src.generalworker import GeneralWorker
 from src.gpgcrypto import check_for_gpg
-from src.gpgcrypto import decr
-from src.gpgcrypto import encr
+from src.gpgcrypto import start_user_agent
 from src.gpgkeymanagement import genkey
 from src.gpgkeymanagement import iskey
 from src.imageraster import raised_image
 from src.inotifyfunctions import process_by_target
+from src.inotifyfunctions import process_kill
+from src.inotifyfunctions import strup
 from src.inotifyfunctions import trim_tout
 from src.logs import change_logger
 from src.logs import setup_logger
@@ -52,8 +53,8 @@ from src.mftfunctions import mftec_version
 from src.mftworker import MftWorker
 from src.processhandler import ProcessHandler
 from src.pyfunctions import cache_clear_patterns
-from src.pyfunctions import cnc
 from src.pyfunctions import user_path
+from src.pysql import create_conn
 from src.pysql import create_db
 from src.pysql import dbtable_has_data
 from src.pysql import get_lifetime_throughput
@@ -81,14 +82,12 @@ from src.qtfunctions import clear_from_extn_tbl
 from src.qtfunctions import command_prompt
 from src.qtfunctions import commit_note_history
 from src.qtfunctions import fill_extensions
-from src.qtfunctions import get_conn
 from src.qtfunctions import get_help
 from src.qtfunctions import get_history_view
 from src.qtfunctions import has_log_data
 from src.qtfunctions import has_sys_data
 from src.qtfunctions import help_about
 from src.qtfunctions import load_explorer
-from src.qtfunctions import load_gpg
 from src.qtfunctions import load_pshell
 from src.qtfunctions import open_html_resource
 from src.qtfunctions import profile_to_str
@@ -155,21 +154,14 @@ class MainWindow(QMainWindow):
     reload_sj_sn = Signal(int, object, str, bool)  # also update drive combo on complete
 
     def __init__(
-        self, appdata_local, home_dir, config, j_settings, toml_file, json_file, log_dir, log_path, driveTYPE, distro_name,
-        dbopt, dbtarget, cache_s, cache_s_str, systimeche, suffix, gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH,
-        alarm_soundFILE, alarm_set_soundFILE, downloads, email, usr, cachermPATTERNS, tempdir
+        self, appdata_local, home_dir, config, j_settings, toml_file, json_file, log_dir, log_path, ll_level, driveTYPE,
+        distro_name, dbopt, dbtarget, cache_s, cache_s_str, systimeche, suffix, gpg_path, gnupg_home, dspEDITOR,
+        dspPATH, popPATH, alarm_soundFILE, alarm_set_soundFILE, downloads, email, usr, cachermPATTERNS,
+        supbrwLIST, tempdir
     ):
         super().__init__()
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-
-        # self.ui.lcdNumber.ui.downb.hide()
-        # self.ui.lcdNumber.ui.setb.hide()
-
-        # import winsound
-        # print("\a")
-        # frequency in Hz, duration in ms
-        # winsound.Beep(1000, 500)
 
         self.toml_file = toml_file
         self.sj = json_file
@@ -177,6 +169,7 @@ class MainWindow(QMainWindow):
         self.distro_name = distro_name
         self.log_dir = log_dir
         self.log_path = log_path
+        self.ll_level = ll_level
         self.dbopt = dbopt  # db
         self.dbtarget = dbtarget  # gpg
         self.gpg_path = gpg_path
@@ -192,12 +185,12 @@ class MainWindow(QMainWindow):
         self.email = email
         self.usr = usr
         self.cachermPATTERNS = cachermPATTERNS
+        self.supbrwLIST = supbrwLIST
         self.tempdir = tempdir  # thisapp
 
         self.config = None
         self.analytics = config['analytics']['analytics']
         self.feedback = config['analytics']['feedback']
-        self.compLVL = config['logs']['compLVL']
         self.pageIDX = config['display']['pageIDX']
         self.hudCOLOR = config['display']['hudCOLOR']
         self.hudSZE = config['display']['hudSZE']
@@ -221,6 +214,7 @@ class MainWindow(QMainWindow):
         self.psEXEC = config['shield']['exec']
         self.exclDIRS = user_path(config['search']['exclDIRS'], usr)
         self.xRC = config['search']['xRC']
+        self._time = config['search']['_time']
         self.high_water = config['search']['high_water']
         self.low_water = config['search']['low_water']
         self.min_span = config['search']['min_span']
@@ -475,9 +469,9 @@ class MainWindow(QMainWindow):
             self.alarmCOLOR = None
         self.ui.widget = AlarmClock(self, theme=self.alarmCOLOR, _24hformat=self.alarm_24h, sound_file=sound_path, sound_set_file=sound_set_path)
 
-        # self.ui.widget.setMinimumSize(QSize(50, 50))
-        # self.ui.widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         layout.addWidget(self.ui.widget, *position)
+        self.ui.widget.setMinimumSize(QSize(539, 128))
+        self.ui.widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
 
     def install_logger(self):
         # hudt
@@ -529,14 +523,16 @@ class MainWindow(QMainWindow):
         self.ui.actionCommands.triggered.connect(lambda: show_cmddoc(self.command_file, self.lclhome, self.default_gpg, self.gpg_path, self.gnupg_home, self.email, self.systimeche, self.ui.hudt))
         self.ui.actionQuick1.triggered.connect(lambda: display(self.dspEDITOR, self.command_file, True, self.dspPATH))
         self.ui.actionDiag1.triggered.connect(self.show_status)
-        self.ui.actionWatchdog.triggered.connect(lambda: load_explorer(self.lclscripts))
+        self.ui.actionWatchdog.triggered.connect(self.load_watchdog)
+        self.ui.actionFile_creation_log.triggered.connect(lambda: display(self.dspEDITOR, self.inotify_creation_file, True, self.dspPATH))  # lambda: load_explorer(self.lclscripts))  #
         self.ui.actionLogging.triggered.connect(lambda: display(self.dspEDITOR, self.log_path, True, self.dspPATH))
 
         self.ui.actionCalculator.triggered.connect(self.open_calculator)
+        self.ui.actionScientific_calculator.triggered.connect(lambda _: self.open_calculator("scientific"))
         self.ui.actionClear_history.triggered.connect(self.clear_history)
         self.ui.actionClear_history.setEnabled(False)  # set in designer <-- ** 07/08/2026
         self.ui.actionHistoryv.triggered.connect(self.show_history)
-
+        self.ui.actionDrive_read_test.triggered.connect(self.execute_benchmark)
         self.ui.actionAbout.triggered.connect(lambda: help_about(self.lclhome, self.ui.hudt, self.app_version))
         self.ui.actionResource.triggered.connect(self.open_resource)
         self.ui.actionHelp.triggered.connect(lambda: get_help(self.lclhome, self.ui.hudt))
@@ -550,7 +546,7 @@ class MainWindow(QMainWindow):
 
         # #1 mid ^ Stop Reset defaults button
         self.ui.resetButton.clicked.connect(self.x_action)
-
+        self.ui.stopButton.clicked.connect(self.x_action)
         # Find createdfiles
         self.ui.downloadButton.clicked.connect(lambda: self.find_downloads(self.basedir))
         self.ui.rmvButton.clicked.connect(self.rmv_idx_drive)
@@ -617,6 +613,10 @@ class MainWindow(QMainWindow):
 
         self.ui.tableView.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.ui.tableView.customContextMenuRequested.connect(self.table_context_menu)
+        # self.ui.tableView.horizontalHeader().sectionClicked.connect(self.sort_by_column)  # 08/15/2026
+        self._sort_col = None
+        self._sort_order = Qt.SortOrder.AscendingOrder
+
         # nav   # End page_2
         self.ui.toolhomeb_2.clicked.connect(self.show_page)
         self.ui.toolrtb.clicked.connect(self.show_page_2)
@@ -794,15 +794,15 @@ class MainWindow(QMainWindow):
             else:
                 fill_extensions(self.ui.combffile, self.extensions)  # extension combo if no db yet
 
-                if not os.path.isfile(self.dbtarget):
+                # 08/11/2026 sqlcipher change
+                # dbtarget was the database originally. now is key file.
+                # if not os.path.isfile(self.dbtarget):
 
-                    try:
-                        create_db(self.dbopt, (self.sys_a, self.sys_b))
-                        if not encr(self.dbopt, self.dbtarget, self.email, no_compression=self.nc, dcr=True):
-                            self.ui.hudt.appendPlainText("Unable to create database")
-                    except Exception as e:
-                        QMessageBox.critical(None, "Error", f"Problem creating database through initializer. Exiting.. {e}")
-                        raise  # QApplication.quit()  # .exit(1)
+                try:
+                    create_db(self.dbopt, self.dbtarget, (self.sys_a, self.sys_b), self.email)
+                except Exception as e:
+                    QMessageBox.critical(None, "Error", f"Problem creating database through initializer. Exiting.. {e}")
+                    raise  # QApplication.quit()  # .exit(1)
 
         # find download combo
         a_drives, systimename = self.load_drives()  # if any have a cache file ? loaded it into basedir combo
@@ -937,13 +937,15 @@ class MainWindow(QMainWindow):
 
     def x_action(self):
         sender = self.sender()
-        if self.isexec:
+        if (
+            sender == self.ui.actionStop or sender == self.ui.stopButton
+            and self.isexec
+        ):
             self.clean_up()
             if hasattr(self, 'ui') and hasattr(self.ui, 'hudt'):
                 self.ui.hudt.appendPlainText("Stopping current jobs or process")
         else:
-            if sender != self.ui.actionStop:
-                self.reset_settings()
+            self.reset_settings()
 
     def is_thread(self):
         try:
@@ -984,7 +986,7 @@ class MainWindow(QMainWindow):
             uinpt = window_prompt(self, "Save notes", "Save note changes?", "Yes", "No")
             if uinpt:
                 # 08/03/2026
-                self.save_notes_history()  # self.save_notes(isexit=True)
+                self.save_notes_history(isexit=True)  # self.save_notes(isexit=True)
 
         if getattr(self, 'isexec', False):
             self.clean_up()
@@ -1052,11 +1054,11 @@ class MainWindow(QMainWindow):
                 hudCOLOR = updated_config['display']['hudCOLOR']
                 hudSZE = updated_config['display']['hudSZE']
                 hudFNT = updated_config['display']['hudFNT']
-                compLVL = updated_config['logs']['compLVL']
                 moduleNAME = updated_config['paths']['moduleNAME']
                 pwrshell = updated_config['search']['pwrshell']
                 exclDIRS = user_path(updated_config['search']['exclDIRS'], self.usr)
                 xRC = updated_config['search']['xRC']
+                _time = updated_config['search']['_time']
                 high_water = updated_config['search']['high_water']
                 low_water = updated_config['search']['low_water']
                 min_span = updated_config['search']['min_span']
@@ -1066,14 +1068,16 @@ class MainWindow(QMainWindow):
                 proteusPATH = updated_config['shield']['proteusPATH']
                 proteusSHIELD = updated_config['shield']['proteusSHIELD']
                 psEXEC = updated_config['shield']['exec']
+
                 dspPATH_frm = self.config['display']['dspPATH']
                 new_dspPATH = updated_config['display']['dspPATH']
-                # expansions
                 nogo = user_path(self.config['shield']['nogo'], self.usr)
                 new_nogo = user_path(updated_config['shield']['nogo'], self.usr)
-
                 suppress_list = user_path(self.config['shield']['filterout'], self.usr)
                 new_suppress_list = user_path(updated_config['shield']['filterout'], self.usr)
+
+                # expansions
+
                 # added 06/08/2026
                 alarm_24h = updated_config['display']['alarm_24hr']
                 alarmCOLOR = updated_config['display']['alarmCOLOR']
@@ -1198,7 +1202,7 @@ class MainWindow(QMainWindow):
 
                         cache_s, systimeche, drive_idx, driveTYPE = setup_drive_cache(
                             basedir, self.lclhome, self.dbopt, self.dbtarget, self.sj, self.toml_file, self.cache_s_str, driveTYPE,
-                            self.usr, self.email, self.compLVL, j_settings=self.j_settings, partguid=guid, iqt=True
+                            self.usr, self.email, j_settings=self.j_settings, partguid=guid, iqt=True
                         )
                         if not cache_s or not drive_idx or not self.j_settings:
                             raise DriveLogicError(f"Failed to build cache file for {basedir} in setup_drive_cache")
@@ -1286,7 +1290,6 @@ class MainWindow(QMainWindow):
                 self.email = email
                 self.analytics = analytics
                 self.feedback = feedback
-                self.compLVL = compLVL
                 self.moduleNAME = moduleNAME
 
                 if is_pwrshell:
@@ -1300,6 +1303,7 @@ class MainWindow(QMainWindow):
                 self.psEXEC = psEXEC
                 self.exclDIRS = exclDIRS
                 self.xRC = xRC
+                self._time = _time
                 self.high_water = high_water
                 self.low_water = low_water
                 self.min_span = min_span
@@ -1392,7 +1396,7 @@ class MainWindow(QMainWindow):
         else:
             print(f"{self.dspEDITOR} no such config file: {toml}")
 
-    def postop(self, code, exit_status, show_diff):
+    def postop(self, code, exit_status, show_diff, show_previous):
         if code == 0:
             if self.proc is not None:
                 QTimer.singleShot(
@@ -1401,13 +1405,15 @@ class MainWindow(QMainWindow):
                 )
                 return
             self.isexec = True
-            self.run_scan_idx(show_diff)
+            self.run_scan_idx(show_diff, show_previous)
 
     # overview of configuration also debug generalized
     def show_status(self):
 
+        hudt = self.ui.hudt.appendPlainText
+
         ps = False  # check if profile made
-        if table_loaded(self.dbopt, self.sys_a, self.ui.hudt):
+        if table_loaded(self.dbopt, self.dbtarget, self.email, self.sys_a, self.ui.hudt):
             ps = True
 
         psEXTN = self.j_settings.get(self.suffix, {}).get("proteusEXTN")
@@ -1416,7 +1422,7 @@ class MainWindow(QMainWindow):
         unique_files = 0
         lifetime_throughput = 0
         total_scans = 0
-        conn = sqlite3.connect(self.dbopt)
+        conn = create_conn(self.dbopt, self.dbtarget, self.email)
         cur = conn.cursor()
 
         search_count = blank_count(cur)
@@ -1446,12 +1452,15 @@ class MainWindow(QMainWindow):
         drive_model = None
         if not drive_id:
             # drive_id = "Unknown"
+            hudt("Determining drive type by model or speed test")
             drive_info = current_drive_type_model_check(self.basedir)
             if drive_info:
-                drive_name, drive_model, _ = drive_info
+                drive_name, drive_model, dtype = drive_info
                 if drive_name:
                     drive_id = drive_name
-                    update_j_settings({"drive_id_model": drive_id, "model_type": drive_model}, self.j_settings, self.basedir, self.sj)
+                    if not drive_type:
+                        drive_type = dtype
+                    update_j_settings({"drive_id_model": drive_id, "model_type": drive_model, "drive_type": drive_type}, self.j_settings, self.basedir, self.sj)
 
         if not model_type and drive_model:
             # model_type = "Unknown"
@@ -1478,8 +1487,6 @@ class MainWindow(QMainWindow):
             "Debug line1": f"self.db is {self.db}",  # debuger
             "Debug line2": f'worker is {"active" if self.worker else ""}'
         })
-
-        hudt = self.ui.hudt.appendPlainText
 
         # self.ui.hudt.clear()
 
@@ -1549,8 +1556,8 @@ class MainWindow(QMainWindow):
     def save_notes_history(self, isexit=False):
         notes = self.ui.textEdit.toPlainText()
         self.saved_history = get_history_view(self.saved_history, self.calculator)
-        nc = cnc(self.dbopt, self.compLVL)
-        user_data_to_database(notes, self.saved_history, self.ui.hudt, self.dbopt, self.dbtarget, self.email, nc, isexit=isexit, parent=self)
+
+        user_data_to_database(notes, self.saved_history, self.ui.hudt, self.dbopt, self.dbtarget, self.email, isexit=isexit, parent=self)
         if self.saved_history:
             self.ui.actionClear_history.setEnabled(True)
 
@@ -1606,16 +1613,23 @@ class MainWindow(QMainWindow):
     def load_user_data(self, is_startup=False):
 
         self.ui.textEdit.blockSignals(True)
-        self.user_extensions, self.saved_history = user_data_from_database(self.ui.hudt, self.ui.textEdit, self.ui.combffile, self.extensions, self.dbopt, is_startup, self)
+        self.user_extensions, self.saved_history = user_data_from_database(self.ui.hudt, self.ui.textEdit, self.ui.combffile, self.extensions, self.dbopt,
+                                                                           self.dbtarget, self.email, is_startup, self)
         if self.saved_history:
             self.ui.actionClear_history.setEnabled(True)
         self.ui.textEdit.blockSignals(False)
 
-    def open_calculator(self):
+    def open_calculator(self, mode=None):
         if self.calculator is None:
-            self.calculator = SCalculator(None, self.cmode, self.cTHRESHOLD, self.decimals, self.ctheme, self.chistory,
-                                          self.saved_history, self.randintMAX, self.randintMIN, self.ui.hudt,
-                                          self.clogLEVEL)
+            if mode:
+                self.calculator = SCalculator(None, "scientific", self.cTHRESHOLD, self.decimals, "block", self.chistory,
+                                              self.saved_history, self.randintMAX, self.randintMIN, self.ui.hudt,
+                                              self.clogLEVEL)
+            else:
+                self.calculator = SCalculator(None, self.cmode, self.cTHRESHOLD, self.decimals, self.ctheme, self.chistory,
+                                              self.saved_history, self.randintMAX, self.randintMIN, self.ui.hudt,
+                                              self.clogLEVEL)
+
             self.calculator.complete.connect(self.on_calc_closed)
         self.calculator.show()
         self.calculator.raise_()
@@ -1709,6 +1723,7 @@ class MainWindow(QMainWindow):
         self.ui.jpgcr.setScaledContents(True)
 
     """ alarm """
+
     def copy_sound(self, sound_file):
         new_sound_file = False
         filename = os.path.basename(sound_file)
@@ -2019,9 +2034,8 @@ class MainWindow(QMainWindow):
         """ menubar actionClear_history clear history column from extn table """
         if not self.job_running(True):
             return
-        if clear_from_extn_tbl(self.dbopt, False, False):
+        if clear_from_extn_tbl(self.dbopt, self.dbtarget, self.email, False, False):
             self.saved_history = ""
-            encr(self.dbopt, self.dbtarget, self.email, no_compression=self.nc, dcr=True)
             self.ui.actionClear_history.setEnabled(False)
         self.isexec = False
 
@@ -2029,10 +2043,9 @@ class MainWindow(QMainWindow):
         """ menubar actionClear_extensions clear all rows other than id 1 from extn tbl """
         if not self.job_running(True):
             return
-        if clear_from_extn_tbl(self.dbopt, True, False):
+        if clear_from_extn_tbl(self.dbopt, self.dbtarget, self.email, True, False):
             self.user_extensions = []
-            if encr(self.dbopt, self.dbtarget, self.email, no_compression=self.nc, dcr=True):
-                fill_extensions(self.ui.combffile, self.extensions)
+            fill_extensions(self.ui.combffile, self.extensions)
         self.isexec = False
 
     def new_extension(self):
@@ -2054,8 +2067,10 @@ class MainWindow(QMainWindow):
             return True
         else:
             if not os.path.isfile(self.dbopt):
-                if not load_gpg(self.dbopt, self.dbtarget, self.ui.dbmainlabel):
-                    return False
+                create_db(self.dbopt, self.dbtarget, (self.sys_a, self.sys_b), self.email, action=None)
+                # 08/10/2026 changed to sqlcipher
+                # if not load_gpg(self.dbopt, self.dbtarget, self.ui.dbmainlabel):
+                #   return False
             return self.display_db('logs', False, False)
 
     def show_page_2(self):
@@ -2068,7 +2083,7 @@ class MainWindow(QMainWindow):
     def show_page(self):
         self.ui.stackedWidget.setCurrentWidget(self.ui.page)
 
-    ''' QProcess '''  # Thread ln2089
+    ''' QProcess '''  # Thread ln3336
 
     # Process
     #  for search,tsearch,nt,ffile,sys idx, sys scan, find downloads
@@ -2141,8 +2156,7 @@ class MainWindow(QMainWindow):
         method = ""
         srcDIR = "noarguser"
 
-        # integrate srcDIR for future expansion. <---
-        #
+        # integrate srcDIR for future expansion it is a different flag for linux version
         #
 
         if output == "AppData":
@@ -2155,11 +2169,7 @@ class MainWindow(QMainWindow):
         scanidx = self.ui.diffchkb.isChecked()
         postop = self.ui.diffchka.checkState() == Qt.CheckState.Checked
         showDiff = self.ui.diffchkc.isChecked()
-
-        # if postop:
-        #     doctrine = os.path.join(self.usrDIR, "doctrine.tsv")
-        #     if os.path.exists(doctrine):
-        #         self.ui.hudt.appendPlainText("A file doctrine already exists skipping")
+        showPrevious = self.ui.diffchkd.isChecked()
 
         self.proc = ProcessHandler()
         self.open_proc(360000)
@@ -2171,7 +2181,7 @@ class MainWindow(QMainWindow):
             self.proc.complete.connect(lambda code, _: self.update_ui_sn.emit(code, "search"))
 
         if scanidx:
-            self.proc.complete.connect(lambda code, exit_status, showDiff=showDiff: self.postop(code, exit_status, showDiff))
+            self.proc.complete.connect(lambda code, exit_status, showDiff=showDiff: self.postop(code, exit_status, showDiff, showPrevious))
 
         args = [
             "recentchangessearch.py",
@@ -2261,7 +2271,7 @@ class MainWindow(QMainWindow):
         self.search(output, thetime, argf)
 
     # Find file
-    def ffile(self, compress, time_range=0):
+    def ffile(self, compress):
         if not self.job_running():
             return
 
@@ -2277,6 +2287,27 @@ class MainWindow(QMainWindow):
             window_message(self, "please enter a filename and or extension")
             return
 
+        time_range = self.ui.sffile.value()
+        # range_value
+        # if range_value:
+        #     time_range = range_value
+        # else:
+        # time_range, ok = window_input(self, "Enter search time", "Seconds:")
+        # if ok and time_range:
+        # elif ok:
+        #     self.ui.hudt.appendPlainText("specify 0 to compress all results. or enter a time range to compress")
+        #     return
+        try:
+            time_range = time_convert(time_range, 60, 2)
+            if compress:
+                if time_range == 0:
+                    uinpt = window_prompt(self, "Compress archive", "You have entered 0. This will compress all file matches. Continue", "Yes", "No")
+                    if not uinpt:
+                        return
+        except ValueError:
+            self.ui.hudt.appendPlainText("Invalid number")
+            return
+
         self.proc = ProcessHandler()
         self.open_proc(360000)
 
@@ -2290,18 +2321,6 @@ class MainWindow(QMainWindow):
                 downloads = downloads.strip()
 
             self.proc.set_compress(self.zipPROGRAM, self.zipPATH, str(self.usrDIR), downloads)  # compress button?
-        else:
-            range_value = self.ui.sffile.value()
-            if range_value:
-                try:
-                    range_float = time_convert(range_value, 60, 2)
-                except ValueError:
-                    self.ui.hudt.appendPlainText("Invalid number")
-                    return
-                if range_float:
-                    time_range = range_float
-                    # elif ok:
-                    #     self.ui.hudt.appendPlainText("specify 0 to compress all results. or enter a time range to compress")
 
         action = "pwsh"
         if not self.pwrshell:
@@ -2365,27 +2384,7 @@ class MainWindow(QMainWindow):
                 else:
                     window_message(self, "No zipPATH specified and failed to find a path", "Info")
                     return
-
-        time_range = self.ui.sffile.value()
-        # range_value
-        # if range_value:
-        #     time_range = range_value
-        # else:
-        # time_range, ok = window_input(self, "Enter search time", "Seconds:")
-        # if ok and time_range:
-        # elif ok:
-        #     self.ui.hudt.appendPlainText("specify 0 to compress all results. or enter a time range to compress")
-        #     return
-        try:
-            range_float = time_convert(time_range, 60, 2)
-            if range_float == 0:
-                uinpt = window_prompt(self, "Compress archive", "You have entered 0. This will compress all file matches. Continue", "Yes", "No")
-                if not uinpt:
-                    return
-            self.ffile(True, range_float)
-        except ValueError:
-            self.ui.hudt.appendPlainText("Invalid number")
-            return
+        self.ffile(True)
     #
     # End Find file
 
@@ -2421,6 +2420,48 @@ class MainWindow(QMainWindow):
                 window_message(self, f"selected {target} not found.")
         return None
 
+    def load_watchdog(self):
+
+        platform = "windows"
+        home_dir = ""
+        debug_mode = False
+        escaped_user = re.escape(self.usr)
+
+        script = search_pattern = "watchdog_win.py"
+        cdir = self.lclscripts
+        # inotify_creation_file = cdir / inotify_log_file
+        CACHE_F = cdir / "ctimecache"
+
+        # watchdog_pid_file = os.path.join(cdir, 'inotify_watcher.pid')
+        lockfile = cdir / "ctime.lock"
+
+        self.ui.hudt.appendPlainText(f"Starting watchdog for {self.basedir}")
+
+        pid = process_by_target(search_pattern)
+        if pid:
+            fk_success = process_kill(pid, self.watchdog_pid_file)
+
+            if fk_success and not process_by_target(search_pattern):
+                strup(
+                    self.lclscripts, script, self.lclhome, home_dir, self.inotify_creation_file, CACHE_F, cdir, self.watchdog_pid_file,
+                    lockfile, self.log_path, self.ll_level, self._time, escaped_user, self.moduleNAME, self.usrDIR, self.tempdir,
+                    self.gnupg_home, self.supbrwLIST, debug_mode, self.checkMETHOD, platform
+                )
+                self.ui.hudt.appendPlainText("watchdog started")
+                return
+            if fk_success:
+                logging.debug("init_recentchanges inotifywait was already running continuing")
+
+        else:
+            strup(
+                self.lclscripts, script, self.lclhome, home_dir, self.inotify_creation_file, CACHE_F, cdir, self.watchdog_pid_file,
+                lockfile, self.log_path, self.ll_level, self._time, escaped_user, self.moduleNAME, self.usrDIR, self.tempdir,
+                self.gnupg_home, self.supbrwLIST, debug_mode, self.checkMETHOD, platform
+            )
+            self.ui.hudt.appendPlainText("watchdog started")
+            return
+        self.ui.hudt.appendPlainText("Failed to start watchdog")
+
     ''' Proteus Shield / System Profile '''
 
     # Main db task
@@ -2433,7 +2474,7 @@ class MainWindow(QMainWindow):
     def set_hardlinks(self):
         if not self.job_running(True):
             return
-        if not table_loaded(self.dbopt, 'logs', self.ui.hudt) or not has_log_data(self.dbopt, self.ui.hudt, parent=self):
+        if not table_loaded(self.dbopt, self.dbtarget, self.email, 'logs', self.ui.hudt) or not has_log_data(self.dbopt, self.dbtarget, self.email, self.ui.hudt, parent=self):
             self.isexec = False
             return
 
@@ -2445,16 +2486,15 @@ class MainWindow(QMainWindow):
         self.proc.complete.connect(lambda code, _: self.reload_database_sn.emit(code, False, ("logs",)))
 
         args = [
-            'dirwalker.py',
-            'hardlink',
+            'run',
+            'hardlinks',
             str(self.lclhome),
             self.dbopt,
             self.dbtarget,
             self.basedir,
             self.usr,
             self.tempdir,
-            self.email,
-            str(self.compLVL)
+            self.email
         ]
 
         if not self.is_pyinstall:
@@ -2472,8 +2512,8 @@ class MainWindow(QMainWindow):
             return
         self.run_scan_idx()
 
-    def run_scan_idx(self, show_diff=None):
-        if not dbtable_has_data(self.dbopt, self.sys_a):
+    def run_scan_idx(self, show_diff=None, show_previous=None):
+        if not dbtable_has_data(self.dbopt, self.dbtarget, self.email, self.sys_a):
             self.isexec = False
             return  # check if a sys profile exists
 
@@ -2484,15 +2524,18 @@ class MainWindow(QMainWindow):
         showDiff = show_diff
         if not show_diff:
             showDiff = self.ui.dbchka.isChecked()
+        showPrevious = show_previous
+        if not show_previous:
+            showPrevious = self.ui.dbchkb.isChecked()
 
         self.ui.hudt.append_colored_output("\033[1;32mSystem index scan..\033[0m")
 
-        drive_type = self.j_settings.get(basedir, {}).get("drive_type")
-        timeout = 600000
-        if drive_type and drive_type == "HDD":
-            timeout = timeout * 3
+        # drive_type = self.j_settings.get(basedir, {}).get("drive_type")
+        # timeout = 600000
+        # if drive_type and drive_type == "HDD":
+        #     timeout = timeout * 3
         self.proc = ProcessHandler()
-        self.open_proc(timeout)
+        self.open_proc()
         self.proc_dbui()
         ismcore = True
         self.proc.set_mcore(ismcore)  # os.scandir workers cant be stopped flag. leave process open until complete
@@ -2506,13 +2549,12 @@ class MainWindow(QMainWindow):
             self.dbtarget,
             basedir,
             self.usr,
-            diff_file,
             self.cache_s,
             email,
+            diff_file,
             str(self.analytics),
             str(showDiff),
-            str(self.compLVL),
-            'True',
+            str(showPrevious),
             'True'
         ]
         self.ui.dbmainlabel.setText("Scanning idx")
@@ -2523,10 +2565,10 @@ class MainWindow(QMainWindow):
     # Main Build IDX
     def run_build_idx(self, basedir, cache_s, stsmsg, tables, idx_drive=False, drive_value=None):
 
-        drive_type = self.j_settings.get(basedir, {}).get("drive_type")
-        timeout = 600000
-        if drive_type and drive_type == "HDD":
-            timeout = timeout * 3
+        timeout = 0  # 600000 # time out can be over 600000 so just forgo the timeout for now
+        # drive_type = self.j_settings.get(basedir, {}).get("drive_type")
+        # if drive_type and drive_type == "HDD":
+        #     timeout = timeout * 3
         self.proc = ProcessHandler()
         self.open_proc(timeout)
 
@@ -2555,10 +2597,9 @@ class MainWindow(QMainWindow):
             self.usr,
             cache_s,
             self.email,
+            str(self.gnupg_home),
             str(self.analytics),
             str(idx_drive),
-            str(self.gnupg_home),
-            str(self.compLVL),
             'True'
         ]
         if not self.is_pyinstall:
@@ -2570,7 +2611,7 @@ class MainWindow(QMainWindow):
         if not self.job_running():
             return
 
-        rlt = has_sys_data(self.dbopt, self.ui.hudt, self.sys_a, "Previous sys profile has to be cleared. Continue?", parent=self)  # prompt to delete
+        rlt = has_sys_data(self.dbopt, self.dbtarget, self.email, self.ui.hudt, self.sys_a, "Previous sys profile has to be cleared. Continue?", parent=self)  # prompt to delete
         if rlt is None:
             self.isexec = False
             return
@@ -2605,7 +2646,7 @@ class MainWindow(QMainWindow):
 
         tables = (*sys_tables, cache_table, systimeche)  # for updating ui elements
 
-        if dbtable_has_data(self.dbopt, sys_tables[0]):
+        if dbtable_has_data(self.dbopt, self.dbtarget, self.email, sys_tables[0]):
             self.ui.hudt.appendPlainText(f"Drive {drive} has sys profile. switch basedir in config.toml and then clear IDX and rebuild on page2")
             return
 
@@ -2687,7 +2728,7 @@ class MainWindow(QMainWindow):
                     self.ui.hudt.appendPlainText(f"couldnt find drive mount for {drive} partguid: {guid}")
                     return
 
-        if not dbtable_has_data(self.dbopt, systimeche):  # indexed?
+        if not dbtable_has_data(self.dbopt, self.dbtarget, self.email, systimeche):  # indexed?
             self.isexec = False
             msg = f"{basedir} not indexed."
             if not is_idx:
@@ -2724,6 +2765,7 @@ class MainWindow(QMainWindow):
         # disable stop button ****
         ismcore = True
         self.proc.set_mcore(ismcore)
+
         args = [
             'dirwalker.py',
             'downloads',
@@ -2731,15 +2773,15 @@ class MainWindow(QMainWindow):
             self.dbopt,
             self.dbtarget,
             basedir,
-            self.usr, drive_type,
+            self.usr,
+            cache_s,
+            self.email,
+            drive_type,
             self.tempdir,
             str(self.gnupg_home),
-            cache_s,
             self.dspEDITOR,
             self.dspPATH,
-            self.email,
-            str(self.analytics),
-            str(self.compLVL)
+            str(self.analytics)
         ]
         if not self.is_pyinstall:
             args = ["-u", self.app] + args
@@ -2985,6 +3027,11 @@ class MainWindow(QMainWindow):
             cd.blockSignals(True)
             cd.clear()
             tbl = sort_right(tables, self.cache_table, self.systimeche, self.suffix)  # self.basedir
+
+            tbl = [
+                t for t in tbl
+                if t not in {"extn", "analytics", "scans", "mime_types", "scan_entries"}  # ,
+            ]
             cd.addItems(tbl)
 
             # ix = cd.findText('extn')  # dont display extn table
@@ -3000,32 +3047,23 @@ class MainWindow(QMainWindow):
                     self.table = cd.currentText()
             cd.blockSignals(False)
 
-        # set initial no compression
-        if self.nc is None and self.db:
-            self.nc = cnc(self.dbopt, self.compLVL)
-
-        db = None
-        query = None
         res = False
 
         try:
+            # feedback formatting notes
+            # if err:
+            #     self.ui.hudt.appendPlainText(f"Failed to display {table} table: {err}")
+            #     self.ui.tableView.setModel(No
 
-            db, err = get_conn(self.dbopt, "sq_7")
-            if err:
-                self.ui.hudt.appendPlainText(f"Failed to display {table} table: {err}")
-                self.ui.tableView.setModel(None)
-            else:
+            with DBMexec(self.dbopt, self.dbtarget, self.email, ui_logger=self.ui.hudt) as dmn:
                 self.ui.dbmainb2.setEnabled(False)
                 if table == "sys" or table.startswith("sys_") or table.startswith("cache"):
                     self.sys_step = table
                     self.ui.dbmainb2.setEnabled(True)
 
-                tables = db.tables()
+                tables = dmn.tables()
                 if tables:
-                    tables = [
-                        t for t in tables
-                        if t not in {"extn", "analytics", "scans", "mime_types"}  # "scan_entries",
-                    ]
+
                     res = True
                     self.db = True
                     load_combdb()  # Update combobox
@@ -3037,30 +3075,20 @@ class MainWindow(QMainWindow):
                         self.worker2.start()
 
                     if dybit:  # Anything to append?
-                        query = QSqlQuery(db)
+
                         self.dirtybit = False
-                        # last_drive = self.ui.combd.currentText()  # just save notes dont overwrite saved settings
-                        # update_j_settings({"last_drive": last_drive}, self.j_settings, None, self.sj)
+                        # # last_drive = self.ui.combd.currentText()  # just save notes dont overwrite saved settings
+                        # # update_j_settings({"last_drive": last_drive}, self.j_settings, None, self.sj)
 
                         notes = self.ui.textEdit.toPlainText()
                         self.saved_history = get_history_view(self.saved_history, self.calculator)
 
-                        self.nc = cnc(self.dbopt, self.compLVL)
-                        commit_note_history(self.ui.hudt, notes, self.saved_history, self.email, query)
+                        commit_note_history(self.ui.hudt, notes, self.saved_history, self.email, dmn.cursor)
+                        # self.ui.hudt.appendPlainText("Problem rencrypting notes.")  # 08/12/2026 left from change to sqlcipher
 
         except Exception as e:
             res = False
             self.ui.hudt.appendPlainText(f"failure in display_db err: {e} \n {traceback.format_exc()}")
-
-        finally:
-            if query:
-                del query
-            if db:
-                db.close()
-
-        if res and dybit:  # Released the connection above to append, otherwise locked out
-            if not encr(self.dbopt, self.dbtarget, self.email, no_compression=self.nc, dcr=True):
-                self.ui.hudt.appendPlainText("Problem rencrypting notes.")
 
         if not (refresh or only_combo):  # Only update connection status on combo selection
             if self._status_reset_timer.isActive():
@@ -3076,11 +3104,11 @@ class MainWindow(QMainWindow):
         return res
 
     # db and db Sql helpers
-    def init_dbstreamer(self, table, sys_tables=None, cache_tables=None, superimpose=False, batch_size=500):
+    def init_dbstreamer(self, table, sys_tables=None, cache_tables=None, superimpose=False, batch_size=500, order_by=None, order_dir="ASC"):
 
         self.result = None
         self.exit_result = -1
-        self.worker2 = DbWorkerIncremental(self.dbopt, table, sys_tables, cache_tables, superimpose=superimpose, batch_size=batch_size)
+        self.worker2 = DbWorkerIncremental(self.dbopt, self.dbtarget, self.email, table, sys_tables, cache_tables, superimpose=superimpose, batch_size=batch_size)  # order_by=order_by, order_dir=order_dir
         self.worker2.log.connect(self.append_log)
         self.worker2.exception.connect(
             lambda t, v, tb: sys.excepthook(t, v, tb)
@@ -3094,11 +3122,14 @@ class MainWindow(QMainWindow):
 
     def init_table_model_proxy(self):
         self.model = QStandardItemModel()
+        # 08/14/2026 commented out proxy model for sorting with sql
         self.proxy = QSortFilterProxyModel()
         self.proxy.setSourceModel(self.model)
         self.proxy.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
         self.ui.tableView.setModel(self.proxy)
         self.ui.tableView.setSortingEnabled(False)
+        # self.ui.tableView.setModel(self.model)
+        # self.ui.tableView.setSortingEnabled(False)
 
     # main dn draw set appropriate sizes
     def on_header_values(self, headers, table):
@@ -3123,11 +3154,11 @@ class MainWindow(QMainWindow):
         else:
             systimeche = name_of(self.cache_s_str)
             if 'cache_' in table or systimeche in table:
-                column_widths = [60, 135, 1100, 75, 75, 75, 75, 215]
+                column_widths = [60, 125, 1100, 75, 75, 75, 75, 215]
 
             else:
                 # per-table per-column width list
-                column_widths = [60, 135, 1100, 135, 130, 135, 215, 75, 50, 115, 115, 50, 50, 135, 135, 70]
+                column_widths = [60, 125, 1100, 125, 130, 125, 215, 50, 50, 75, 50, 75, 50, 50, 50, 125, 125, 60, 70]
             # else:
                 # column_widths = [100] * len(headers)
             for i, w in enumerate(column_widths):
@@ -3136,12 +3167,16 @@ class MainWindow(QMainWindow):
 
     @Slot(list)
     def append_rows_to_model(self, rows):
+        SORT_ROLE = Qt.ItemDataRole.UserRole + 1
         for row_data in rows:
             items = []
             for val in row_data:
                 item = QStandardItem(str(val))
                 if isinstance(val, (int, float)):
                     item.setData(val, Qt.ItemDataRole.DisplayRole)
+                    item.setData(val, SORT_ROLE)
+                else:
+                    item.setData(str(val).casefold(), SORT_ROLE)
                 items.append(item)
             self.model.appendRow(items)
 
@@ -3150,7 +3185,7 @@ class MainWindow(QMainWindow):
             # if table == "logs":
             #     self.ui.tableView.sortByColumn(0, Qt.SortOrder.AscendingOrder)
             self.ui.tableView.setSortingEnabled(True)
-            self.proxy.sort(-1)
+            self.proxy.sort(-1)  # 08/14/2026 commented out for sorting with sql
         self.result = code
         self.ui.combdb.setEnabled(True)
         # QApplication.restoreOverrideCursor()
@@ -3231,10 +3266,13 @@ class MainWindow(QMainWindow):
             return
 
         menu = QMenu(view)
+        search_action = menu.addAction("Find")
         copy_action = menu.addAction("Copy")
         chosen = menu.exec(view.viewport().mapToGlobal(pos))
         if chosen == copy_action:
             self.copy_current_cell()
+        elif chosen == search_action:
+            self.search_current_column()
 
     def copy_current_cell(self):
         idx = self.ui.tableView.currentIndex()
@@ -3243,17 +3281,51 @@ class MainWindow(QMainWindow):
         val = idx.data()
         QApplication.clipboard().setText("" if val is None else str(val))
 
-    # Expansion for database page
-    # Live Search
-    # on key press search and stop at first match
-    # prev button
-    # next button
-    #
-    # or
-    #
-    # Traditional Search
-    # alternative would be search by string box and search by filename box
-    #
+    def search_current_column(self):
+        idx = self.ui.tableView.currentIndex()
+        if not idx.isValid():
+            return
+        col = idx.column()
+
+        term, ok = QInputDialog.getText(self.ui.tableView, "Search", "Search for:")
+        if not ok or not term:
+            return
+
+        start_row = idx.row() + 1
+        rows = list(range(start_row, self.proxy.rowCount())) + list(range(0, start_row))
+
+        term_cf = term.casefold()
+        for row in rows:
+            proxy_idx = self.proxy.index(row, col)
+            if term_cf in proxy_idx.data(Qt.ItemDataRole.DisplayRole).casefold():
+                self.ui.tableView.setCurrentIndex(proxy_idx)
+                self.ui.tableView.scrollTo(proxy_idx)
+                return
+
+    def sort_by_column(self, col_index):
+        if self.table != "mime_types" and "_" in self.table:
+            return
+
+        col_name = self.model.horizontalHeaderItem(col_index).text()
+
+        if self._sort_col == col_name:
+            self._sort_order = (
+                Qt.SortOrder.DescendingOrder
+                if self._sort_order == Qt.SortOrder.AscendingOrder
+                else Qt.SortOrder.AscendingOrder
+            )
+        else:
+            self._sort_col = col_name
+            self._sort_order = Qt.SortOrder.AscendingOrder
+
+        self.model.setRowCount(0)  # clear current rows
+        self.init_dbstreamer(
+            self.table,
+            batch_size=500,
+            order_by=col_name,
+            order_dir="ASC" if self._sort_order == Qt.SortOrder.AscendingOrder else "DESC",
+        )
+        self.worker2.start()
 
     # end Sql helpers
 
@@ -3281,7 +3353,7 @@ class MainWindow(QMainWindow):
 
     def cleanup_thread(self):
         if self.worker_thread:
-            self.worker_thread.deleteLater()
+            # self.worker_thread.deleteLater()
             self.worker_thread = None
         if self.worker:
             self.worker = None
@@ -3290,7 +3362,8 @@ class MainWindow(QMainWindow):
         self.worker.log.connect(self.append_log)
         self.worker.complete.connect(lambda code: self.finalize(code))
         self.worker.complete.connect(self.worker_thread.quit)
-        self.worker_thread.finished.connect(self.worker.deleteLater)
+        self.worker.complete.connect(self.worker.deleteLater)
+        self.worker_thread.finished.connect(self.worker_thread.deleteLater)
         self.worker_thread.finished.connect(self.cleanup_thread)
 
     def open_trd(self, timeout=60000):
@@ -3362,20 +3435,20 @@ class MainWindow(QMainWindow):
     def start_mfttrd(self, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk=None, volume=None, mft=None):
         self.worker_thread = QThread()
         self.worker = MftWorker(self.lclhome, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk, volume, mft)
+        self.worker.moveToThread(self.worker_thread)
         self.worker.progress.connect(self.increment_progress)
         self.ui.progressBAR.setValue(0)
         self.worker.exception.connect(
             lambda t, v, tb: sys.excepthook(t, v, tb)
         )
         self.init_thread()
-        self.worker.moveToThread(self.worker_thread)
 
     # Db
-    def start_cleartrd(self, drive):
+    def start_trd(self, drive):
 
         self.worker_thread = QThread()
 
-        self.worker = ClearWorker(self.lclhome, self.home_dir, self.dbopt, self.dbtarget, drive, self.usr, self.email, self.flth, self.compLVL)
+        self.worker = GeneralWorker(self.lclhome, self.home_dir, self.dbopt, self.dbtarget, drive, self.exclDIRS, self.usr, self.email, self.flth)
         self.worker.moveToThread(self.worker_thread)
 
         self.worker.progress.connect(self.increment_db_progress)
@@ -3387,40 +3460,49 @@ class MainWindow(QMainWindow):
         self.init_thread()
     # end Thread types
 
+    def execute_benchmark(self):
+        if not self.job_running(True):
+            return
+        self.start_trd(self.basedir)
+        self.worker.progress.connect(self.increment_progress)
+        self.worker.status.connect(self.update_db_status)
+        self.ui.hudt.appendPlainText("\n")
+        self.run_general_task(self.worker.run_benchmark)
+
     # general tasks db
 
-    def _run_clear_task(self, worker_method, set_task=None):
+    def run_general_task(self, worker_method, set_task=None, timeout=60000):
 
         self.worker_thread.started.connect(worker_method)
         if set_task:  # pass in
             self.worker.set_task(*set_task)
-        self.open_trd()
+        self.open_trd(timeout)
 
     # fork query button
     def execute_query(self):
         if not self.job_running(True):
             return
-        if self.table == "logs" and not self.tableview_loaded() or not table_loaded(self.dbopt, 'logs', self.ui.hudt):
+        if self.table == "logs" and not self.tableview_loaded() or not table_loaded(self.dbopt, self.dbtarget, self.email, 'logs', self.ui.hudt):
             self.isexec = False
             return
-        self.start_cleartrd(self.basedir)
+        self.start_trd(self.basedir)
         self.worker.progress.connect(self.increment_progress)
         self.worker.status.connect(self.update_db_status)
         self.ui.hudt.appendPlainText("\n")
-        self._run_clear_task(self.worker.run_query)
+        self.run_general_task(self.worker.run_query)
 
-    # fork cache clear button
+    # fork cache clear button++
     def clear_cache(self):
         if not self.job_running(True):
             return
-        if not table_loaded(self.dbopt, 'logs', self.ui.hudt):
+        if not table_loaded(self.dbopt, self.dbtarget, self.email, 'logs', self.ui.hudt):
             self.isexec = False
             return
-        self.start_cleartrd(self.basedir)
+        self.start_trd(self.basedir)
         self.worker.status.connect(self.update_db_status)  # db label pg2
         self.worker.complete.connect(lambda code: self.reload_database_sn.emit(code, False, ("logs",)))  # db reload pg2
         self.worker.set_cache(self.cachermPATTERNS)
-        self._run_clear_task(self.worker.run_cacheclr, None)
+        self.run_general_task(self.worker.run_cacheclr, None)
 
     # fork clear IDX button
     # From _pg2 or remove index button on page 1. the former is a basedir the latter is a drive index from find downloads
@@ -3441,7 +3523,7 @@ class MainWindow(QMainWindow):
 
         # if it is basedir is there anything to clear?
         if drive == self.basedir:
-            if not table_loaded(self.dbopt, sys_tables[0], self.ui.hudt):
+            if not table_loaded(self.dbopt, self.dbtarget, self.email, sys_tables[0], self.ui.hudt):
                 self.isexec = False
                 return
 
@@ -3450,12 +3532,13 @@ class MainWindow(QMainWindow):
         is_ps = False
         if idx:
             drive_idx = drive
-            is_ps = has_sys_data(self.dbopt, self.ui.hudt, sys_tables[0], prompt_v, parent=self)
+
+            is_ps = has_sys_data(self.dbopt, self.dbtarget, self.email, self.ui.hudt, sys_tables[0], prompt_v, parent=self)
             if is_ps is None:
                 self.isexec = False
                 return
 
-        self.start_cleartrd(drive)
+        self.start_trd(drive)
         self.worker.status.connect(self.update_db_status)  # db label pg2
         self.worker.complete.connect(lambda code, tables=tables: self.reload_database_sn.emit(code, True, tables))
 
@@ -3464,7 +3547,7 @@ class MainWindow(QMainWindow):
 
         self.worker.complete.connect(lambda code: self.reload_sj_sn.emit(code, drive_idx, 'rmv', is_ps))
 
-        self._run_clear_task(self.worker.run_sysclear, [cache_s, sys_tables, cache_table, systimeche])
+        self.run_general_task(self.worker.run_sysclear, [cache_s, sys_tables, cache_table, systimeche])
 
     #
     # end general tasks db
@@ -3497,7 +3580,7 @@ class MainWindow(QMainWindow):
 
         elif code == 52:
             self.ui.hudt.appendPlainText("A problem saving changes was detected everything preserved. Diagnose if there are any gpg related problems.")
-            # loadgpg(self.dbopt, self.dbtarget, self.ui.dbmainlabel) # roll back on failure. database integrity is fine
+            # roll back on failure. database integrity is fine
     # end On completion Database Helpers
 
     # General Helpers
@@ -3621,9 +3704,19 @@ class MainWindow(QMainWindow):
             else:
                 if code == 52:
                     if locale == 'add':
-                        if not table_loaded(self.dbopt, self.sys_a, self.ui.hudt):  # make sure json and db are in sync on failure
+                        if not table_loaded(self.dbopt, self.dbtarget, self.email, self.sys_a, self.ui.hudt):  # make sure json and db are in sync on failure
                             self.ui.hudt.appendPlainText('profile removed successfully before failure syncing current data to usrprofile.')
-                            self.basedirs.update_current_item(None, proteusEXTN=None)
+
+                            # could do below but what if the drive was changed?
+                            # self.basedirs.update_current_item(None, proteusEXTN=None)
+                            # instead do manual and for reference purposes
+                            e = self.basedirs.index_by_value(self.basedir)
+                            if e != -1:
+                                guid, drive_info, info = self.basedirs.get_item(e)
+                                drive_info.psextn = None
+                                info["proteusEXTN"] = None
+                                self.basedirs.set_item(e, (guid, drive_info, info))
+
                             update_j_settings({"proteusEXTN": None}, self.j_settings, self.basedir, self.sj)
 
     # end General Helpers
@@ -3679,13 +3772,13 @@ def start_main_window():
         if dspEDITOR is None:
             return 1
     cachermPATTERNS = config['backend']['cachermPATTERNS']
+    supbrwLIST = config['diagnostics']['supbrwLIST']
     alarm_soundFILE = config['display']['alarm_soundFILE']
     alarm_set_soundFILE = config['display']['alarm_set_soundFILE']
 
     popPATH = config['display']['popPATH']
     basedir = config['search']['drive']
     driveTYPE_frm = config['search']['driveTYPE']
-    compLVL = config['logs']['compLVL']
     ll_level = config['logs']['logLEVEL']
     log_file = config['logs']['userLOG']
     proteuspaths = config['shield']['proteusPATH']
@@ -3693,6 +3786,14 @@ def start_main_window():
     suppress_list = user_path(config['shield']['filterout'], usr)
 
     cachermPATTERNS = cache_clear_patterns(usr, cachermPATTERNS)
+
+    escaped_user = re.escape(usr)
+
+    supbrwLIST = [
+        p.replace("{{user}}", escaped_user)
+        for p in supbrwLIST
+    ]
+
     # startup/initialize
 
     sound_file_path = None
@@ -3775,15 +3876,15 @@ def start_main_window():
                 return 1
 
             output = os.path.splitext(os.path.basename(dbtarget))[0]
-            dbopt = os.path.join(tempdir, output + '.db')
+            dbopt = os.path.join(appdata_local, output + '.db')
 
             if os.path.isfile(dbtarget):
-                res = decr(dbtarget, dbopt)
+                # p = get_cipher_key(dbtarget)
+                res = start_user_agent(dbtarget)
                 if not res:
-                    if res is None:
-                        QMessageBox.critical(None, "Error", f"There is no key for {dbtarget}.")
-                    else:
-                        QMessageBox.critical(None, "Error", "Decryption failed .gpg could be corrupt. exitting.")
+                    # if res is None:
+                    #     QMessageBox.critical(None, "Error", "Decryption failed .gpg could be corrupt. exitting.")
+                    QMessageBox.critical(None, "Error", f"There may be no key for {dbtarget}. if having problems run recentchanges reset to clear .gpg files and keys")
                     return 1
 
             # if drive is not "C:\\" resolve partguid. store info in json under suffix ie s for S:\\ drive
@@ -3791,7 +3892,7 @@ def start_main_window():
 
             cache_s, systimeche, suffix, driveTYPE = setup_drive_cache(
                 basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, cache_s_str,
-                driveTYPE_frm, usr, email, compLVL, j_settings=j_settings, iqt=True
+                driveTYPE_frm, usr, email, j_settings=j_settings, iqt=True
             )
             if not cache_s or not suffix or not j_settings:
                 return 1
@@ -3828,7 +3929,6 @@ def start_main_window():
             print("Qt database in ", tempdir)
 
             icon_path = str(iconPATH)
-            # print("CC", icon_path)
 
             def excepthook(exc_type, exc_value, exc_traceback):
                 sys.__excepthook__(exc_type, exc_value, exc_traceback)
@@ -3852,9 +3952,9 @@ def start_main_window():
             exit_code = 0
             window = MainWindow(
                 appdata_local, home_dir, config, j_settings, toml_file, json_file, log_dir, log_path,
-                driveTYPE, distro_name, dbopt, dbtarget, cache_s, cache_s_str, systimeche, suffix,
-                gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH, alarm_soundFILE,
-                alarm_set_soundFILE, downloads, email, usr, cachermPATTERNS,
+                ll_level, driveTYPE, distro_name, dbopt, dbtarget, cache_s, cache_s_str, systimeche,
+                suffix, gpg_path, gnupg_home, dspEDITOR, dspPATH, popPATH, alarm_soundFILE,
+                alarm_set_soundFILE, downloads, email, usr, cachermPATTERNS, supbrwLIST,
                 tempdir
             )
 
