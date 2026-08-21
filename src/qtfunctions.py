@@ -757,7 +757,8 @@ def user_data_from_database(logger, textEdit, combffile, extensions, dbopt, key_
     try:
         with DBMexec(dbopt, key_file, email, ui_logger=logger) as dmn:
 
-            # this is called when the app is started store the current time so later can check if app has been started after system boot
+            # this is called when the app is started store the current time so later can check if app has not been started since system reboot
+            # so can tell files havent been cached for benchmarking purposes
             if is_startup:
 
                 # alternative using powershell to get the boottime
@@ -770,15 +771,15 @@ def user_data_from_database(logger, textEdit, combffile, extensions, dbopt, key_
                 #     ],
                 #     text=True
                 # ).strip()
-
                 # boot_time = datetime.fromisoformat(result)
 
                 # boot_time = datetime.fromtimestamp(psutil.boot_time())
                 # print(boot_time)
 
-                last_start = int(datetime.now().timestamp())  # to compare later to system start time to see if the app is launched for the first time **
-                # print(last_start)
+                # psutil.boot_time() # is directly comparable to what we are inserting
+                last_start = int(datetime.now().timestamp())
 
+                # to compare later to system start time to see if the app is launched for the first time **
                 # if a benchmark was already done since last boot then dont benchmark again.
 
                 sql = """
@@ -790,6 +791,12 @@ def user_data_from_database(logger, textEdit, combffile, extensions, dbopt, key_
                 cur = dmn.execute(sql, {"last_start": str(last_start)})
                 if not cur:
                     logger.appendPlainText("Query failed analytics table in user_data_from_database while starting up")
+
+                # to retrieve later where benchmarking
+                # if cur:
+                #   sql = "SELECT last_start FROM analytics WHERE id = 1"
+                #   row = cur.execute(sql).fetchone()
+                #   last_start = row[0] if row else None
 
             # get saved extensions skiping the first row which has the encrypted notes
             data_name = "extn"

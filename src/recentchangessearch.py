@@ -575,7 +575,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
                     hsearch(oldsort, appdata_local, moduleNAME, flnm)
 
             # Move or clear previous searches
-            validrlt = clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh)
+            validrlt = clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh, result_output, oldsort)
 
             target_path = None
 

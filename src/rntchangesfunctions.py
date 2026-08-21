@@ -1,4 +1,4 @@
-# 06/19/2026           developer buddy core
+# 08/20/2026           developer buddy core
 import csv
 import ctypes
 import glob
@@ -399,7 +399,7 @@ def find_ps1(command, recent, complete, init, cfr, search_start_dt, user_setting
 # after checking for a previous search it is required to remove all old searches to keep the workspace clean and avoid write problems later.
 # Also copy the old search to the MDY folder in appinstall for later diff retention
 
-def clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh):
+def clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh, result_output, oldsort=None):
 
     FLBRAND = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M_%S")  # %y-%m-%d better sorting?
     validrlt = ""
@@ -576,20 +576,23 @@ def hsearch(oldsort, appdata, moduleNAME, flnm):
     folders = sorted(glob.glob(dir_pth), reverse=True)
 
     # glob changes based on flnm
-
+    oldsort.clear()
     for folder in folders:
         pattern = os.path.join(folder, f"{moduleNAME}{flnm}*")  # pattern = os.path.join(folder, f"{moduleNAME}xSystemchanges{argone}*")
         matching_files = sorted(glob.glob(pattern), reverse=True)
 
         for file in matching_files:
-            if os.path.isfile(file):
-                with open(file, 'r') as f:
-                    oldsort.clear()
-                    oldsort.extend(f.readlines())
-                break
+            if not oldsort:
+                if os.path.isfile(file):
+                    with open(file, 'r') as f:
+                        oldsort.clear()
+                        oldsort.extend(f.readlines())
+                    # break  # commented out for sqlcipher
+            else:
+                removefile(file)  # added to remove history of searches until adding another table to sqlcipher and eliminate old files altogether
 
-        if oldsort:
-            break
+        # if oldsort:
+        #     break  # commented out for sqlcipher
 
 
 def removefile(fpath):
