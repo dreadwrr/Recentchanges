@@ -8,19 +8,19 @@ Last updated: 08/20/2026 <br>
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 Windows 10 11 File search application with Hybrid analysis and MFT search <br><br>
 Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed. <br><br>
-Uses included GPG or can use gpg4win <br><br>
 
+Uses included GPG or can use gpg4win <br>
 Uses sqlcipher for database storage <br>
 Scientific calculator <br>
 Python watchdog package <br>
 Checks for hash collisions when using md5 checksums <br>
 Quick commands displays saved commands for easy reference <br>
-Full commandline support with recentchanges.bat and rnt.bat <br><br>
+Full commandline support with recentchanges.bat and rnt.bat <br>
 
 find file or files by extension <br>
 A new feature find new files fast with a drive index that is stored in a .gpg cache file loaded into memory.<br><br>
 Scan the system index independently with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
-or faked modified time.  <br><br>
+or faked modified time.  <br>
 
 Add to path from settings button <br>
 Commands: <br>
