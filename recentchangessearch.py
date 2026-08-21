@@ -1,0 +1,834 @@
+#! python3
+#   Windows 10 / 11                                                                08/10/2026
+#   recentchanges. Developer buddy      recentchanges/ recentchanges search
+#   Provide ease of pattern finding ie what files to block we can do this a number of ways
+#   1) if a file was there (many as in more than a few) and another search lists them as deleted its either a sys file or not but unwanted nontheless
+#   2) Is a system file inherent to the specifc platform
+#   3) intangibles ie trashed items that may pop up infrequently and are not known about
+#
+#   This script is called by two methods. recentchanges and recentchanges search. The former is discussed below
+
+#   recentchanges
+#           Searches are saved in <app_install> and are unfiltered.
+#           old search can be grabbed from <app_install>\\{moduleNAME}_MDY\\
+#
+#   recentchanges search
+#           Output to Desktop
+#           The search is unfiltered and a filesearch is filtered.
+#           old searches can be grabbed from <app_install> or <app_install>\\{moduleNAME}_MDY\\ for convenience
+#           if there is no differences it displays the old search for specified search criteria
+#
+#   rnt inverses the results. rnt.bat   ie for rnt or rnt search will filter the results. For a file search it removes the filter.
+#   Also borrowed script features from various scripts on porteus forums
+import logging
+import os
+import re
+import signal
+import shutil
+import sys
+import tempfile
+import time
+from datetime import datetime, timedelta
+from . import processha
+from .config import load_toml
+from .configfunctions import check_config
+from .configfunctions import find_install
+from .configfunctions import find_user_folder
+from .configfunctions import get_config
+from .filterhits import update_filter_csv
+from .fsearchfunctions import set_excl_dirs
+from .gpgcrypto import check_for_gpg
+from .gpgcrypto import decr_ctime
+from .gpgcrypto import encr_cache
+from .gpgkeymanagement import genkey
+from .gpgkeymanagement import iskey
+from .inotifyfunctions import init_recentchanges
+from .logs import setup_logger
+from .pstsrg import main as pst_srg
+from .pyfunctions import cache_clear_patterns
+from .pyfunctions import cprint
+from .pyfunctions import fmt
+from .pyfunctions import user_path
+from .recentchangessearchparser import build_parser
+from .rntchangesfunctions import build_tsv
+from .rntchangesfunctions import clear_logs
+from .rntchangesfunctions import display
+from .rntchangesfunctions import filter_lines_from_list
+from .rntchangesfunctions import filter_output
+from .rntchangesfunctions import find_ps1
+from .rntchangesfunctions import find_scan
+from .rntchangesfunctions import get_runtime_exclude_list
+from .rntchangesfunctions import hsearch
+from .rntchangesfunctions import logic
+from .rntchangesfunctions import multi_value
+from .rntchangesfunctions import name_of
+from .rntchangesfunctions import removefile
+from .rntchangesfunctions import resolve_editor
+from .rntchangesfunctions import set_gpg
+from .rntchangesfunctions import time_convert
+from .qtdrivefunctions import setup_drive_cache
+
+
+def sighandle(signum, frame):
+    # global stopf
+
+    if signum in (signal.SIGINT, signal.SIGTERM):
+        if signum == 2:
+            print("Exit on ctrl-c", flush=True)
+            sys.exit(0)
+
+
+signal.signal(signal.SIGINT, sighandle)
+signal.signal(signal.SIGTERM, sighandle)
+
+
+'''
+init 0 - 20 %
+main search 20 - 60 %
+processing 60 - 65%
+pstsrg 65% - 90%
+pstsrg with postop 65 - 85%
+pstsrg with scanIDX 65 - 80%
+pstsrg with postop and scanIDX 65 - 75%
+'''
+
+
+def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None, dtype=None, dbopt=None, cache_s=None, post_OP=False, dspPATH=None):
+
+    appdata_local = find_install()  # appdata software install aka workdir
+    toml_file, json_file, usr = get_config(appdata_local, usr, platform="Windows")
+
+    script_dir = appdata_local / "scripts"
+    flth_frm = appdata_local / "flth.csv"
+    dbtarget_frm = appdata_local / "recent.gpg"
+    cache_f_frm = appdata_local / "ctimecache.gpg"
+    cache_s_frm = appdata_local / "systimeche.gpg"
+    flth = str(flth_frm)
+    dbtarget = str(dbtarget_frm)
+    cache_f = str(cache_f_frm)
+    cache_s_str = str(cache_s_frm)
+
+    j_settings = {}  # convenience for commandline if basedir other than C:\\ always have available.
+    # if basedir is C:\\ doesnt not touch json for speed as its set that way most of the time **
+    config = load_toml(toml_file)
+    if not config:
+        return 1
+    feedback = config['analytics']['feedback']
+    analytics = config['analytics']['analytics']
+    email = config['backend']['email']
+    email_name = config['backend']['name']
+    cachermPATTERNS = config['backend']['cachermPATTERNS']
+    cachermPATTERNS = cache_clear_patterns(usr, cachermPATTERNS)
+    checksum = config['diagnostics']['checkSUM']
+    checkMETHOD = config['diagnostics']['checkMETHOD']
+    cdiag = config['diagnostics']['cdiag']
+    suppress_browser = config['diagnostics']['supbrw']
+    supbrwLIST = config['diagnostics']['supbrwLIST']
+    suppress = config['diagnostics']['suppress']
+    postop = config['diagnostics']['postop']
+    dspEDITOR = config['display']['dspEDITOR']
+    if dspEDITOR:
+        dspEDITOR = multi_value(dspEDITOR)
+    dspPATH_frm = config['display']['dspPATH']
+    compLVL = config['logs']['compLVL']
+    ll_level = config['logs']['logLEVEL']
+    log_file = config['logs']['userLOG']
+    moduleNAME = config['paths']['moduleNAME']
+    archivesrh = config['search']['archivesrh']
+    basedir = config['search']['drive']  # main drive for search
+    exclDIRS = user_path(config['search']['exclDIRS'], usr)
+    driveTYPE_frm = config['search']['driveTYPE']
+    pwrshell = config['search']['pwrshell']
+    xRC = config['search']['xRC']
+    _time = config['search']['_time']
+    ps = config['shield']['proteusSHIELD']  # proteus shield
+
+    escaped_user = re.escape(usr)
+
+    # suppress browser list in config. regex
+    supbrwLIST = [
+        p.replace("{{user}}", escaped_user)
+        for p in supbrwLIST
+    ]
+
+    # init
+
+    gnupg_home = None
+
+    if iqt:
+        basedir = drive
+        driveTYPE = driveTYPE_frm
+        if dtype in ("HDD", "SSD"):
+            driveTYPE = dtype
+        else:
+            print("driveTYPE for drive", basedir, " was null check json file", json_file)
+
+        postop = post_OP
+        dspPATH = dspPATH
+    else:
+        if shutil.which("gpg") is None:
+            gpg_path, gnupg_home = set_gpg(appdata_local, "gpg")
+        if not check_for_gpg():
+            print("Unable to verify gpg in path. Likely path was partially initialized. quitting")
+            return 1
+
+        dspPATH = ""
+        if dspEDITOR:  # user wants results output in text editor
+            dspEDITOR, dspPATH = resolve_editor(dspEDITOR, dspPATH_frm, toml_file)  # verify we have a working one
+            if dspEDITOR is None:
+                return 1
+
+        outfile = name_of(dbtarget, '.db')
+        dbopt = os.path.join(appdata_local, outfile)
+
+        if ps:
+            proteusPATH = config['shield']['proteusPATH']
+            nogo = user_path(config['shield']['nogo'], usr)
+            suppress_list = user_path(config['shield']['filterout'], usr)
+            if not check_config(proteusPATH, nogo, suppress_list):
+                return 1
+
+        # if the drive type is not set auto detect it and update toml. look in json for partuuid and build cache_s
+        #
+        # if for some reason the mount changed for the drive update the json, rename the cache files and rename database tables
+
+        # summary if the drive is unkown its detected and the toml is updated
+        cache_s, _, suffix, driveTYPE = setup_drive_cache(
+            basedir, appdata_local, dbopt, dbtarget, json_file, toml_file, cache_s_str, driveTYPE_frm, usr, email, j_settings=j_settings
+        )
+        if not cache_s or not suffix:
+            return 1
+        if not j_settings:
+            if basedir != "C:\\":
+                print("failed to load json in setup_drive_cache")
+                return 1
+
+    # make a named tuple or dict for args and to pass less args for clarity
+    user_setting = {
+        'usr': usr,
+        'email': email,
+        'basedir': basedir,
+        'driveTYPE': driveTYPE,
+        'feedback': feedback,
+        'analytics': analytics,
+        'checksum': checksum,
+        'checkMETHOD': checkMETHOD,
+        'ps': ps,
+        'cdiag': cdiag,
+        'compLVL': compLVL
+    }
+
+    # end init
+
+    # VARS
+    log_file = appdata_local / "logs" / log_file
+
+    tmpoutput = []  # holding
+    # Searches
+    recent = []  # main results
+    # tout = []  # ctime results # formerly seperate ctime search
+    sortcomplete = []  # combined
+    tmpopt = []  # combined filtered
+
+    # NSF
+    complete_1, complete_2 = [], []
+    complete = []  # combined
+
+    # Diff file
+    difference = []
+    absent = []  # actions
+    rout = []  # actions from ha
+
+    cfr = {}  # cache dict
+
+    start = end = cstart = cend = ag = 0
+    validrlt = tmn = filename = search_time = None
+
+    diffrlt = False
+    nodiff = False
+    syschg = False
+    flsrh = False
+    filtered = False
+    validrlt = None
+    valid_data = False
+
+    flnm = ""
+    parseflnm = ""
+    diff_file = ""
+
+    filepath = ""
+    dirSRC = ""
+
+    tsv_doc = "doctrine.tsv"
+    excl_file = 'excluded.txt'  # find and powershell directory excludes from exclDIRS
+
+    proval = 20  # progress
+    endval = 30
+
+    usrDIR = find_user_folder("Desktop")
+    if usrDIR is None:
+        raise EnvironmentError("Could not find user Desktop folder")
+    # DOC_S = find_user_folder("Documents")
+
+    tempd = tempfile.gettempdir()
+
+    with tempfile.TemporaryDirectory(dir=tempd) as tempwork:
+
+        scr = os.path.join(tempwork, "scr")  # feedback
+        cerr = os.path.join(tempwork, "cerr")  # priority
+
+        if not iqt:
+            is_key, err = iskey(email)
+            if is_key is False:
+                if not genkey(appdata_local, usr, email, email_name, dbtarget, cache_f, cache_s, flth, tempwork):
+                    print("Failed to generate a gpg key. quitting")
+                    return 1
+            elif is_key is None:
+                print(err)
+                return 1
+
+        cfr = decr_ctime(cache_f)
+
+        start = time.time()
+
+        # make a named tuple to pass less args
+        logging_values = (log_file, ll_level, appdata_local, tempwork, scr, cerr, cache_f, cache_s, json_file, gnupg_home)  # append to so pass less args in pstsrg
+
+        setup_logger(log_file, logging_values[1], "MAIN")
+
+        # initialize
+
+        # load hashes into the cache of created files from watchdog service
+        # if xRC
+        home_dir = ""
+
+        created = init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, tempwork, gnupg_home, cfr, xRC, _time, checksum,
+                                     usr, moduleNAME, log_file, ll_level, supbrwLIST, algo=checkMETHOD, platform="Windows")
+
+        # other options could build directory map from mft use fsutil and check usn jrnl for created filed but is too complex and also takes up size for another dbs
+
+        if argone != "search":
+            thetime = argone
+        else:
+            thetime = argtwo
+
+        if argf == "filtered":
+            filtered = True
+
+        # search criteria
+        if thetime != "noarguser":
+            p = 60
+            try:
+                argone = int(thetime)
+                tmn = time_convert(argone, p, 2)
+                search_time = tmn
+                search_string = f"files {argone} seconds old or newer"
+
+            except ValueError:  # its a file search
+
+                argone = ".txt"
+                if not os.path.isdir(pwrd):
+                    print(f'Invalid argument {pwrd}. PWD required.')
+                    sys.exit(1)
+                os.chdir(pwrd)
+
+                filename = argtwo  # sys.argv[2]
+                if not os.path.isfile(filename) and not os.path.isdir(filename):
+                    print('No such directory, file, or integer.')
+                    sys.exit(1)
+
+                parseflnm = os.path.basename(filename)
+                if not parseflnm:  # get directory name
+                    parseflnm = filename.rstrip("/\\").split("/")[-1].split("\\")[-1]
+                if parseflnm.endswith('.txt'):
+                    argone = ""
+
+                filtered = True if not filtered else False
+
+                flsrh = True
+                ct = int(time.time())
+                frmt = int(os.stat(filename).st_mtime)
+                ag = ct - frmt
+                ag = time_convert(ag, p, 2)
+                search_time = ag
+                search_string = f"files newer than {filename}"
+
+        else:
+            tmn = search_time = argone = 5
+            search_string = "files 5 minutes old or newer"
+
+        cprint.cyan(f'Searching for{" filtered" if filtered else ""} {search_string}\n')
+
+        if iqt:
+            print(f"Progress: {proval}", flush=True)
+
+        # sys.stdout.flush()
+
+        # Main search
+
+        current_time = datetime.now()
+        search_start_dt = (current_time - timedelta(minutes=search_time))
+        logger = logging.getLogger("FSEARCH")
+
+        # Windows default - Powershell
+        if pwrshell:
+            endval += 15
+
+            # powershell 5 or 7
+            pwsh_path = shutil.which("pwsh")
+            if not pwsh_path:
+                pwsh_path = "powershell.exe"
+
+            excl_path = os.path.join(tempwork, excl_file)
+            set_excl_dirs(basedir, excl_path, exclDIRS)  # write exclude list to tempdir this app is in
+
+            s_path = os.path.join(script_dir, "scanline.ps1")
+
+            # single process like find command, 19s for system scan
+            command = [
+                pwsh_path,
+                "-NoProfile",
+                "-ExecutionPolicy", "Bypass",
+                "-File", s_path,
+                "-rootPath", basedir,
+                "-cutoffMinutes", str(search_time),
+                "-excluded", excl_path,  # dynamic directory exclusion pwsh
+                "-StartR", str(proval),
+                "-EndR", str(endval)
+            ]
+            if iqt:
+                command += ["-progress"]
+            if feedback:
+                command += ["-feedback"]
+            proval += 15
+            endval += 15
+            init = True
+
+            recent, complete_1, end, cstart = find_ps1(
+                command, recent, complete_1, init, cfr, search_start_dt, user_setting,
+                logging_values, end, cstart, iqt=iqt, strt=proval, endp=endval
+            )
+
+        # os.scandir
+        else:
+
+            init = True
+
+            recent, complete_1, end, cstart = find_scan(
+                recent, complete_1, init, cfr, search_start_dt, user_setting, logging_values,
+                end, cstart, exclDIRS, iqt=iqt, strt=proval, endp=endval, logger=logger
+            )
+
+        cend = time.time()
+        # if iqt:
+        #     print(f"Progress: {endval + 1}%")  # for linux for gui knows it can stop without corrupting .gpg
+        sys.stdout.flush()
+
+        # end Main search
+
+        if recent is None:
+            return 1
+
+        if cfr and recent:
+            encr_cache(cfr, cache_f, email, compLVL)
+
+        if not recent:
+
+            cprint.cyan("No new files found")
+            if iqt:
+                print("Progress: 100.00%")
+            return 0
+            # for entry in recent:
+            #     tss = entry[0].strftime(fmt)
+            #     fp = entry[1]
+            #     print(f'{tss} {fp}')
+
+        complete = complete_1 + complete_2  # nsf append to rout in pstsrg before stat insert
+        proval = 60  # current progress
+        endval = 90  # next
+
+        sortcomplete = recent
+
+        sortcomplete.sort(key=lambda x: x[0])  # get everything from the start time
+
+        srttime = sortcomplete[0][0]  # store the start time
+        merged = sortcomplete[:]
+
+        seen = {}
+
+        for entry in merged:
+            if len(entry) < 12:
+                continue
+
+            filepath = entry[1]
+            cam_flag = entry[11]
+
+            key = filepath
+
+            if key not in seen:
+                seen[key] = entry
+            else:
+                existing_entry = seen[key]
+                existing_cam = existing_entry[11]
+
+                if existing_cam == "y" and cam_flag is None:
+                    seen[key] = entry
+
+        deduped = list(seen.values())
+
+        # inclusions from this script /  sort -u
+        exclude_patterns = get_runtime_exclude_list(appdata_local, usrDIR, moduleNAME, flth, dbtarget, cache_f, cache_s, gnupg_home, str(log_file))
+
+        def filepath_included(filepath, exclude_patterns):
+            filepath = filepath.lower()
+            return not any(filepath.startswith(p) for p in exclude_patterns)
+
+        sortcomplete = [
+            entry for entry in deduped
+            if filepath_included(entry[1], exclude_patterns)
+        ]
+
+        lines = []
+        if not flsrh:
+            start_dt = srttime
+            range_sec = 300 if thetime == 'noarguser' else int(thetime)
+            end_dt = start_dt + timedelta(seconds=range_sec)
+            lines = [entry for entry in sortcomplete if entry[0] <= end_dt]
+        else:
+            lines = sortcomplete
+
+        temp = os.environ.get('TEMP')
+        tmp = os.environ.get('TMP')
+        systemp = r"C:\Windows\Temp"
+
+        patterns = tuple(p for p in (systemp, temp, tmp) if isinstance(p, str) and p)
+        tmp_lines = []         # amended from original
+        non_tmp_lines = []      # .
+
+        # filter out the Temp files
+        for entry in lines:
+            if entry[1].startswith(patterns):
+                tmp_lines.append(entry)
+            else:
+                non_tmp_lines.append(entry)
+
+        # tmp_lines = [entry for entry in lines if entry[1].startswith(patterns)]    original
+        # non_tmp_lines = [entry for entry in lines if not entry[1].startswith(patterns)]
+
+        sortcomplete = non_tmp_lines
+        tmpoutput = tmp_lines
+
+        filtered_lines = []
+        for entry in sortcomplete:
+            if len(entry) >= 18:
+                ts_str = entry[0]
+                filepath = entry[1]  # no escaped [16] needed
+                filtered_lines.append((ts_str, filepath))
+
+        tmpopt = filtered_lines  # human readable
+        recent = tmpopt[:]
+
+        # Apply filter. recent is unfiltered all data to store in db
+        tmpopt = filter_lines_from_list(tmpopt, escaped_user)
+        temp_flnm = f"{moduleNAME}xSystemTmpfiles{argone}.txt"
+        logf = recent  # all files
+        if filtered:
+            logf = tmpopt
+
+        # Merge/Move old searches
+        if sortcomplete:
+            syschg = True
+            oldsort = []
+            if flsrh:
+                flnm = f'xNewerThan_{parseflnm}{argone}'
+                flnmdff = f'xDiffFromLast_{parseflnm}{argone}'
+                temp_flnm = f"{moduleNAME}xSystemTmpfiles{parseflnm}{argone}"
+            elif argf == "filtered":
+                flnm = f'xFltchanges_{argone}.txt'
+                flnmdff = f'xFltDiffFromLastSearch_{argone}.txt'
+            else:
+                flnm = f'xSystemchanges{argone}.txt'
+                flnmdff = f'xSystemDiffFromLastSearch{argone}.txt'
+
+            if method == "rnt":
+                dirSRC = appdata_local  # recentchanges
+            else:
+                dirSRC = usrDIR  # recentchanges search
+
+            # is old search?
+            result_output = os.path.join(dirSRC, f'{moduleNAME}{flnm}')
+
+            if os.path.isfile(result_output):
+                with open(result_output, 'r') as f:
+                    oldsort = f.readlines()
+
+            if not flsrh and argf != filtered:
+                # try <app_install> for previous search
+                if method != "rnt" and not oldsort:
+                    fallback_path = os.path.join(appdata_local, f'{moduleNAME}{flnm}')
+                    if os.path.isfile(fallback_path):
+                        with open(fallback_path, 'r') as f:
+                            oldsort = f.readlines()
+
+                # try <app_install>\\moduleNAME_MDY* if not oldsort yet
+                hsearch(oldsort, appdata_local, moduleNAME, flnm)
+
+            # Move or clear previous searches
+            validrlt = clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh)
+
+            target_path = None
+
+            # send Temp results to user
+            if tmpoutput:
+                target_filename = temp_flnm
+
+                target_path = os.path.join(dirSRC, target_filename)
+                with open(target_path, 'w') as dst:
+                    for entry in tmpoutput:
+                        tss = entry[0].strftime(fmt)
+                        fp = entry[1]
+                        dst.write(f'{tss} {fp}\n')
+
+            diff_file = os.path.join(dirSRC, moduleNAME + flnmdff)
+
+            # Difference file
+            if oldsort:
+                nodiff = True
+
+            clean_oldsort = [line.strip() for line in oldsort]
+            clean_logf_set = set(f'{entry[0].strftime(fmt)} {entry[1]}' for entry in logf)
+            difference = [line for line in clean_oldsort if line not in clean_logf_set]
+
+            if difference:
+                diffrlt = True
+                removefile(diff_file)
+                with open(diff_file, 'w') as file2:
+                    for entry in difference:
+                        print(entry, file=file2)
+
+                # preprocess before db/ha. The differences before ha and then sent to processha after ha
+                processha.isdiff(sortcomplete, absent, rout, diff_file, difference, flsrh, srttime, fmt)
+
+            # Send search result sortcomplete to user
+            with open(result_output, 'w') as f:
+                for entry in logf:
+                    tss = entry[0].strftime(fmt)
+                    fp = entry[1]
+                    f.write(f'{tss} {fp}\n')
+
+            proval = 65  # - 90%   normal for finishing pstsrg
+
+            # file doctrine
+            if postop:
+                endval = 85  # adjust 65% - 85%
+
+            # if scanIDX:
+            #     endval = 80  # adjust 65% - 80%
+
+            # if postop and scanIDX:
+            #     endval = 75
+
+            if iqt:
+                print(f"Progress: {proval}", flush=True)
+
+            # pass some analytics into pstsrg
+            el = end - start
+            el2 = cend - cstart
+            total_time = el + el2
+            total_files = len(sortcomplete)
+            # Backend
+
+            dbopt, data = pst_srg(
+                dbopt, dbtarget, sortcomplete, complete, rout, created, cachermPATTERNS, user_setting, logging_values,
+                total_time, total_files, iqt=iqt, strt=proval, endp=endval
+            )
+            # dbopt return from pst_srg is either path, encr_error, new_profile or None
+            proval = endval + 1
+            endval = 100
+
+            if not dbopt:
+                print("There is a problem in pst_srg no return value. likely database wasnt created, path to database did not exist or permission issue")
+                return 1
+            if iqt:
+                print(f"Progress: {proval}")  # print +1 for stop request polling Linux *
+            # if dbopt and dbopt != "encr_error":
+            #     if os.path.isfile(dbtarget):
+            #         change_perm(dbtarget, uid, gid, 0o644)
+
+            #
+            csum, unique_files, lifetime_throughput, ha_total_time, logger_total_time = data
+
+            # for benchmarking pstsrg returned the time for multiprocessing ect. This can help verify if any changes or new designs improve performance and also
+            # where the bulk of the work is. This data isnt stored so it is essentially free and adds no complexity.
+            if analytics:
+                if dbopt not in ("new_database", "encr_error", "db_error"):  # "new_profile" would be not to scan index as it was just made
+                    valid_data = True
+                    if ha_total_time:
+                        print("Hanly total time:", format(ha_total_time, ".3f"), "seconds", "logger:", format(logger_total_time, ".4f"), "seconds")
+
+            # Diff output to user
+
+            processha.processha(rout, absent, diff_file, cerr, flsrh, argf, srttime, escaped_user, supbrwLIST, suppress_browser, suppress)
+            # Filter hits
+            update_filter_csv(recent, flth, escaped_user)
+            sys.stdout.flush()
+
+            # File doctrine
+            if postop:
+                outpath = os.path.join(usrDIR, tsv_doc)
+                # if not os.path.isfile(outpath):
+                if build_tsv(sortcomplete, tmpopt, logf, rout, created, escaped_user, outpath, method, fmt):
+                    cprint.green(f"File doctrine.tsv created {usrDIR}\\{tsv_doc}")
+                # elif not iqt:
+                    # # update_toml_values({'diagnostics': {'postop': False}}, toml_file)  # if one was already made disable the setting
+                    # config['diagnostics']['postop'] = False
+                    # dump_toml(None, config, toml_file)
+
+            # Terminal output process scr/cer
+
+            # csum could be and was returned from filter_output in processha but instead is returned from hanly incase scr or cerr
+            # files are stale by somehow being reused
+
+            # terminal output is filtered for browser suppressions or entirely suppressed except for critical events
+            # critical events are Suspect and COLLISION
+
+            # scr feedback
+            #
+            # this is the second filter_output call after cerr in processha
+            #
+            # if there was a critical event nothing gets output to terminal
+            #
+            # primary: Checksum color: blue
+            # other: any color: yellow
+            # scr is added to the end
+
+            if not csum:
+                if os.path.exists(scr):
+                    filter_output(scr, escaped_user, 'Checksum', 'no', 'blue', 'yellow', 'scr', supbrwLIST, suppress_browser, suppress)
+
+            # cerr priority
+            #
+            # can start with Warning file, Warning symlink, Warning high, Suspect and COLLISION
+            #
+            # filter_output output earlier with call in processha
+            #
+            # primary: Warning color: yellow
+            # cricital: Suspect color: red
+            # elevated is added to the end
+
+            if csum:
+                if os.path.isfile(cerr):
+                    with open(cerr, 'r') as src, open(diff_file, 'a') as dst:
+                        dst.write("\ncerr\n")
+                        for line in src:
+                            if line.startswith("Warning"):
+                                continue
+                            dst.write(line)
+                    removefile(cerr)
+
+            # summary
+            #
+            # Instead of having more than two colors. Colors are split between scr and cerr. The variety is from the different conditions of the file output
+            # from hanly. Adding too many specific conditions is unnecessary.
+            #
+            # the only sorting is cerr comes before scr. normal output will be blue or yellow from scr. If there is a critical event
+            # output will be yellow or red.
+
+            # end Terminal output
+
+            # Cleanup
+
+            if os.path.isfile(scr):
+                removefile(scr)
+
+            # old powershell cleanup for merged db when using PSSQLite
+            # powershellcleanup
+
+        try:
+
+            logic(syschg, nodiff, diffrlt, validrlt, thetime, argone, argf, result_output, filename, flsrh, method)  # feedback
+            display(dspEDITOR, result_output, syschg, dspPATH)  # open text editor?
+        except Exception as e:
+            print(f"Error in logic or display {type(e).__name__} : {e} ")
+
+        if analytics:
+
+            print(f'Search took {el:.3f} seconds')
+            if checksum:
+                print(f'Checksum took {el2:.3f} seconds')
+            print()
+
+            print("Files scanned:", total_files)
+            throughput = total_files / total_time
+            if total_files != 0:
+
+                output = "Perceived throughput: {:.3f} files per second".format(throughput)
+                if valid_data:
+                    output += f" Lifetime throughput: {lifetime_throughput:.3f}" if lifetime_throughput else ""
+                print(output)
+                if unique_files:
+                    print()
+                    print("Total unique files in logs:", unique_files)
+        print()
+
+        # removed below to handle scan idx in qt as scanning a profile index from commandline is unecessary hence
+        # why its removed from the script. Makes it less complex and its a feature that wouldnt be used because
+        # there is a gui
+
+        # Scan system index. If it is from the command line and a new profile was just made dont scan it.
+        # Encryption failure dont scan as there is a problem.
+        # if dbopt not in ("new_profile", "encr_error", "db_error") and scanIDX:
+        #     cprint.green('Running postop system index scan.')
+
+        #   append to old or use new default
+        #   diff_file = diff_file if diffrlt else get_diff_file(appdata_local, usrDIR, moduleNAME)
+
+        #   rlt = scan_system(appdata_local, dbopt, dbtarget, basedir, usr, cache_s, email, diff_file, analytics, show_diff, show_previous, iqt=iqt, strt=proval, endp=endval)
+        #   if commandline, turn off so doesnt scan every time. autoIDX permissive to auto scan
+        #   if not iqt and not autoIDX:
+        #       # update_toml_values({'diagnostics': {'scanIDX': False}}, toml_file)
+        #       config['diagnostics']['scanIDX'] = False
+        #       dump_toml(None, config, toml_file)
+
+        #   if rlt != 0:
+        #       if rlt == 1:
+        #           print("Post op index scan failed scan_system dirwalker.py")
+        #           return 1
+        #       if rlt == 7:
+        #           if not iqt:
+        #               print("No profile created. set proteusSHIELD to create profile")
+        #           else:
+        #               print("No profile created. run build IDX on pg2")
+        #       else:
+        #           print(f"Unexpected error scan_system : error code {rlt}")
+        #           return rlt
+
+        if syschg:
+            if iqt:
+                print("Progress: 100%", flush=True)
+            return 0
+        return 1
+
+
+def main_entry(argv):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
+    calling_args = [
+        args.argone,
+        args.argtwo,
+        args.usr,
+        args.pwd,
+        args.argf,
+        args.method,
+        args.iqt,
+        args.drive,
+        args.dtype,
+        args.db_output,
+        args.cache_file,
+        args.post_OP,
+        args.dspPATH
+    ]
+
+    result = main(*calling_args)
+    sys.exit(result)
