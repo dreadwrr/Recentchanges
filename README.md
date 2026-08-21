@@ -3,7 +3,7 @@ Find modified and new files on the system quickly with: <br>
 where the time is current local system time <br><br>
 
 Version: 6.5.0 <br>
-Last updated: 08/03/2026 <br>
+Last updated: 08/20/2026 <br>
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 Windows 10 11 File search application with Hybrid analysis and MFT search <br><br>
@@ -11,6 +11,7 @@ Can be used with system python or one step pyinstall build. A windows setup vers
 Uses included GPG or can use gpg4win <br><br>
 
 Features: <br>
+- Secure database used with sqlcipher
 - Scientific calculator
 - Python watchdog package
 - Checks for hash collisions when using md5 checksums
