@@ -10,8 +10,8 @@ Windows 10 11 File search application with Hybrid analysis and MFT search <br><b
 Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed. <br><br>
 Features: <br><br>
 Uses included GPG or can use gpg4win <br>
-Uses sqlcipher for database storage <br>
-Scientific calculator <br>
+Uses sqlcipher for secure database storage <br>
+Scientific calculator that uses mpmath and gmpy2 <br>
 Python watchdog package <br>
 Checks for hash collisions when using md5 checksums <br>
 Quick commands displays saved commands for easy reference <br>
