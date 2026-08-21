@@ -1317,9 +1317,10 @@ class MainWindow(QMainWindow):
                 self.randintMIN = randintMIN
                 self.clogLEVEL = clogLEVEL
 
+                # ctext = cprint.cyan("Config changed") # self.ui.hudt.append_colored_output("\033[1;32mConfig changed\033[0m")  # green
                 # config_changed = (self.config != updated_config)
                 # if config_changed:
-                self.ui.hudt.appendPlainText("Config changed")   # ctext = cprint.cyan("Config changed") # self.ui.hudt.append_colored_output("\033[1;32mConfig changed\033[0m")  # green
+                self.ui.hudt.appendPlainText("Config changed")
 
         except ConfigurationError:
             dump_toml(None, self.config, toml)
@@ -1523,10 +1524,10 @@ class MainWindow(QMainWindow):
             if unique_files:
                 hudt("")
                 hudt(f"Total unique files in logs: {unique_files}")
+
         # """ stored drive values """
         # hudt('\n')
         # hudt("mem")
-
         # guid, drive, keys = self.basedirs.get_current_item()
         # hudt(drive.suffix)
         # hudt(f"drive_partguid: {drive.part_guid}")
@@ -2418,10 +2419,13 @@ class MainWindow(QMainWindow):
         return None
 
     def load_watchdog(self):
+        if not self.job_running():
+            return
+
+        debug_mode = False
 
         platform = "windows"
         home_dir = ""
-        debug_mode = False
         escaped_user = re.escape(self.usr)
 
         script = search_pattern = "watchdog_win.py"
