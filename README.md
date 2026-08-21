@@ -11,16 +11,12 @@ Can be used with system python or one step pyinstall build. A windows setup vers
 Uses included GPG or can use gpg4win <br><br>
 
 Features: <br>
-- Secure database used with sqlcipher
-- Scientific calculator
-- Python watchdog package
-- Checks for hash collisions when using md5 checksums
-- Save encrypted notes
-- Alarm clock with can play .mp3, .wav and .ogg files
-- Select from a number of fonts or install your own. also 5 themes unix, wb (white on black), solar, monochrome or modern
-- Quick commands displays saved commands for easy reference
-- Create a custom crest with a .png image file max size 255 x 333
-- Full commandline support with recentchanges.bat and rnt.bat
+Secure database used with sqlcipher <br>
+Scientific calculator <br>
+Python watchdog package <br>
+Checks for hash collisions when using md5 checksums <br>
+Quick commands displays saved commands for easy reference <br>
+Full commandline support with recentchanges.bat and rnt.bat <br><br>
 
 find file or files by extension and also compress to a .zip/.rar archive by time. default is python zipfile or can use system 7-zip winrar. <br><br>
 A new feature find new files fast with a drive index that is stored in a .gpg cache file loaded into memory.<br><br>
