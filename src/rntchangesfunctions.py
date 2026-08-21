@@ -399,7 +399,7 @@ def find_ps1(command, recent, complete, init, cfr, search_start_dt, user_setting
 # after checking for a previous search it is required to remove all old searches to keep the workspace clean and avoid write problems later.
 # Also copy the old search to the MDY folder in appinstall for later diff retention
 
-def clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh, result_output, oldsort=None):
+def clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh):
 
     FLBRAND = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M_%S")  # %y-%m-%d better sorting?
     validrlt = ""
