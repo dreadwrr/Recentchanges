@@ -570,9 +570,8 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
                         with open(fallback_path, 'r') as f:
                             oldsort = f.readlines()
 
-                # try <app_install>\\moduleNAME_MDY*
-                if not oldsort:
-                    hsearch(oldsort, appdata_local, moduleNAME, flnm)
+                # try <app_install>\\moduleNAME_MDY* if not oldsort yet
+                hsearch(oldsort, appdata_local, moduleNAME, flnm)
 
             # Move or clear previous searches
             validrlt = clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh)

@@ -569,14 +569,13 @@ def line_included(line, patterns):
     return not any(p in line for p in patterns)
 
 
-# prev search?
 def hsearch(oldsort, appdata, moduleNAME, flnm):
-
+    ''' go through archived folders if there is already oldsort clear any other history from them. if
+        there is not oldsort see if there is a prev search '''
     dir_pth = os.path.join(appdata, f"{moduleNAME}_MDY_*")
     folders = sorted(glob.glob(dir_pth), reverse=True)
 
     # glob changes based on flnm
-    oldsort.clear()
     for folder in folders:
         pattern = os.path.join(folder, f"{moduleNAME}{flnm}*")  # pattern = os.path.join(folder, f"{moduleNAME}xSystemchanges{argone}*")
         matching_files = sorted(glob.glob(pattern), reverse=True)
