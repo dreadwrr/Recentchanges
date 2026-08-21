@@ -17,7 +17,7 @@ Checks for hash collisions when using md5 checksums <br>
 Quick commands displays saved commands for easy reference <br>
 Full commandline support with recentchanges.bat and rnt.bat <br><br>
 
-find file or files by extension and also compress to a .zip/.rar archive by time. default is python zipfile or can use system 7-zip winrar. <br><br>
+find file or files by extension <br>
 A new feature find new files fast with a drive index that is stored in a .gpg cache file loaded into memory.<br><br>
 Scan the system index independently with scan IDX from the main hybrid analysis to catch files that have a different checksum but same modified 
 or faked modified time.  <br><br>
