@@ -1464,9 +1464,6 @@ class MainWindow(QMainWindow):
             # model_type = "Unknown"
             model_type = drive_model
 
-        if self.calculator:
-            print("yes")
-
         typeModel = f"{drive_id} / {model_type}"
         # log_path = filename_of_handler()
         stat_value.update({
