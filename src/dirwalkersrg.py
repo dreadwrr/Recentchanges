@@ -65,7 +65,6 @@ def sync_db(dbopt, dbtarget, email, basedir, cache_s, parsedsys, parsedidx, sys_
             # 06/15/2026 remove scan history for the profile
             cur.execute(f"DROP TABLE IF EXISTS {drive_sys_table}")
             cur.execute(f"DROP TABLE IF EXISTS {drive_sys_changes_table}")
-            conn.commit()
 
             create_sys_tables(conn, sys_tables)
             create_table_cache(conn, cache_table, ('filename',))
@@ -121,16 +120,16 @@ def sync_db(dbopt, dbtarget, email, basedir, cache_s, parsedsys, parsedidx, sys_
 
         # Find downloads add index
         elif from_idx and parsedidx:
+            with conn:
+                if table_has_data(conn, systimeche):
+                    clear_table(systimeche, conn, cur, True)
+                create_table_cache(conn, systimeche, ('filename',))
 
-            if table_has_data(conn, systimeche):
-                clear_table(systimeche, conn, cur, True)
-            create_table_cache(conn, systimeche, ('filename',))
+                if insert_cache(parsedidx, systimeche, conn):
+                    res = True
 
-            if insert_cache(parsedidx, systimeche, conn):
-                res = True
-
-            else:
-                print(f"Failed to insert parsedidx for table {systimeche} drive {basedir} re sync_db")
+                else:
+                    print(f"Failed to insert parsedidx for table {systimeche} drive {basedir} re sync_db")
 
         # Find download update index
         elif from_idx and keys:
@@ -147,13 +146,13 @@ def sync_db(dbopt, dbtarget, email, basedir, cache_s, parsedsys, parsedidx, sys_
 
         return res
 
-    except sqlcipher3.Error as e:
+    # except sqlcipher3.Error as e:
+    #     emsg = f"Database error sync_db in dirwalkersrg: {type(e).__name__} {e}"
+    #     print(emsg)
+    #     logging.error(emsg, exc_info=True)
+    except Exception as e:
         if conn:
             conn.rollback()
-        emsg = f"Database error sync_db in dirwalkersrg: {type(e).__name__} {e}"
-        print(emsg)
-        logging.error(emsg, exc_info=True)
-    except Exception as e:
         emsg = f"Unexpected error in sync_db: {type(e).__name__} {e}"
         print(f"{emsg}  \n{traceback.format_exc()}")
         logging.error(emsg, exc_info=True)

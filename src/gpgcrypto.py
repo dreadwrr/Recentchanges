@@ -318,9 +318,9 @@ def gpg_can_decrypt(dbtarget):
     cmd = ["gpg", "--decrypt", "--dry-run", dbtarget]
     result = subprocess.run(
         cmd,
-        capture_output=True,
-        text=True
+        capture_output=True
     )
+    # text=True # using dbtarget which is bytes 08/23/2026
     return result.returncode == 0, result.stderr
 
 

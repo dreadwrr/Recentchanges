@@ -1,5 +1,4 @@
 import os
-import sqlcipher3
 import subprocess
 import wmi
 import traceback
@@ -9,13 +8,11 @@ from .config import dump_j_settings
 from .config import set_json_settings
 from .config import update_dict
 from .config import update_toml_values
-from .gpgcrypto import decr
 from .qtfunctions import window_prompt
 from .pysql import clear_conn
 from .pysql import create_conn
 from .pysql import table_exists
 from .rntchangesfunctions import name_of
-from .rntchangesfunctions import removefile
 
 
 def parse_drive(basedir):
@@ -474,18 +471,8 @@ def get_cache_files(basedir, dbopt, dbtarget, cache_s, json_file, user, email, j
 
                     # rename any cache file. after database query
 
-                    # if from cmd line get db
-                    if not os.path.isfile(dbopt):
-                        if os.path.isfile(dbtarget):
-                            res = decr(dbtarget, dbopt)
-                            if not res:
-                                if res is None:
-                                    print(f"There is no key for {dbtarget}.")
-                                else:
-                                    print("Decryption failed.")
-
                     # rename any database tables
-                    if os.path.isfile(dbopt):
+                    if os.path.isfile(dbtarget):
                         sys_tables, cache_table, _ = get_idx_tables(basedir, None, suffix)
                         sys_a, sys_b = sys_tables
                         sys_tables, cache_table2, _ = get_idx_tables(basedir, None, drive_suffix)
@@ -531,14 +518,10 @@ def get_cache_files(basedir, dbopt, dbtarget, cache_s, json_file, user, email, j
                                         os.rename(old_cache_s, new_cache_s)
                                     update_dict(None, j_settings, drive)  # remove the old
 
-                        except sqlcipher3.Error as e:
+                        except Exception as e:
                             if conn:
                                 conn.rollback()
-                            removefile(dbopt)
-                            print(f"Database error get_cache_files while moving tables db {dbopt} err: {e}")
-                        except Exception as e:
-                            removefile(dbopt)
-                            print(f"err {type(e).__name__}: {e}\ncontinuing")
+                            print(f"error get_cache_files while moving tables db {dbopt} err: {type(e).__name__}: {e}\ncontinuing")
                         finally:
                             clear_conn(conn, cur)
 

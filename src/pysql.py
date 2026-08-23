@@ -321,13 +321,13 @@ def insert_cache(log, table, conn):
     placeholders = ', '.join(['?'] * len(columns))
     col_str = ', '.join(columns)
     sql = f'INSERT OR IGNORE INTO {table} ({col_str}) VALUES ({placeholders})'
-    try:
-        with conn:
-            conn.executemany(sql, log)
-        return True
-    except sqlcipher3.Error as e:
-        print(f"insert failed for table {table} in insert_cache dirwalker: {e}")
-    return False
+    # try:
+    #    with conn:
+    conn.executemany(sql, log)
+    return True
+    # except sqlcipher3.Error as e:
+    #     print(f"insert failed for table {table} in insert_cache dirwalker: {e}")
+    # return False
 
 
 def update_cache(keys, conn, table):
@@ -495,21 +495,21 @@ def table_exists(conn, table_name):
 
 
 def clear_table(table, conn, cur, quiet=False):
+    # try:
+    cur.execute(f"DELETE FROM {table}")
     try:
-        cur.execute(f"DELETE FROM {table}")
-        try:
-            cur.execute("DELETE FROM sqlite_sequence WHERE name=?", (table,))
-        except sqlcipher3.OperationalError:
-            pass
-        conn.commit()
-        if not quiet:
-            print(f"{table} table cleared.")
-        return True
-    except sqlcipher3.Error as e:
-        if conn:
-            conn.rollback()
-        print(f"clear_table problem while clearing table {table} {type(e).__name__}: {e}")
-    return False
+        cur.execute("DELETE FROM sqlite_sequence WHERE name=?", (table,))
+    except sqlcipher3.OperationalError:
+        pass
+    # conn.commit()
+    if not quiet:
+        print(f"{table} table cleared.")
+    return True
+    # except sqlcipher3.Error as e:
+    #     if conn:
+    #         conn.rollback()
+    #     print(f"clear_table problem while clearing table {table} {type(e).__name__}: {e}")
+    # return False
 
 
 def dbclear_sys_profile(dbopt, sys_tables, cache_table, systimeche):
@@ -565,8 +565,9 @@ def dbclear_table(dbopt, table_name):
         conn = sqlite3.connect(dbopt)
         cur = conn.cursor()
         if table_has_data(conn, table_name):
-            if not clear_table(table_name, conn, cur, True):
-                return False
+            # if not clear_table(table_name, conn, cur, True):
+            #    return False
+            clear_table(table_name, conn, cur, True)
         return True
     except sqlite3.OperationalError as e:
         print(f"OperationalError {dbopt} connection problem {fn}:", e)

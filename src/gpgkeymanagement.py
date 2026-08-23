@@ -195,9 +195,12 @@ def clear_gpg(dbtarget, cache_f, cache_s, flth, toml_file=None, json_file=None):
     """ delete ctimecache & db .gpg & profile .gpgs
          if toml_file it is called from delete_gpg_keys and prompt to reset config files """
     systimeche = name_of(cache_s)
-    dbopt = name_of(dbtarget, '.db')
+
     file_path = os.path.dirname(cache_s)
+
     pattern = os.path.join(file_path, f"{systimeche}*")
+    output = name_of(dbtarget, '.db')
+    dbopt = os.path.join(file_path, output)
 
     # configs
     if (toml_file):

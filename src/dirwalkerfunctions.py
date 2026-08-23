@@ -1195,15 +1195,13 @@ def output_diff(diff_file, prev_scans, all_sys, mime_hashmap, id_to_mime, link_c
                     for record in records:
                         record_str = ' '.join(map(str, record))
                         f.write(record_str + '\n')
-                    f.write('\n')
+                parts = scan_date.split()
+                time_stamp = f'MDY_{parts[0]}-TIME_{parts[1]}'
+                f.write(time_stamp + '\n\n')
 
             if recent_changes:
                 for changes in recent_changes:
                     f.write(changes + '\n')
-
-            parts = scan_date.split()
-            time_stamp = f'MDY_{parts[0]}-TIME_{parts[1]}'
-            f.write(time_stamp + '\n\n')
 
             if cmsg:
                 print(cmsg, file=f)

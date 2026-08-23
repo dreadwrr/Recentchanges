@@ -19,7 +19,6 @@ def build_dwalk_parser():
     hardlink_p.add_argument("user")
     hardlink_p.add_argument("tempdir")
     hardlink_p.add_argument("email")
-    hardlink_p.add_argument("compLVL", nargs="?", type=int, default=200, help="compLVL integer when to turn off compression (default: 200)")
 
     # SCAN SUBCOMMAND
     scan_p = subparsers.add_parser("scan", help="Scan IDX for changes to profile files")

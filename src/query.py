@@ -17,10 +17,11 @@ from .pyfunctions import is_integer
 from .pyfunctions import parse_datetime
 from .pysql import clear_conn
 from .pysql import create_conn
+from .pysql import get_mime_map
 from .rntchangesfunctions import name_of
 from .rntchangesfunctions import set_gpg
 # from .rntchangesfunctions import cprint
-# 08/20/2026
+# 08/23/2026
 
 
 # see config.toml cache clear patterns for db
@@ -260,17 +261,19 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                         log_fn(f'Searches {c}')
                         log_fn("")
                         cur.execute('''
-                        SELECT filename
+                        SELECT filename, mime_id
                         FROM logs
                         WHERE TRIM(filename) != ''
                         ''')  # Ext
                         filenames = cur.fetchall()
-                        filenames = [row[0] for row in filenames]
-                        extensions = []
+                        # filenames = [row[0] for row in filenames]
                         directories = []
-                        for filename in filenames:
+                        extensions = []
+                        mime_ids = []
+                        for filename, mime_id in filenames:
                             if not filename:
                                 continue
+                            mime_ids.append(mime_id)
                             directories.append(os.path.dirname(filename))  # get the top directories as well
                             filepath = Path(filename)
                             filename = filepath.name
@@ -286,7 +289,35 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                             log_fn(ctext)
                             for ext, count in top_3:
                                 log_fn(f"{ext}")
+
+                            _, id_to_mime = get_mime_map(cur)  # mime_hashmap
+                            # cur.execute('''
+                            # SELECT DISTINCT filename, mime_id
+                            # FROM logs
+                            # ''')
+                            # rows = cur.fetchall()
+                            # mime_ids = [row[1] for row in rows]
+                            # cur.execute('''
+                            # SELECT id, mime, mime_primary, mime_subtype
+                            # FROM mime_types
+                            # ''')
+
+                            if mime_ids:
+                                log_fn("")
+                                ctext = "\033[36mBy mime type\033[0m"
+                                log_fn(ctext)
+                                mime_counts = Counter(mime_ids)
+                                top_5_mimes = mime_counts.most_common(7)
+                                for id, count in top_5_mimes:
+                                    mime_ = id_to_mime.get(id, {})
+                                    if not mime_:
+                                        mime_type = "changed couldnt read"
+                                    else:
+                                        mime_type = mime_.get("mime")  # mime_id = mime_hashmap.get(mime, {}).get("id")
+                                    log_fn(f"{count} {mime_type}")
+
                         log_fn("")
+
                         directory_counts = Counter(directories)  # top directories ln181
                         top_3_directories = directory_counts.most_common(3)
                         ctext = "\033[36mTop 3 directories\033[0m"
@@ -314,7 +345,6 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                         for filename, count in top_7_filenames:
                             filename = filename.strip()
                             log_fn(f'{count} {filename}')
-
                         top_7_replaced = dexec(cur, 'Replaced', 7)
                         filenames = [row[3] for row in top_7_replaced]
                         filename_counts = Counter(filenames)
@@ -324,7 +354,6 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                         for filename, count in top_7_replaced:
                             filename = filename.strip()
                             log_fn(f'{count} {filename}')
-
                         top_7_writen = dexec(cur, 'Overwrite', 3)
                         filenames = [row[3] for row in top_7_writen]
                         filename_counts = Counter(filenames)
