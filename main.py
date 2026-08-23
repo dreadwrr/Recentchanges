@@ -241,7 +241,7 @@ class MainWindow(QMainWindow):
         # QTimer.singleShot(5000, self.display_db)
 
         # Vars
-        self.app_version = "6.5.0"
+        self.app_version = "6.5.1"
 
         self.dispatch = sys.executable
         self.app = str(appdata_local / "src" / "set_recent_helper.py")
