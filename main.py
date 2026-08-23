@@ -427,10 +427,16 @@ class MainWindow(QMainWindow):
     def append_log(self, text):
         cursor = self.ui.hudt.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
+
+        text = text or "\n"
+
         if text and cursor.positionInBlock() != 0 and not text.startswith(("\n", "\r")):
             text = "\n" + text
-        if text and not text.endswith(("\n", "\r")):
+
+        if not text.endswith(("\n", "\r")):
             text += "\n"
+        # if text and not text.endswith(("\n", "\r")):
+        #     text += "\n"
         self.ui.hudt.append_colored_output(text)
 
     @Slot(str)
@@ -937,7 +943,7 @@ class MainWindow(QMainWindow):
     def x_action(self):
         sender = self.sender()
         if (
-            sender == self.ui.actionStop or sender == self.ui.stopButton
+            (sender == self.ui.actionStop or sender == self.ui.stopButton)
             and self.isexec
         ):
             self.clean_up()
@@ -1047,6 +1053,7 @@ class MainWindow(QMainWindow):
                 zipPROGRAM = updated_config['compress']['zipPROGRAM'].lower()
                 checksum = updated_config['diagnostics']['checkSUM']
                 checkMETHOD = updated_config['diagnostics']['checkMETHOD']
+                supbrwLIST = updated_config['diagnostics']['supbrwLIST']
                 dspEDITOR = updated_config['display']['dspEDITOR']
                 popPATH = updated_config['display']['popPATH']
                 hudCOLOR = updated_config['display']['hudCOLOR']
@@ -1280,6 +1287,15 @@ class MainWindow(QMainWindow):
                         else:
                             self.ui.hudt.appendPlainText(f"Incorrect setting for driveTYPE: {driveTYPE_frm} restoring current value.")
                             update_toml_values({'search': {'driveTYPE': self.driveTYPE}}, self.toml_file)
+
+                # added 08/21/2026
+                if supbrwLIST != self.supbrwLIST:
+                    escaped_user = re.escape(self.usr)
+                    supbrwLIST = [
+                        p.replace("{{user}}", escaped_user)
+                        for p in supbrwLIST
+                    ]
+                    self.supbrwLIST = supbrwLIST
 
                 self.analytics = analytics
                 self.feedback = feedback
@@ -3156,7 +3172,10 @@ class MainWindow(QMainWindow):
 
             else:
                 # per-table per-column width list
-                column_widths = [60, 125, 1100, 125, 130, 125, 215, 50, 50, 75, 50, 75, 50, 50, 50, 125, 125, 60, 70]
+                check_col = 215
+                if self.checkMETHOD and "blake" in self.checkMETHOD:
+                    check_col = 420
+                column_widths = [60, 125, 1100, 125, 130, 125, check_col, 50, 50, 75, 50, 75, 50, 50, 50, 125, 125, 60, 70]
             # else:
                 # column_widths = [100] * len(headers)
             for i, w in enumerate(column_widths):
