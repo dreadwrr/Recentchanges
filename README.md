@@ -64,6 +64,8 @@ the .bat files from the pyinstaller repo <br><br>
 
 Things to do after installation. Recommend installing notepad++ and changing dspEDITOR to notepad++ <br>
 For faster results upgrade to powershell 7 or use pwershell = false to use python.
+found that using pwsh.exe and powershell 7 there is a speed increase from powershell.exe which uses the old .net framework from powershell 5. So the time decreases from 30 seconds to 15 seconds for the search
+python is 5 seconds and can be used with pwrshell = false in config
 
 further pyinstall documentation https://github.com/dreadwrr/Recent-Pyinstaller<br>
 which is just updating the .bat files to point to the executable <br><br>
