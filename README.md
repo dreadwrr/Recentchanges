@@ -63,7 +63,7 @@ remove python and change src\set_recent_helper.py to main in two places or copy
 the .bat files from the pyinstaller repo <br><br>
 
 Things to do after installation. Recommend installing notepad++ and changing dspEDITOR to notepad++ <br>
-
+For faster results upgrade to powershell 7 or use pwershell = false to use python.
 
 further pyinstall documentation https://github.com/dreadwrr/Recent-Pyinstaller<br>
 which is just updating the .bat files to point to the executable <br><br>
