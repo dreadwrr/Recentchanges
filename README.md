@@ -104,7 +104,9 @@ order is: icat\fstat and ntfstools. and other can be removed <br><br>
 
 windows ui file https://drive.google.com/file/d/1DAHvPq4yqNQNxdVmFLM0SyX5lRF2Qs72/view?usp=sharing <br>
 alarm clock ui https://github.com/dreadwrr/pyqtalarm <br>
-parsec and MFTECmd source can be found at https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?pli=1&tab=t.0#bookmark=id.ct8qv65gr0wc <br>
+parsec [source]( https://github.com/dreadwrr/mft_parsec) <br>
+ntfstool [source](https://github.com/thewhiteninja/ntfstool) <br>
+custom MFTECmd [used](https://github.com/dreadwrr/MFTECmd/tree/add-cutoff) <br>
 for more information and updates about recentchanges see [manual](https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0) <br><br>
 mft sources <br>
 omerbenamram mft dump and python hooks <br>
