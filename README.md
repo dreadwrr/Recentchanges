@@ -106,7 +106,7 @@ windows ui file https://drive.google.com/file/d/1DAHvPq4yqNQNxdVmFLM0SyX5lRF2Qs7
 alarm clock ui https://github.com/dreadwrr/pyqtalarm <br>
 parsec [source]( https://github.com/dreadwrr/mft_parsec) <br>
 ntfstool [source](https://github.com/thewhiteninja/ntfstool) <br>
-custom MFTECmd [used](https://github.com/dreadwrr/MFTECmd/tree/add-cutoff) <br>
+custom MFTECmd source used https://github.com/dreadwrr/MFTECmd/tree/add-cutoff <br>
 for more information and updates about recentchanges see [manual](https://docs.google.com/document/d/1EJAKd1v41LTLN74eXHf5N_BdvGYlfU5Ai8oWBDSGeho/edit?tab=t.0) <br><br>
 mft sources <br>
 omerbenamram mft dump and python hooks <br>
