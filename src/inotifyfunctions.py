@@ -33,13 +33,17 @@ QUOTED_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
 # cross platform
 def process_by_target(target):
     """ return process id or 0 if the process isnt running """
-    for proc in psutil.process_iter(["pid", "cmdline"]):
+    for proc in psutil.process_iter(["pid"]):
         try:
-            cmdline = proc.info["cmdline"] or []
-            if any(target in arg for arg in cmdline):
+            cmdline = proc.cmdline() or []
+
+            if any(target.lower() in arg.lower() for arg in cmdline):
                 return proc.pid
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
+        except OSError:
+            # another process failed to read
+            continue
     return 0
 
 
@@ -541,7 +545,7 @@ def init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, temp_dir, gn
 
         # lock_ = False
         fk_success = True
-
+        print("pat:", search_pattern)
         pid = process_by_target(search_pattern)
 
         if pid:
