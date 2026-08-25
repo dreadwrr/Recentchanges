@@ -8,7 +8,7 @@ Version: 6.5.1 <br>
 Last updated: 08/23/2026 <br>
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
-Windows 10 11 File search application with Hybrid analysis and MFT search <br><br>
+Windows 10 11 File search application using powershell with Hybrid analysis and MFT search <br><br>
 Can be used with system python or one step pyinstall build. A windows setup version is available if python isnt installed. <br><br>
 Features: <br><br>
 Uses included GPG or can use gpg4win and sqlcipher for secure database storage <br>
