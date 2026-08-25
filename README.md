@@ -5,7 +5,7 @@ where the time is current local system time <br><br>
 new version released! updated to sqlcipher
 
 Version: 6.5.1 <br>
-Last updated: 08/23/2026 <br>
+Last updated: 08/25/2026 <br>
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 Windows 10 11 File search application using powershell with Hybrid analysis and MFT search <br><br>
