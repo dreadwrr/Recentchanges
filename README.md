@@ -38,6 +38,11 @@ This applies to GPG4Win <br>
 "The application failed to start because no qt platform plugin"
 When opening the app if it says cannot open instance of qt and then no pinentry it is a condition in windows where the agent wasnt fully activated and can be resovled with: <br>
 from in Kleopatra - Tools - Restart Background Processes
+or 
+from powershell:
+gpgconf --kill gpg-agent
+gpg-agent --daemon &
+
 
 if python is installed. <br><br>
 If you dont have python installed there is a Windows setup version available <br>
