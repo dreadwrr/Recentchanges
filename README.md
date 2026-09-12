@@ -98,6 +98,7 @@ There is an alternative to using onefile above --standalone which would put the 
 so that option isnt used for the main build.
 
 nuitka main.py --mode=standalone --enable-plugin='pyside6' --remove-output --include-qt-plugins=sqldrivers,multimedia --windows-icon-from-ico=Resources\recentchanges.ico --include-package=magic <br>
+copy contents of main.dist to app folder <br>
 manually copy .venv\lib\site-packages\magic\folder to app install <br><br>
 
 ##
