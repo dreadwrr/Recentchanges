@@ -95,7 +95,7 @@ python -m nuitka --onefile --output-filename=main.exe `
 remove main.dist and main.build
 
 There is an alternative to using onefile above --standalone which would put the output into \\main.dist folder. However it is not as organized as pyinstaller's onedir. There are too many files beside the executable
-so that option isnt used for the main build yet.
+so that option isnt used for the main build.
 
 nuitka main.py --mode=standalone --enable-plugin='pyside6' --remove-output --include-qt-plugins=sqldrivers,multimedia --windows-icon-from-ico=Resources\recentchanges.ico --include-package=magic <br>
 manually copy .venv\lib\site-packages\magic\folder to app install <br><br>
