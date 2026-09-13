@@ -106,7 +106,8 @@ nuitka main.py --mode=standalone --enable-plugin='pyside6' `
 ```
 
 manually copy contents of .venv\lib\site-packages\magic to main.dist\magic <br>
-create a symlink to the executable in app install with command prompt: mklink "appinstall\launcher" "appinstall\main.dist\main.exe" <br><br>
+create a symlink to the executable in app install with command prompt: <br>
+mklink "appinstall\launcher" "appinstall\main.dist\main.exe" <br><br>
 
 
 ##
