@@ -79,6 +79,7 @@ which is just updating the .bat files to point to the executable <br><br>
 
 This can be built with nuitka to produce a single binary that extracts at runtime
 
+in venv <br>
 pip install nuitka <br>
 
 ```
@@ -92,13 +93,21 @@ python -m nuitka --onefile --output-filename=main.exe `
 --jobs=4 main.py
 ```
 
-remove main.dist and main.build
+move main.exe to app install, remove main.dist and main.build.
 
 There is an alternative to using onefile above --standalone which would put the output into \\main.dist folder. However it is not as organized as pyinstaller's onedir. This can be overcome with adding a symlink in app install to main.dist.
 
-nuitka main.py --mode=standalone --enable-plugin='pyside6' --remove-output --include-qt-plugins=sqldrivers,multimedia --windows-icon-from-ico=Resources\recentchanges.ico --include-package=magic <br>
-manually copy contents of .venv\lib\site-packages\magic to main.dist\magic <br><br>
-create a symlink in app install with command prompt: mklink "appinstall\launcher" "appinstall\main.dist\main.exe" <br><br>
+first ln 1379 in main.py add another .parent as well as configfunctions.py ln 18 add another .parent. <br><br>
+```
+nuitka main.py --mode=standalone --enable-plugin='pyside6' `
+--remove-output --include-qt-plugins=sqldrivers,multimedia `
+--windows-icon-from-ico=Resources\recentchanges.ico `
+--include-package=magic
+```
+
+manually copy contents of .venv\lib\site-packages\magic to main.dist\magic <br>
+create a symlink to the executable in app install with command prompt: mklink "appinstall\launcher" "appinstall\main.dist\main.exe" <br><br>
+
 
 ##
 To enable ansi text in powershell try the following command <br>
