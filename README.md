@@ -101,6 +101,7 @@ first ln 1379 in main.py add another .parent as well as configfunctions.py ln 18
 nuitka main.py --mode=standalone --enable-plugin='pyside6' `
 --remove-output --include-qt-plugins=sqldrivers,multimedia `
 --windows-icon-from-ico=Resources\recentchanges.ico `
+--windows-uac-admin `
 --include-package=magic
 ```
 
