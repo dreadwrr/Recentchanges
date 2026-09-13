@@ -94,12 +94,11 @@ python -m nuitka --onefile --output-filename=main.exe `
 
 remove main.dist and main.build
 
-There is an alternative to using onefile above --standalone which would put the output into \\main.dist folder. However it is not as organized as pyinstaller's onedir. There are too many files beside the executable
-so that option isnt used for the main build.
+There is an alternative to using onefile above --standalone which would put the output into \\main.dist folder. However it is not as organized as pyinstaller's onedir. This can be overcome with adding a symlink in app install to main.dist.
 
 nuitka main.py --mode=standalone --enable-plugin='pyside6' --remove-output --include-qt-plugins=sqldrivers,multimedia --windows-icon-from-ico=Resources\recentchanges.ico --include-package=magic <br>
-copy contents of main.dist to app folder <br>
-manually copy .venv\lib\site-packages\magic\folder to app install <br><br>
+manually copy contents of .venv\lib\site-packages\magic to main.dist\magic <br><br>
+create a symlink in app install with command prompt: mklink "appinstall\launcher" "appinstall\main.dist\main.exe" <br><br>
 
 ##
 To enable ansi text in powershell try the following command <br>
