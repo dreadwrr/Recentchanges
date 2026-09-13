@@ -79,7 +79,6 @@ which is just updating the .bat files to point to the executable <br><br>
 
 This can be built with nuitka to produce a single binary that extracts at runtime
 
-in venv <br>
 pip install nuitka <br>
 
 ```
