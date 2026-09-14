@@ -96,6 +96,7 @@ move main.exe to app install, remove main.dist and main.build.
 
 There is an alternative to using onefile above --standalone which would put the output into \\main.dist folder. However it is not as organized as pyinstaller's onedir. This can be overcome with adding a symlink in app install to main.dist.
 
+Note: Some image paths wont load correctly because of how it would be structured. So the next update will fix this for --standalone. <br><br>
 first ln 1379 in main.py add another .parent as well as configfunctions.py ln 18 add another .parent. <br><br>
 ```
 nuitka main.py --mode=standalone --enable-plugin='pyside6' `
