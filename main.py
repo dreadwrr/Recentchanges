@@ -353,6 +353,7 @@ class MainWindow(QMainWindow):
 
         # self.change_format()  # apply hudt settings
         self.refresh_jpg()  # load pic
+        self.ui.label.setPixmap(QPixmap(os.path.join(self.resources, "xrc.png")))  # this is needed for nuitka --standalone
 
         # one time items
         ro = self.j_settings.get("search_range")
@@ -529,6 +530,7 @@ class MainWindow(QMainWindow):
         self.ui.actionQuick1.triggered.connect(lambda: display(self.dspEDITOR, self.command_file, True, self.dspPATH))
         self.ui.actionDiag1.triggered.connect(self.show_status)
         self.ui.actionWatchdog.triggered.connect(self.load_watchdog)
+        self.ui.actionStop_watchdog.triggered.connect(self.stop_watchdog)
         self.ui.actionFile_creation_log.triggered.connect(lambda: display(self.dspEDITOR, self.inotify_creation_file, True, self.dspPATH))  # lambda: load_explorer(self.lclscripts))  #
         self.ui.actionLogging.triggered.connect(lambda: display(self.dspEDITOR, self.log_path, True, self.dspPATH))
 
@@ -1216,7 +1218,6 @@ class MainWindow(QMainWindow):
                         if not di:
                             self.ui.hudt.appendPlainText(f"the json in memory wasnt updated for the drive {basedir}")
                             raise DriveLogicError("couldnt apply changes")
-                        drive_info = self.j_settings[basedir].copy()
 
                         if cache_moved:
                             for di in self.j_settings.values():
@@ -1226,6 +1227,7 @@ class MainWindow(QMainWindow):
                                     self.ui.hudt.appendPlainText(f"drive changed mounts and wasnt properly updated check {self.sj} and set to idx_suffix for drive {basedir}, guid {guid}")
                                     # raise DriveLogicError(f"drive changed mounts and wasnt properly updated check {self.sj} and set to {drive_idx} for guid {guid}")
 
+                        drive_info = self.j_settings[basedir].copy()
                         drive_guid = drive_info.get("drive_partguid")
                         moi = basedir
                         mtype = drive_info.get("model_type")
@@ -1633,13 +1635,13 @@ class MainWindow(QMainWindow):
     def open_calculator(self, mode=None):
         if self.calculator is None:
             if mode:
-                self.calculator = SCalculator(None, "scientific", self.cTHRESHOLD, self.decimals, "block", self.chistory,
+                self.calculator = SCalculator(self.lclhome, "scientific", self.cTHRESHOLD, self.decimals, "block", self.chistory,
                                               self.saved_history, self.randintMAX, self.randintMIN, self.ui.hudt,
-                                              self.clogLEVEL)
+                                              self.clogLEVEL, None)
             else:
-                self.calculator = SCalculator(None, self.cmode, self.cTHRESHOLD, self.decimals, self.ctheme, self.chistory,
+                self.calculator = SCalculator(self.lclhome, self.cmode, self.cTHRESHOLD, self.decimals, self.ctheme, self.chistory,
                                               self.saved_history, self.randintMAX, self.randintMIN, self.ui.hudt,
-                                              self.clogLEVEL)
+                                              self.clogLEVEL, None)
 
             self.calculator.complete.connect(self.on_calc_closed)
         self.calculator.show()
@@ -2432,7 +2434,20 @@ class MainWindow(QMainWindow):
         return None
 
     def load_watchdog(self):
-        if not self.job_running():
+        if self.isexec:
+            window_message(self, "there is a current job started.", "Execution")
+            return
+
+        def startup():
+            strup(
+                self.lclscripts, script, self.lclhome, home_dir, self.inotify_creation_file, CACHE_F, cdir, self.watchdog_pid_file,
+                lockfile, self.log_path, self.ll_level, self._time, escaped_user, self.moduleNAME, self.usrDIR, self.tempdir,
+                self.gnupg_home, self.supbrwLIST, debug_mode, self.checkMETHOD, platform
+            )
+            if not self.xRC:
+                self.xRC = True
+                update_toml_values({'search': {'xRC': True}}, self.toml_file)
+            self.ui.hudt.appendPlainText("watchdog started")
             return
 
         debug_mode = False
@@ -2456,25 +2471,28 @@ class MainWindow(QMainWindow):
             fk_success = process_kill(pid, self.watchdog_pid_file)
 
             if fk_success and not process_by_target(search_pattern):
-                strup(
-                    self.lclscripts, script, self.lclhome, home_dir, self.inotify_creation_file, CACHE_F, cdir, self.watchdog_pid_file,
-                    lockfile, self.log_path, self.ll_level, self._time, escaped_user, self.moduleNAME, self.usrDIR, self.tempdir,
-                    self.gnupg_home, self.supbrwLIST, debug_mode, self.checkMETHOD, platform
-                )
-                self.ui.hudt.appendPlainText("watchdog started")
-                return
-            if fk_success:
+                return startup()
+
+            elif fk_success:
                 logging.debug("init_recentchanges inotifywait was already running continuing")
 
         else:
-            strup(
-                self.lclscripts, script, self.lclhome, home_dir, self.inotify_creation_file, CACHE_F, cdir, self.watchdog_pid_file,
-                lockfile, self.log_path, self.ll_level, self._time, escaped_user, self.moduleNAME, self.usrDIR, self.tempdir,
-                self.gnupg_home, self.supbrwLIST, debug_mode, self.checkMETHOD, platform
-            )
-            self.ui.hudt.appendPlainText("watchdog started")
-            return
+            return startup()
         self.ui.hudt.appendPlainText("Failed to start watchdog")
+
+    def stop_watchdog(self):
+        if self.isexec:
+            window_message(self, "there is a current job started.", "Execution")
+            return
+        search_pattern = "watchdog_win.py"
+        pid = process_by_target(search_pattern)
+        if pid:
+            fk_success = process_kill(pid, self.watchdog_pid_file)
+            if fk_success:
+                self.ui.hudt.appendPlainText("watchdog stopped")
+        if self.xRC:
+            self.xRC = False
+            update_toml_values({'search': {'xRC': False}}, self.toml_file)
 
     ''' Proteus Shield / System Profile '''
 
