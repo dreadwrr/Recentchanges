@@ -221,6 +221,7 @@ def start_user_agent(gpg_file):
                 print(line)
                 print(f"No key for {gpg_file} delete the file to reset")
                 return False
+    # print(result.returncode)  # debug windows gpg-agent not starting has to be daemon
     return result.returncode == 0
 
 

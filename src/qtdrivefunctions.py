@@ -8,10 +8,10 @@ from .config import dump_j_settings
 from .config import set_json_settings
 from .config import update_dict
 from .config import update_toml_values
-from .qtfunctions import window_prompt
 from .pysql import clear_conn
 from .pysql import create_conn
 from .pysql import table_exists
+from .qtfunctions import window_prompt
 from .rntchangesfunctions import name_of
 
 
@@ -382,14 +382,14 @@ def setup_drive_settings(basedir, key, driveTYPE, toml_file, user_json=None, j_s
     #
     # if its an idx_drive we need this info regardless as usrprofile.json is where its info is stored. 'drive_type' and 'drive_model'
     if user_json:
-        if idx_drive or model_type != "Unknown":
+        # if idx_drive or model_type != "Unknown":
 
-            if key and j_settings is not None:
+        if key and j_settings is not None:
 
-                update_dict({"idx_suffix": key, "drive_id_model": drive_id_model, "mount_of_index": basedir, "model_type": model_type, "drive_type": drive_type}, j_settings, basedir)
-                dump_j_settings(j_settings, user_json)
-            elif key:
-                set_json_settings({"idx_suffix": key, "drive_id_model": drive_id_model, "mount_of_index": basedir, "model_type": model_type, "drive_type": drive_type}, drive=basedir, filepath=user_json)
+            update_dict({"idx_suffix": key, "drive_id_model": drive_id_model, "mount_of_index": basedir, "model_type": model_type, "drive_type": drive_type}, j_settings, basedir)
+            dump_j_settings(j_settings, user_json)
+        elif key:
+            set_json_settings({"idx_suffix": key, "drive_id_model": drive_id_model, "mount_of_index": basedir, "model_type": model_type, "drive_type": drive_type}, drive=basedir, filepath=user_json)
 
     print(f"model {drive_id_model}")
     print(f"model_type {model_type}")

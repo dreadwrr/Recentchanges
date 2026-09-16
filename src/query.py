@@ -218,6 +218,15 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                         # Search time area
                         ctext = "\033[36mSearch breakdown \033[0m"
                         log_fn(ctext)
+                        # cur.execute("""
+                        #     SELECT
+                        #     datetime(AVG(strftime('%s', accesstime)), 'unixepoch') AS average_accesstime
+                        #     FROM logs
+                        #     WHERE accesstime IS NOT NULL;
+                        # """)
+                        # result = cur.fetchone()
+                        # average_accesstime = result[0] if result and result[0] is not None else None
+
                         # average file access time
                         cur.execute("""
                             SELECT strftime('%s', accesstime)

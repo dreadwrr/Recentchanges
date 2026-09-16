@@ -811,6 +811,7 @@ def main_entry(argv):
     elif args.action == "scan":
         calling_args = [
             args.appdata, args.dbopt, args.dbtarget, args.basedir, args.user, args.cache_s, args.email,
-            args.diff_file, args.analytics, args.showDiff, args.showPrevious, args.iqt, args.strt, args.endp
+            args.diff_file, args.analytics, args.showDiff, args.showPrevious, args.iqt, args.strt,
+            args.endp
         ]
         sys.exit(scan_system(*calling_args))

@@ -344,7 +344,9 @@ def parselog(file, checksum, logger):
     return results
 
 
+# ctimecache
 def rotate_cache(cfr, cache_f, logger):
+    ''' move the cache info ctimecache from watchdog to ctimecache.gpg used by this app recentchanges. '''
     created = {}
     if cache_f.is_file():
         rotated = cache_f.with_name(cache_f.name + ".old")
@@ -369,7 +371,7 @@ def rotate_cache(cfr, cache_f, logger):
                     logger.error("Failed to parse delimiter in cache file line: %s", line)
                     continue
                 try:
-                    inode, size, mtime_epoch = metadata.split("|")  # inode not used
+                    inode, size, mtime_epoch = metadata.split("|")
                     inode = int(inode)
                     size = int(size)
                     mtime_epoch = int(mtime_epoch)
@@ -401,7 +403,8 @@ def rotate_cache(cfr, cache_f, logger):
 
 # file_creation_log.txt
 def parse_tout(log_file, checksum, logger):
-    """ this is unused """
+    ''' this is unused. xrc used to run in a seperate process after finding the modified files. file_creation_log needed to be parsed for changed
+    time on linux or created time on windows.  '''
     tout_files = []
     all_files = []
 
@@ -545,36 +548,23 @@ def init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, temp_dir, gn
 
         # lock_ = False
         fk_success = True
-        print("pat:", search_pattern)
+
         pid = process_by_target(search_pattern)
 
         if pid:
 
             if platform == "linux":
 
-                # if multiple processes
-                # inotify wait is running wait until it is finished if it is in the middle of a write
+                fk_success = process_kill(pid, watchdog_pid_file)
 
-                # fd = os.open(lockfile, os.O_WRONLY | os.O_CREAT, 0o644)
-                # os.dup2(fd, 200)
-                # os.close(fd)
-
-                # lock_fd = 200
-                # try:
-                # fcntl.flock(lock_fd, fcntl.LOCK_EX)
-                # lock_ = True
+                # a partial write could occur but would get parsed out and is insignificant this avoids the use of locks currently
 
                 # kill inotify wait process results and restart
                 if checksum and xRC:
 
                     os.makedirs(cdir, mode=0o700, exist_ok=True)
 
-                    fk_success = process_kill(pid, watchdog_pid_file)
-
-                    # a partial write could occur but would get parsed out and is insignificant this avoids the use of locks currently
-
                     created = rotate_cache(cfr, CACHE_F, logger)
-
                     # if os.path.isfile(inotify_creation_file):
                     #   all_files = parse_tout(inotify_creation_file, checksum, logger)
                     # open(inotify_creation_file, 'w').close()
@@ -585,35 +575,17 @@ def init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, temp_dir, gn
                             log_file, ll_level, _time, user, moduleNAME, usrDIR, temp_dir, gnupg_home, supbrwLIST, debug_mode, algo,
                             platform, logger
                         )
-                    else:
-                        if fk_success:
-                            logger.debug("init_recentchanges inotifywait was already running continuing")  # log unusual event
-
-                # the setting was turned off kill inotify wait
-                else:
-
-                    fk_success = process_kill(pid, watchdog_pid_file)
+                    elif fk_success:
+                        logger.debug("init_recentchanges inotifywait was already running continuing")  # log unusual event
 
                 if not fk_success:
                     logger.debug("init_recentchanges _fk_process did not report success for inotifywait termination")  # log second unusual event
-                # except OSError as e:
-                #     logger.error(f"Failed to acquire lock: {e}")
-                # finally:
-                #     if lock_:
-                #         fcntl.flock(lock_fd, fcntl.LOCK_UN)
-                #     os.close(lock_fd)
 
             elif platform == "windows":
 
-                # lock_file = open(lockfile, "w")
+                fk_success = process_kill(pid, watchdog_pid_file)
 
-                # try:
-
-                # msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
-                # lock_ = True
                 if checksum and xRC:
-
-                    fk_success = process_kill(pid, watchdog_pid_file)
 
                     created = rotate_cache(cfr, CACHE_F, logger)
 
@@ -623,22 +595,11 @@ def init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, temp_dir, gn
                             log_file, ll_level, _time, user, moduleNAME, usrDIR, temp_dir, gnupg_home, supbrwLIST, debug_mode, algo,
                             platform, logger
                         )
-                    else:
-                        if fk_success:
-                            logger.debug("init_recentchanges inotifywait was already running continuing")
-
-                else:
-
-                    fk_success = process_kill(pid, watchdog_pid_file)
+                    elif fk_success:
+                        logger.debug("init_recentchanges inotifywait was already running continuing")
 
                 if not fk_success:
                     logger.debug("init_recentchanges _fk_process did not report success for inotifywait termination")
-                # except OSError as e:
-                #     logger.error(f"Failed to acquire lock: {e}")
-                # finally:
-                #     if lock_:
-                #         msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
-                #     lock_file.close()
 
         # first start
         elif checksum and xRC:
@@ -656,3 +617,31 @@ def init_recentchanges(script_dir, appdata_local, usrDIR, home_dir, temp_dir, gn
     return created
 
 # end xRC functions
+
+# Notes: file locking linux
+# if multiple processes
+# inotify wait is running wait until it is finished if it is in the middle of a write
+# fd = os.open(lockfile, os.O_WRONLY | os.O_CREAT, 0o644)
+# os.dup2(fd, 200)
+# os.close(fd)
+# lock_fd = 200
+# try:
+# fcntl.flock(lock_fd, fcntl.LOCK_EX)
+# lock_ = True
+# except OSError as e:
+#     logger.error(f"Failed to acquire lock: {e}")
+# finally:
+#     if lock_:
+#         fcntl.flock(lock_fd, fcntl.LOCK_UN)
+#     os.close(lock_fd)
+# windows
+# lock_file = open(lockfile, "w")
+# try:
+# msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+# lock_ = True
+# except OSError as e:
+#     logger.error(f"Failed to acquire lock: {e}")
+# finally:
+#     if lock_:
+#         msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+#     lock_file.close()

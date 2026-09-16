@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'untitled14.ui'
+## Form generated from reading UI file 'untitled12.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.11.1
+## Created by: Qt User Interface Compiler version 6.10.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -28,7 +28,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(1578, 1055)
+        MainWindow.resize(1571, 1053)
         sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -90,6 +90,8 @@ class Ui_MainWindow(object):
         self.actionFile_creation_log.setObjectName(u"actionFile_creation_log")
         self.actionScientific_calculator = QAction(MainWindow)
         self.actionScientific_calculator.setObjectName(u"actionScientific_calculator")
+        self.actionStop_watchdog = QAction(MainWindow)
+        self.actionStop_watchdog.setObjectName(u"actionStop_watchdog")
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.gridLayout_6 = QGridLayout(self.centralwidget)
@@ -635,7 +637,8 @@ class Ui_MainWindow(object):
         self.widget.setObjectName(u"widget")
         sizePolicy.setHeightForWidth(self.widget.sizePolicy().hasHeightForWidth())
         self.widget.setSizePolicy(sizePolicy)
-        self.widget.setMinimumSize(QSize(50, 50))
+        self.widget.setMinimumSize(QSize(539, 50))
+        self.widget.setMaximumSize(QSize(539, 50))
 
         self.gridLayout.addWidget(self.widget, 4, 8, 2, 1)
 
@@ -1058,7 +1061,7 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QMenuBar(MainWindow)
         self.menubar.setObjectName(u"menubar")
-        self.menubar.setGeometry(QRect(0, 0, 1578, 33))
+        self.menubar.setGeometry(QRect(0, 0, 1571, 21))
         self.menuRecent_changes = QMenu(self.menubar)
         self.menuRecent_changes.setObjectName(u"menuRecent_changes")
         self.menuHelp = QMenu(self.menubar)
@@ -1098,6 +1101,7 @@ class Ui_MainWindow(object):
         self.menuComm.addAction(self.actionDiag1)
         self.menuComm.addSeparator()
         self.menuComm.addAction(self.actionWatchdog)
+        self.menuComm.addAction(self.actionStop_watchdog)
         self.menuComm.addSeparator()
         self.menuComm.addSeparator()
         self.menuComm.addAction(self.actionFile_creation_log)
@@ -1111,7 +1115,7 @@ class Ui_MainWindow(object):
 
         self.retranslateUi(MainWindow)
 
-        self.stackedWidget.setCurrentIndex(0)
+        self.stackedWidget.setCurrentIndex(1)
         self.basedirButton.setDefault(True)
         self.combffile.setCurrentIndex(0)
 
@@ -1175,6 +1179,7 @@ class Ui_MainWindow(object):
         self.actionFile_creation_log.setShortcut(QCoreApplication.translate("MainWindow", u"F10", None))
 #endif // QT_CONFIG(shortcut)
         self.actionScientific_calculator.setText(QCoreApplication.translate("MainWindow", u"Scientific Calculator", None))
+        self.actionStop_watchdog.setText(QCoreApplication.translate("MainWindow", u"Stop Watchdog", None))
 #if QT_CONFIG(tooltip)
         self.diffchkb.setToolTip(QCoreApplication.translate("MainWindow", u"scan idx and append diff file", None))
 #endif // QT_CONFIG(tooltip)

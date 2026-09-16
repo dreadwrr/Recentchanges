@@ -1,15 +1,17 @@
 import math
 import mpmath
+import os
 import random
 import re
 import sys
 from functools import partial
+from pathlib import Path
 from PySide6 import QtWidgets, QtCore, QtGui
 from .ui_calculator import Ui_Form
 # 07/08/2026
 
 
-def window_message(parent, message, title="Status", default=True):  # ok
+def window_message(parent, message, icon_path="./Resources/calculator/48.png", title="Status", default=True):  # ok
     msg = QtWidgets.QMessageBox(parent)
     msg.setStyleSheet("""
     QFrame { background: palette(window); }
@@ -21,7 +23,7 @@ def window_message(parent, message, title="Status", default=True):  # ok
         msg.setIcon(QtWidgets.QMessageBox.Icon.Information)
     msg.setWindowTitle(title)
     msg.setText(message)
-    msg.setWindowIcon(QtGui.QIcon("./Resources/calculator/48.png"))
+    msg.setWindowIcon(QtGui.QIcon(icon_path))
     msg.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
     msg.exec()
 
@@ -114,14 +116,15 @@ class SCalculator(QtWidgets.QWidget):
     complete = QtCore.Signal()
 
     def __init__(
-            self, parent=None, mode="scientific", sci_threshold=6, decimals=50, theme="block", history_view=False,
+            self, appdata_local="", mode="scientific", sci_threshold=6, decimals=50, theme="block", history_view=False,
             saved_history="", rand_max=9999999, rand_min=0, logger: QtWidgets.QTextEdit | None = None,
-            log_level: str | None = "ERROR"
+            log_level: str | None = "ERROR", parent=None
     ):
         super().__init__(parent)
         self.ui = Ui_Form()
         self.ui.setupUi(self)
 
+        self.lclhome = appdata_local  # if None use next to calculator.py
         self.mode = mode  # regular use python standard library. scientific use mpmath for binary arbitrary precision
         self.sci_threshold = sci_threshold
         self.decimals = decimals
@@ -147,6 +150,16 @@ class SCalculator(QtWidgets.QWidget):
         self.pending_paren = False  # pending paren # times ten power ect
 
         self.paren_count = 0
+
+        # 09/13/2026 added absolute path to images for compatibility
+        self.resources = "./Resources"
+        if self.lclhome:
+            if not isinstance(self.lclhome, (Path, str)):
+                raise TypeError("appdata_local must be a str or Path object")
+            if not os.path.isdir(self.lclhome):
+                raise ValueError("appdata_local must point to an existing directory")
+
+            self.resources = os.path.join(self.lclhome, "Resources")
 
         self.memory = ""  # mr
         self.last_expression = ""  # handle function input if repeated hold so already built
@@ -210,12 +223,16 @@ class SCalculator(QtWidgets.QWidget):
             (self.ui.divisionButton, "/"),  # ÷
         ]
 
+        # 09/13/2026 was set in ui_calculator but needs to be set again
+        self.ui.label_2.setPixmap(QtGui.QPixmap(self.resources + "/calculator/calculator.svg"))
+
         # Set icons
         self.icon_config = {
-            self.ui.closeButton: ["./Resources/calculator/close.svg", 30],
-            self.ui.negateButton: ["./Resources/calculator/plus-minus-variant.svg", 40],
-            self.ui.percentButton: ["./Resources/calculator/percent-solid.svg", 50],
+            self.ui.closeButton: [self.resources + "/calculator/close.svg", 30],
+            self.ui.negateButton: [self.resources + "/calculator/plus-minus-variant.svg", 40],
+            self.ui.percentButton: [self.resources + "/calculator/percent-solid.svg", 50],
         }
+        # end of update where self.resources was added
 
         self.initialize_ui()
 
@@ -609,7 +626,7 @@ class SCalculator(QtWidgets.QWidget):
         try:
             float(text)
         except ValueError:
-            window_message(self, "Invalid number")
+            window_message(self, "Invalid number", os.path.join(self.resources, "calculator", "48.png"))  # 09/13/2026 update added icon_path
             return
 
         self.text = text
@@ -851,12 +868,19 @@ class SCalculator(QtWidgets.QWidget):
         # new
         if self.del_locked:
 
-            if char == "." and "." not in self.text:
+            # commented out on 09/12/2026
+            # original
+            # if char == "." and "." not in self.text:
+            #     self.text = "0."
+            # elif char == ".":
+            #     return
+            # else:
+            #     self.text = char
+            if char == ".":
                 self.text = "0."
-            elif char == ".":
-                return
             else:
                 self.text = char
+
             self.last_expression = None
             self.del_locked = False
             self.ui.negateButton.blockSignals(True)
