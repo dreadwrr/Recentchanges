@@ -2,8 +2,8 @@ Find modified and new files on the system quickly with: <br>
 .\\bin\\parsec.exe C: --cutoff "2026-06-15 07:13:18" \# or "2026-06-15T07:13:18"<br>
 where the time is current local system time <br><br>
 
-Version: 6.5.2 <br>
-Last updated: 09/15/2026 <br>
+Version: 6.5.2.1 <br>
+Last updated: 09/24/2026 <br>
 
 ![Alt text](https://i.imgur.com/yNnttmU.png) ![Alt text](https://i.imgur.com/gqbO4HB.png) <br><br>
 Windows 10 11 File search application using powershell with Hybrid analysis and MFT search <br><br>
