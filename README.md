@@ -1,3 +1,6 @@
+10/15/2026<br>
+Currently updating to include the mft package which would make the mft features faster.<br>
+
 Find modified and new files on the system quickly with: <br>
 .\\bin\\parsec.exe C: --cutoff "2026-06-15 07:13:18" \# or "2026-06-15T07:13:18"<br>
 where the time is current local system time <br><br>
