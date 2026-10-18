@@ -302,6 +302,8 @@ class MainWindow(QMainWindow):
         if getattr(sys, "frozen", False) or "__compiled__" in globals():
             self.is_pyinstall = True
             self.dispatch = Path(sys.argv[0]).resolve()  # set internal python
+
+        self.is_mftparser = False
         self.isexec = False
 
         self.new_sound_file = False  # when there is a pending sound file this is set to the path
@@ -353,7 +355,7 @@ class MainWindow(QMainWindow):
 
         # self.change_format()  # apply hudt settings
         self.refresh_jpg()  # load pic
-        self.ui.label.setPixmap(QPixmap(os.path.join(self.resources, "xrc.png")))  # this is needed for nuitka --standalone
+        # self.ui.label.setPixmap(QPixmap(os.path.join(self.resources, "xrc.png")))  # this is needed for nuitka --standalone 10/14/2026
 
         # one time items
         ro = self.j_settings.get("search_range")
@@ -424,6 +426,14 @@ class MainWindow(QMainWindow):
         elif self.pageIDX == 1:
             self.show_page()
 
+        # 10/16/2026 mftparser package inserted
+        try:
+            import mftparser
+            _ = mftparser.__all__  # suppress F841 imported but unused
+            self.is_mftparser = True
+        except ImportError:
+            pass
+
     @Slot(str)
     def append_log(self, text):
         cursor = self.ui.hudt.textCursor()
@@ -476,8 +486,8 @@ class MainWindow(QMainWindow):
         self.ui.widget = AlarmClock(self, theme=self.alarmCOLOR, _24hformat=self.alarm_24h, sound_file=sound_path, sound_set_file=sound_set_path)
 
         layout.addWidget(self.ui.widget, *position)
-        self.ui.widget.setMinimumSize(QSize(539, 128))
-        self.ui.widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        # self.ui.widget.setMinimumSize(QSize(539, 128))
+        # self.ui.widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
 
     def install_logger(self):
         # hudt
@@ -2841,7 +2851,11 @@ class MainWindow(QMainWindow):
         method = "mftdump"
         tool = None
 
-        if os.path.isfile(self.mftec_command):   # '.\\bin\\MFTECmd.exe'
+        if self.is_mftparser:
+            method = "mftparser"
+
+        # if any are found use those instead
+        if os.path.isfile(self.mftec_command):  # '.\\bin\\MFTECmd.exe'
             method = "mftec"
             c_ver = mftec_version(str(self.mftec_command), self.tempdir)
             if c_ver == "mftec_cutoff":
@@ -2859,19 +2873,19 @@ class MainWindow(QMainWindow):
         elif os.path.isfile(self.ntfs_command):  # '.\\bin\\ntfstool.x86.exe'
             tool = "ntfstool"
         else:
-            window_message(self, "1.icat/fstat or 2.ntfstools", f"Cant find any executable in {self.exe_path}")
+            tool = "mftparser"
 
         return method, tool
 
-    def prescreen(self, tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR):
+    def prescreen(self, tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, is_mftparser):
 
         if tool == "icat_fsstat":
 
             if validmft(str(self.fsstat_command)):  # First check for $MFT
-                self.start_mfttrd("Mfticat_fstat", mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR)
+                self.start_mfttrd(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR)
                 return True
-        # ntfstool
-        else:
+
+        elif tool == "ntfstool":
             drive_info = get_disk_and_volume_for_drive("C:")
             if drive_info:
                 disk, _ = drive_info
@@ -2883,7 +2897,7 @@ class MainWindow(QMainWindow):
                     vol = mounted['id']
                     volume = vol
                     if disk and vol:  # First check for $MFT - # mft found
-                        self.start_mfttrd("Mftntfs", mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk, volume)
+                        self.start_mfttrd(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk, volume)
                         return True
                         # self.worker.set_task(opt, disk, volume) #pass ins
                     else:
@@ -2892,7 +2906,11 @@ class MainWindow(QMainWindow):
                     self.ui.hudt.appendPlainText("failed volno or volume number for C:\\")
             else:
                 self.ui.hudt.appendPlainText("failed diskno unable to find disk number for C:\\")
-        return False
+
+        # mftparser
+        else:
+            self.start_mfttrd(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, is_mftparser=self.is_mftparser)
+            return True
 
     def resetMftImport(self):
 
@@ -2909,12 +2927,14 @@ class MainWindow(QMainWindow):
             return
 
         method, tool = self.validaction()
-        if tool is None:
-            self.isexec = False
-            return
-        elif self.mft and (method == "mftdump" or method == "parsec"):
+
+        if self.mft and (method == "mftdump" or method == "parsec"):
             self.isexec = False
             self.ui.hudt.appendPlainText("MFTECmd is required to convert a raw mft to csv")
+            return
+        elif tool is None:
+            window_message(self, "1.icat/fstat or 2.ntfstools", f"Cant find any executable in {self.exe_path}")
+            self.isexec = False
             return
 
         mmin = self.ui.mftrange.value()  # spinbox
@@ -2978,17 +2998,17 @@ class MainWindow(QMainWindow):
             file_name = name_of(mft)
             output_f = f'{file_name}.csv'
 
-            self.start_mfttrd("Mftimport", mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR, None, None, mft)
+            self.start_mfttrd("Mftimport", mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR, None, None, mft, self.is_mftparser)
 
             self.worker.set_task(self.parsec_command, self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
-            self.worker_thread.started.connect(self.worker.outputmft)
+            self.worker_thread.started.connect(self.worker.output_mft)
             self.worker.complete.connect(lambda code: self.update_ui_sn.emit(code, "Import"))
             self.open_trd()
 
-        # Save the system Mft
+        # Save dump the system Mft
         elif isMftSave:
             output_f = os.path.join(drive, mftraw)
-            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR):  # check for NTFS valid $MFT
+            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR, self.is_mftparser):  # check for NTFS valid $MFT
                 self.isexec = False
                 return  # optional pass ins
             self.worker.set_task(self.parsec_command, self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
@@ -2998,10 +3018,11 @@ class MainWindow(QMainWindow):
 
         # Default make the search
         else:
+
             output_f = os.path.join(drive, mftraw)
             self.ui.progressBAR.setValue(5)
 
-            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR):
+            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR, self.is_mftparser):
                 self.isexec = False
                 return
             self.worker.set_task(self.parsec_command, self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
@@ -3467,9 +3488,9 @@ class MainWindow(QMainWindow):
 
     # Thread types
     # Mft
-    def start_mfttrd(self, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk=None, volume=None, mft=None):
+    def start_mfttrd(self, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk=None, volume=None, mft=None, is_mftparser=False):
         self.worker_thread = QThread()
-        self.worker = MftWorker(self.lclhome, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk, volume, mft)
+        self.worker = MftWorker(self.lclhome, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk, volume, mft, is_mftparser)
         self.worker.moveToThread(self.worker_thread)
         self.worker.progress.connect(self.increment_progress)
         self.ui.progressBAR.setValue(0)
@@ -3855,6 +3876,13 @@ def start_main_window():
     if not check_for_gpg():
         QMessageBox.critical(None, "Error", "Unable to verify gpg in path. Likely path was partially initialized. quitting")  # QMessageBox.warning(None, "")
         return 1
+
+    # if needing to prevent password expiring while running tasks
+    # also in some cases qt service wont be running and this can prevent an error without needing to use kleopatra to restart background services
+    #
+    # import subprocess
+    # subprocess.run(["gpgconf", "--kill", "gpg-agent"])
+    # subprocess.Popen(["gpg-agent", "--daemon", "--default-cache-ttl", "1200"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # end startup/initialize
 
