@@ -1,5 +1,5 @@
 10/15/2026<br>
-Currently updating to include the mft package for the mft features. Also minor modification to ui and other bug fixes<br>
+Currently updating to include the mft package for the mft features. Update will also include minor ui modification and any bug fixes<br>
 
 Find modified and new files on the system quickly with: <br>
 .\\bin\\parsec.exe C: --cutoff "2026-06-15 07:13:18" \# or "2026-06-15T07:13:18"<br>
