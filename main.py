@@ -1,4 +1,4 @@
-# 08/20/2026               Qt gui windows 11                  Developer buddy 6.5
+# 10/16/2026               Qt gui windows 11                  Developer buddy 6.6
 import glob
 import logging
 import multiprocessing
@@ -241,7 +241,7 @@ class MainWindow(QMainWindow):
         # QTimer.singleShot(5000, self.display_db)
 
         # Vars
-        self.app_version = "6.5.2.1"
+        self.app_version = "6.6.0.0"
 
         self.dispatch = sys.executable
         self.app = str(appdata_local / "src" / "set_recent_helper.py")
