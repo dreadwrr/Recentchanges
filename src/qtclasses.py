@@ -145,10 +145,10 @@ class Worker(QObject):
     def __init__(self, database):
         super().__init__()
         self.database = database
-        self._should_stop = False
+        self.should_stop = False
 
     def stop(self):
-        self._should_stop = True
+        self.should_stop = True
 
 
 class DriveLogicError(Exception):

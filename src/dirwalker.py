@@ -67,9 +67,10 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
     '''
         Find downloads
 
-        The following uses cache built from a system index to find created files or downloads. Potentially being faster than
-        the find command or a powershell search. It will update the cache with new directory modified times. Also, any new directories. The
-        cache is a list of all directories on the system. The directory mtime is updated. dir mtime is updated when files are added, removed or renamed only.
+        The following uses cache built from a system index to find created files or downloads. Potentially being faster than the
+        find command or a powershell search. It will update the cache with new directory modified times. Also, any new
+        directories. The cache is a list of all directories on the system. The directory mtime is updated. dir mtime
+        is updated when files are added, removed or renamed only.
 
         Drive index find downloads
         systimeche.gpg aka cache_s '''
@@ -78,6 +79,7 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
     if not cfr_src:
         print(f"Unable to retrieve cache file {cache_s} quitting.")
         return 1
+
     appdata_local = Path(appdata_local)
     config_data = get_config_data(appdata_local, user)  # dtype is passed in for device from qt as driveTYPE
 
@@ -117,7 +119,6 @@ def find_created(appdata_local, dbopt, dbtarget, basedir, user, cache_s, email, 
         start = time.time()
         try:
             i = num_chunks = 1
-
             all_sys, systime_results, _, _ = scan_created(
                 base_folders, basedir, excluded_paths, filter_tup, cfr_src, root_count, i, num_chunks, show_progress, logroot, strt, endp
             )

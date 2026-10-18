@@ -78,7 +78,7 @@ class GeneralWorker(Worker):
                         self.timer = threading.Timer(9.0, self.on_timeout)
                         self.timer.start()
 
-                    rlt = query_main(self.lclhome, self.usr, self.email, database=self.database, log_fn=self.log.emit)
+                    rlt = query_main(self.lclhome, self.usr, self.email, database=self.database)  # log_fn=self.log.emit
                     if self.timer and self.timer.is_alive():
                         self.timer.cancel()
 

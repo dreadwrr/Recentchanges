@@ -389,7 +389,7 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                             with open(flth, 'r') as file:
                                 for line in file:
                                     if database:
-                                        log_fn(line)
+                                        log_fn(line.rstrip('\n'))  # line 09/29/2026 experiment with thread for main script
                                     else:
                                         print(line, end='')
                         return 0

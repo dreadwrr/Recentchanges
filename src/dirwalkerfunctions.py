@@ -469,6 +469,7 @@ def files_search(base_dir, search_start_dt, feedback, exclDIRS, excluded_paths=N
             step_len = len(steps)
 
         max_depth = 0
+
         for dir_path in base_folders:
             f += 1
             try:
@@ -794,8 +795,8 @@ def meta_sys(file_path, previous_md5, previous_entropy, previous_mime_id, previo
         same as above but have previous checksum of file. stat and hash each profile item and check to original to find any
         changes including modifications without a new modified time or faked modified time.
 
-        a file could change to a symlink and vice versa. which wouldnt effect anything but is info that can be output for symmetric
-        differences
+        a file could change to a symlink and vice versa. which wouldnt effect anything but is info that can be output for
+        symmetricdifferences
         previous_symlink before
         and symlink\\sym after '''
     status = None

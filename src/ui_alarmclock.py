@@ -3,7 +3,7 @@
 ################################################################################
 ## Form generated from reading UI file 'ui_alarmclock.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.11.1
+## Created by: Qt User Interface Compiler version 6.10.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -118,7 +118,7 @@ class Ui_AlarmClock(object):
 
         self.downb = QPushButton(self.gridLayoutWidget)
         self.downb.setObjectName(u"downb")
-        self.downb.setMinimumSize(QSize(51, 24))
+        self.downb.setMinimumSize(QSize(51, 22))
         self.downb.setMaximumSize(QSize(51, 24))
 
         self.horizontalLayout_22.addWidget(self.downb)
@@ -150,6 +150,14 @@ class Ui_AlarmClock(object):
         self.horizontalSpacer_2 = QSpacerItem(79, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
 
         self.gridLayout.addItem(self.horizontalSpacer_2, 2, 3, 1, 1)
+
+        self.horizontalSpacer_3 = QSpacerItem(79, 20, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+
+        self.gridLayout.addItem(self.horizontalSpacer_3, 2, 1, 1, 1)
+
+        self.verticalSpacer_2 = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+
+        self.gridLayout.addItem(self.verticalSpacer_2, 2, 2, 1, 1)
 
 
         self.retranslateUi(AlarmClock)

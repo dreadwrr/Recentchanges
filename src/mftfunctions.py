@@ -1,12 +1,13 @@
 import csv
 import io
+import mftparser
 import os
 import re
 import subprocess
 import traceback
 from pathlib import Path
 from .rntchangesfunctions import removefile
-# 05/29/2026
+# 10/17/2026
 
 
 TICKS_BTWN_1601_1970 = 11644473600000000
@@ -47,6 +48,48 @@ def output_mft(exe_path: str, target: str):
         raise RuntimeError(f"Parser exited with code {rc}: {err}")
 
     return records
+
+
+# mftpaser
+def scan_mft(target: str):
+
+    # dont need exe_path
+
+    # type from parsec output_mft above
+    # recno = int(record[0])
+    # sequence_num = int(record[1])
+    # parent_recno = int(record[2])
+    # parent_sequence = int(record[3])
+    # in_use = int(record[4])
+    # file_attribs = int(record[11])
+    # in_use bool
+    # rest are strings
+
+    # all much but the need sequence_num and parent_sequence and then order.
+
+    entries, results = [], []
+    # dirs = {}
+    # import time
+    # start = time.perf_counter()
+    results = mftparser.ScanVolume("C:", microseconds=False)
+    # end = time.perf_counter()
+    # print(f"Parsing took {end - start:.3f} seconds")
+    for entry in results:
+        recno, sequence_num, parent_recno, parent_sequence, in_use, path, name, size, hardlinks, is_dir, is_hardlink, has_ads, file_attribs, mod_time, creation_time, mft_mod, access_time, last_usn = entry
+        if is_dir:
+            continue
+            # frn = mftparser.entry_to_frn(recno, sequence_num)
+            # parent_frn = mftparser.entry_to_frn(parent_recno, parent_sequence)
+            # dirs[frn] = {
+            #     "parent": parent_frn,
+            #     "name": name,
+            #     "path": path
+            # }
+        else:
+
+            entries.append((recno, sequence_num, in_use, parent_recno, parent_sequence, path, name, size, hardlinks, has_ads, file_attribs, creation_time, mod_time, mft_mod, access_time, last_usn))
+
+    return entries
 
 
 def ntfs_to_us(value):

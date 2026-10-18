@@ -304,9 +304,44 @@ def find_scan(recent, complete, init, cfr, search_start_dt, user_setting, loggin
     basedir = user_setting['basedir']
     feedback = user_setting['feedback']
 
-    # normal execution
+    # base_folders = []
+    # excluded_paths = [os.path.join(basedir, d.lstrip("\\")) for d in exclDIRS]
+    # base_folders, _ = get_base_folders(basedir, excluded_paths)
 
+    # def worker(folder):
+    #     return _files(
+    #         folder,
+    #         search_start_dt,
+    #         feedback,
+    #         exclDIRS,
+    #         excluded_paths=excluded_paths,
+    #         iqt=iqt,
+    #         logger=logger,
+    #         strt=strt,
+    #         endp=endp,
+    #     )
+
+    # with ThreadPoolExecutor(max_workers=4) as executor:
+    #     results = list(executor.map(worker, base_folders))
+
+    # records = []
+    # max_depth = 0
+
+    # for folder_records, depth in results:
+    #     records.extend(folder_records or [])
+    #     max_depth = max(max_depth, depth)
+
+    # for folder in base_folders:
+    #   if folder == "/":
+    #       continue
+    #   search_list.append(folder)
+
+    # normal execution
+    # records, _ = _files(basedir, search_start_dt, feedback, exclDIRS, excluded_paths=excluded_paths, iqt=iqt, logger=logger, strt=strt, endp=endp)
     records, _ = files_search(basedir, search_start_dt, feedback, exclDIRS, iqt=iqt, logger=logger, strt=strt, endp=endp)
+
+    #
+
     strt += 15
     end = time.time()
     if records is None:

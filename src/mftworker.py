@@ -1,5 +1,6 @@
 import gc
 import logging
+import mftparser
 import os
 import pandas as pd
 import re
@@ -15,6 +16,7 @@ from .mftfunctions import build_mftec_path
 from .mftfunctions import mft_entrycount
 from .mftfunctions import output_mft
 from .mftfunctions import read_mft_progress
+from .mftfunctions import scan_mft
 from .pyfunctions import cprint
 from .pyfunctions import fmt
 from .qtclasses import Worker
@@ -23,13 +25,13 @@ from .rntchangesfunctions import str_to_bool
 from .wmipy import mftecparse
 from .wmipy import ntfsdump
 
-# 05/02/2026
+# 10/16/2026
 
 
 # Qobject
 class MftWorker(Worker):
 
-    def __init__(self, lclapp_data, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk=None, volume=None, mft=None):
+    def __init__(self, lclapp_data, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk=None, volume=None, mft=None, is_mftparser=False):
         super().__init__(None)
 
         self.logger = logging.getLogger(log_label)
@@ -38,6 +40,7 @@ class MftWorker(Worker):
         self.exe_path = self.lclhome / "bin"
 
         self.method = method  # action/tool
+        self.tool = log_label
         self.mft = mft  # start its a Mtf.raw ^
         self.output_f = output_f  # middle make a Mtf.raw >
         self.csvnm = csvnm  # end parsed Mtf V
@@ -57,6 +60,8 @@ class MftWorker(Worker):
         # ntfstools args
         self.disk = disk
         self.volume = volume
+
+        self.is_mftparser = is_mftparser
 
         self.mmin = mmin  # Hrs
         p = 3600 * mmin  # TotalSecondsBack
@@ -234,12 +239,22 @@ class MftWorker(Worker):
 
         return None, None
 
-    def parsec_read_mft(self, strt=55):
+    def parsec_read_mft(self, method, strt=55):
+        '''
+            check method, default is mftparser otherwise parsec in .\\bin
+        '''
         exe_path = self.parsec_command
         target = "C:"
         self.progress.emit(strt)
 
-        entries = output_mft(exe_path, target)
+        if method == "parsec":
+            entries = output_mft(exe_path, target)
+
+        # parse from mftparser
+        else:
+
+            entries = scan_mft(target)
+
         if not entries:
             print("parsec starting fault failed initial parse of mft", exe_path)
             return None, None
@@ -383,9 +398,10 @@ class MftWorker(Worker):
 
                 df, recent_files = self.get_mftecdf(compt, csv_data, None, strt=75, endp=91, time_field=time_field, ctime_field=ctime_field)  # now parsed into memory
 
-            elif method == "parsec":
+            # parsec CLI or use added mftparser package
+            elif method == "parsec" or method == "mftparser":
                 parsec = True
-                fc = self.parsec_read_mft(strt=55)  # .
+                fc = self.parsec_read_mft(method, strt=55)  # .
                 if not fc:
                     return 1
                 df, recent_files = self.read_parsec(fc, compt, strt=75, endp=91)  # .
@@ -395,7 +411,7 @@ class MftWorker(Worker):
                 is_dumphook = True
                 df, recent_files = self.mft_dumphook(self.output_f, compt, time_field, ctime_field, strt=55, endp=91)  # read the mft file with mftdump pythonhook into memory 55% - 91%
 
-            if self._should_stop:
+            if self.should_stop:
                 self.clean_up(7)
                 return 7
 
@@ -614,7 +630,7 @@ class MftWorker(Worker):
                 sts = 0
                 self.progress.emit(30)
 
-        # icat
+        # icat - currently only on C: <--
         else:
 
             cmd = [str(self.icat_command), '-f', 'ntfs', '\\\\.\\C:', '0']  # '.\\bin\\icat.exe'
@@ -647,10 +663,15 @@ class MftWorker(Worker):
 
         try:
 
+            # 10/16/2026 if using python package follow up to where parsec is now
+
+            # do you keep backwards comptatibility or just comment out??
+
+            # without MFTECmd or parsec use provided ntfstools
             if method == "mftdump":
                 sts = self.dump_mft()  # get system mft for step one
 
-                if self._should_stop:
+                if self.should_stop:
                     self.clean_up(7)
                     return 7
 
@@ -676,7 +697,7 @@ class MftWorker(Worker):
                 else:
                     if method == "mftec_cutoff" or method == "parsec":
                         self.log.emit("\nParsing and loading Mft data")
-                    elif method != "mftdump":
+                    elif method != "mftdump" and method != "mftparser":
                         self.log.emit(f"Invalid method {method} quitting.")
                         self.clean_up(1)
                         return 1
@@ -686,7 +707,7 @@ class MftWorker(Worker):
 
                     try:
 
-                        if self._should_stop:
+                        if self.should_stop:
                             self.clean_up(7)
                             return 7
 
@@ -853,139 +874,174 @@ class MftWorker(Worker):
                 break
             time.sleep(interval)
 
-    # MFTECmd import
-    def outputmft(self):
+    def output_mft(self):
+        '''
+            if mftparser is installed and method = "mftec" or method = "mftec_cutoff" use mftec.
+            the default is mftparser package
+        '''
 
-        # writing to csvopt
-        try:
+        rlt = 1
 
-            MB = 1024 * 1024
+        output_pth = os.path.join(self.drive, self.output_f)
+        if os.path.isfile(output_pth):
+            removefile(output_pth)
 
-            # initialize
-            output_pth = os.path.join(self.drive, self.output_f)
-            if os.path.isfile(output_pth):
-                removefile(output_pth)
-            sb = os.path.getsize(self.mft)
+        mft_flnm = self.mft
 
-            # print(self.drive, self.output_f, self.output_pth, self.mft)
-            if sb > 900 * MB:
-                intv = 5
-            elif sb > 600 * MB:
-                intv = 4
-            else:
-                intv = 2
+        # package
+        if self.method == "mftparser":
 
-            te = sb / 2  # expected size
-
-            mft_flnm = self.mft
-
-            frmt = 'yyyy-MM-dd HH:mm:ss.ffffff'
-
-            progress_thread = None
-
-            cmd = [str(self.mftec_command), '--dt', frmt, '-f', mft_flnm, '--csv', self.drive, '--csvf', self.output_f]
-            # mg = 'Running command: ' + ' '.join(f'"{c}"' for c in cmd)
-            # print(mg)
-            # self.log.emit(mg)
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-            last_line = None
-            is_start = False
-
-            csv_pth = None
-            for line in proc.stdout:
-
-                if not is_start:
-                    ctext = None
-                    if "File type: Mft" in line:
-
-                        ctext = "File type: \033[1;32mMft\033[0m"  # MFTECmd color
-                        self.progress.emit(50)
-                    elif "FILE records found:" in line:
-                        rcfnd_mch = re.search(r"FILE records found:\s*([\d,]+)", line)
-                        rcfree_mch = re.search(r"Free records:\s*([\d,]+)", line)
-                        fl_sze_mch = re.search(r"File size:\s+(.*)", line)
-
-                        rcfnd = rcfnd_mch.group(1) if rcfnd_mch else "0"
-                        rcfree = rcfree_mch.group(1) if rcfree_mch else "0"
-                        fl_sze = fl_sze_mch.group(1) if fl_sze_mch else "0"
-
-                        if all(x != "0" for x in (rcfnd, rcfree, fl_sze)):
-                            ctext = (
-                                f"\033[36m{mft_flnm}\033[0m: "
-                                f"FILE records found: \033[35m{rcfnd}\033[0m "
-                                f"(Free records: \033[35m{rcfree}\033[0m) "
-                                f"File size: \033[36m{fl_sze}\033[0m"
-                            )
-                        else:
-                            ctext = cprint.magenta(line.rstrip('\n'))  # MFTECmd color
-
-                        progress_thread = threading.Thread(target=self.progress_timer, args=(output_pth, 50, te, intv))
-                        is_start = True
-                        progress_thread.start()
-                        # break
-                    elif "Command line" in line:
-                        ctext = f"Command line: \033[36m{' '.join(cmd[1:])}\033[0m"
-                    elif "Processed" in line:
-                        number = None
-                        match = re.search(r"Processed \S+ in ([\d.]+) seconds", line)
-                        if match:
-                            number = float(match.group(1))
-                        if number is None:
-                            number = ""
-                        ctext = f"Processed \033[36m{self.output_f}\033[0m in \033[35m{number}\033[0m seconds"
-                    else:
-                        mline = line.strip()
-                        if mline:
-                            ctext = f"\033[36m{mline} \033[0m"
-
-                            if "MFTECmd" in mline or "https" in mline:
-                                ctext += "\n"
-
-                    if ctext:
-                        self.log.emit(ctext)
-                line = line.strip()
-                if line:
-                    last_line = line
-
-            _, proc_stderr = proc.communicate()
-            rlt = proc.returncode
-
-            if last_line:
-                # csv_pth = last_line.rsplit(" ", 1)[-1] doesnt work with spaces
-                # joined_path = os.path.join(self.drive, self.output_f)
-
-                ctext = "\tCSV output will be saved to \033[1;32m" + output_pth + "\033[0m"
-                self.log.emit(ctext)
-
-            self.stop_progress = True
-            if progress_thread and progress_thread.is_alive():
-                progress_thread.join(timeout=1)
-            if rlt == 0:
-                if not csv_pth:
-                    fl_chk = os.path.join(self.drive, self.output_f)
-                    if os.path.isfile(fl_chk):
-                        self.log.emit(f'Csv output to {self.drive}\\{self.output_f}')
+            try:
+                # "C:"
+                output_path = mftparser.CreateCsv(mft_flnm, output_pth)
+                self.log.emit(f'Csv output to {output_path}')
+                rlt = 0
                 self.progress.emit(100)
-            else:
-                if proc_stderr:
-                    self.log.emit(proc_stderr)
-                self.log.emit("Failed. Unable to output csv with mftecmd.exe")
-        except (FileNotFoundError, PermissionError) as e:
-            rlt = 1
-            self.log.emit(f"Error: Could not find command or permission error {self.mftec_command}. {e}")
-        except Exception as e:
-            emesg = f'Unexpected err in outputmft func {type(e).__name__}: {e}'
-            rlt = 1
-            self.log.emit(f"{emesg} traceback:\n{traceback.format_exc()}")
-            self.logger.error("%s traceback:", emesg, exc_info=True)
+
+            except Exception as e:
+                emesg = f'Mftparser CreateCsv failed {type(e).__name__}: {e}'
+                self.log.emit(f"{emesg} traceback:\n{traceback.format_exc()}")
+                self.logger.error("%s traceback:", emesg, exc_info=True)
+
+        else:
+            # writing to csvopt
+            try:
+
+                MB = 1024 * 1024
+
+                # initialize
+                sb = os.path.getsize(self.mft)
+
+                # print(self.drive, self.output_f, self.output_pth, self.mft)
+                if sb > 900 * MB:
+                    intv = 5
+                elif sb > 600 * MB:
+                    intv = 4
+                else:
+                    intv = 2
+
+                te = sb / 2  # expected size
+
+                frmt = 'yyyy-MM-dd HH:mm:ss.ffffff'
+
+                progress_thread = None
+
+                cmd = [str(self.mftec_command), '--dt', frmt, '-f', mft_flnm, '--csv', self.drive, '--csvf', self.output_f]
+                # mg = 'Running command: ' + ' '.join(f'"{c}"' for c in cmd)
+                # print(mg)
+                # self.log.emit(mg)
+                proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+                last_line = None
+                is_start = False
+
+                csv_pth = None
+                for line in proc.stdout:
+
+                    if not is_start:
+                        ctext = None
+                        if "File type: Mft" in line:
+
+                            ctext = "File type: \033[1;32mMft\033[0m"  # MFTECmd color
+                            self.progress.emit(50)
+                        elif "FILE records found:" in line:
+                            rcfnd_mch = re.search(r"FILE records found:\s*([\d,]+)", line)
+                            rcfree_mch = re.search(r"Free records:\s*([\d,]+)", line)
+                            fl_sze_mch = re.search(r"File size:\s+(.*)", line)
+
+                            rcfnd = rcfnd_mch.group(1) if rcfnd_mch else "0"
+                            rcfree = rcfree_mch.group(1) if rcfree_mch else "0"
+                            fl_sze = fl_sze_mch.group(1) if fl_sze_mch else "0"
+
+                            if all(x != "0" for x in (rcfnd, rcfree, fl_sze)):
+                                ctext = (
+                                    f"\033[36m{mft_flnm}\033[0m: "
+                                    f"FILE records found: \033[35m{rcfnd}\033[0m "
+                                    f"(Free records: \033[35m{rcfree}\033[0m) "
+                                    f"File size: \033[36m{fl_sze}\033[0m"
+                                )
+                            else:
+                                ctext = cprint.magenta(line.rstrip('\n'))  # MFTECmd color
+
+                            progress_thread = threading.Thread(target=self.progress_timer, args=(output_pth, 50, te, intv))
+                            is_start = True
+                            progress_thread.start()
+                            # break
+                        elif "Command line" in line:
+                            ctext = f"Command line: \033[36m{' '.join(cmd[1:])}\033[0m"
+                        elif "Processed" in line:
+                            number = None
+                            match = re.search(r"Processed \S+ in ([\d.]+) seconds", line)
+                            if match:
+                                number = float(match.group(1))
+                            if number is None:
+                                number = ""
+                            ctext = f"Processed \033[36m{self.output_f}\033[0m in \033[35m{number}\033[0m seconds"
+                        else:
+                            mline = line.strip()
+                            if mline:
+                                ctext = f"\033[36m{mline} \033[0m"
+
+                                if "MFTECmd" in mline or "https" in mline:
+                                    ctext += "\n"
+
+                        if ctext:
+                            self.log.emit(ctext)
+                    line = line.strip()
+                    if line:
+                        last_line = line
+
+                _, proc_stderr = proc.communicate()
+                rlt = proc.returncode
+
+                if last_line:
+                    # csv_pth = last_line.rsplit(" ", 1)[-1] doesnt work with spaces
+                    # joined_path = os.path.join(self.drive, self.output_f)
+
+                    ctext = "\tCSV output will be saved to \033[1;32m" + output_pth + "\033[0m"
+                    self.log.emit(ctext)
+
+                self.stop_progress = True
+                if progress_thread and progress_thread.is_alive():
+                    progress_thread.join(timeout=1)
+                if rlt == 0:
+                    if not csv_pth:
+                        fl_chk = os.path.join(self.drive, self.output_f)
+                        if os.path.isfile(fl_chk):
+                            self.log.emit(f'Csv output to {self.drive}\\{self.output_f}')
+                    self.progress.emit(100)
+                else:
+                    if proc_stderr:
+                        self.log.emit(proc_stderr)
+                    self.log.emit("Failed. Unable to output csv with mftecmd.exe")
+            except (FileNotFoundError, PermissionError) as e:
+                rlt = 1
+                self.log.emit(f"Error: Could not find command or permission error {self.mftec_command}. {e}")
+            except Exception as e:
+                emesg = f'Unexpected err in output_mft func {type(e).__name__}: {e}'
+                rlt = 1
+                self.log.emit(f"{emesg} traceback:\n{traceback.format_exc()}")
+                self.logger.error("%s traceback:", emesg, exc_info=True)
+
         self.complete.emit(rlt)
 
     def save_mft(self):
+        '''
+            the default is to use mftpackage however if tool != "mftparser" then use the tool. In other words if the package stops working
+            the tool can be put in .\\bin and used from author.
+        '''
         self.progress.emit(66.66)
-        res = self.dump_mft()
+        res = 1
+        output = self.output_f
+        if self.tool != "mftparser":
+            res = self.dump_mft()
+        else:
+            # self.drive
+            output = mftparser.DumpMft("C:", self.output_f)
+            res = 0
+
         if res == 0:
-            self.log.emit(f'\nOutput to {self.output_f}')
+            self.log.emit(f'\nOutput to {output}')
             self.progress.emit(100)
         self.complete.emit(res)
 
