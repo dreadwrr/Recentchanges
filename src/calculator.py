@@ -11,7 +11,7 @@ from functools import partial
 from pathlib import Path
 from PySide6 import QtWidgets, QtCore, QtGui
 from .ui_calculator import Ui_Form
-# 09/24/2026
+# 10/21/2026
 
 
 def window_message(parent, message, icon_path="./Resources/calculator/48.png", title="Status", default=True):  # ok
@@ -977,12 +977,17 @@ class SCalculator(QtWidgets.QWidget):
             # check for negative sign
             if left > 0 and text[left-1] == "-" and (left == 1 or text[left-2] in "+-*/("):
                 left -= 1
+
             right = idx + len(token)
             while right < len(text) and (text[right].isdigit() or text[right] == "."):
                 right += 1
 
             a = text[left:idx]
             b = text[idx+len(token):right]
+
+            if is_mpmath:
+                a = f"mpf('{a}')"
+                b = f"mpf('{b}')"
 
             logged = compute(a, b)
 
@@ -1008,6 +1013,8 @@ class SCalculator(QtWidgets.QWidget):
         expression = curr_text + suffix
 
         self.expression_text += expression
+        self.preview_log.extend([curr_text, suffix])
+
         if suffix == "%":
             self.last_expression = expression
         self.del_locked = True
@@ -1024,9 +1031,7 @@ class SCalculator(QtWidgets.QWidget):
             self.expression_text += op  # it is valid to append
             self.preview_log.append(op)
         else:
-            curr = self.commit_pending_operand(op)  # new expression
-
-            self.preview_log.extend([curr, op])
+            self.commit_pending_operand(op)  # new expression
 
             if op == "%":
                 self.last_index = len(self.preview_log) - 2
@@ -1090,7 +1095,6 @@ class SCalculator(QtWidgets.QWidget):
             elif template.startswith("({arg})^"):
                 self.preview_log.extend(["(", arg, ")", "^"])
             else:
-
                 self.last_index = len(self.preview_log)
                 self.preview_log.extend(list(display_symbol or [symbol]) + ["(", arg, ")"])
                 self.last_expression = expression
@@ -1102,14 +1106,12 @@ class SCalculator(QtWidgets.QWidget):
     def substitute_expression(self, expression):
         resolved = expression.replace("π", "pi").replace("√", "sqrt").replace("∛", "cbrt").replace("^", "**")
 
-        if self.is_mpmath:
-            resolved = self.resolve_operand(
-                resolved, "root", lambda x, y: f"(mpf('{x}'))**(1/(mpf('{y}')))", self.eval_namespace, self.is_mpmath
-            )
-        else:
-            resolved = self.resolve_operand(
-                resolved, "root", lambda x, y: f"({x})**(1/({y}))", self.eval_namespace, self.is_mpmath
-            )
+        # if self.is_mpmath:
+        #     resolved = self.resolve_operand(
+        #         resolved, "root", lambda x, y: f"(mpf('{x}'))**(1/(mpf('{y}')))", self.eval_namespace, self.is_mpmath
+        #     )
+        # else:
+        resolved = self.resolve_operand(resolved, "root", lambda x, y: f"({x})**(1/({y}))", self.eval_namespace, self.is_mpmath)
 
         resolved = self.resolve_operand(resolved, "logbase", lambda x, y: f"logbase({x},{y})", self.eval_namespace, self.is_mpmath)
 
@@ -1133,7 +1135,10 @@ class SCalculator(QtWidgets.QWidget):
         return ct
 
     def equals(self):
-
+        # result = mpmath.asin(mpmath.mpf('.5'))
+        # result = eval("logbase(asin(.5),2)", {"__builtins__": {}}, self.eval_namespace)
+        # print(result)
+        # return
         curr_text = self.load_current_value()
 
         resolved_expression = ""
@@ -1246,7 +1251,7 @@ class SCalculator(QtWidgets.QWidget):
             self.ui.negateButton.blockSignals(False)
 
             self.expression_text = ""  # for auto repeat
-
+            # print(self.preview_log)
             self.preview_log = []
 
             self.ui.clearButton.setText("AC")
@@ -1269,24 +1274,13 @@ class SCalculator(QtWidgets.QWidget):
         close_count = self.expression_text.count(")")
         if open_count <= close_count:
             return
-        # if self.pending_paren:
-
-        #     # if self.expression_text[-1] == ")":
-        #     #     self.expression_text += ")"
-        #     # else:
-
-        #     curr_text = self.output.text().replace(",", "")
-        #     self.expression_text += curr_text + ")"
-        #     self.paren_count -= 1
-
-        # else:
 
         if self.del_locked and self.expression_text and self.expression_text[-1] == ")":
             self.expression_text += ")"
             self.preview_log.append(")")
         else:
-            curr = self.commit_pending_operand(")")
-            self.preview_log.extend([curr, ")"])
+            self.commit_pending_operand(")")
+
         self.paren_count -= 1  # new
         self.log_closed_paren()
 
@@ -1342,8 +1336,7 @@ class SCalculator(QtWidgets.QWidget):
     def open_paren(self):
 
         if self.text and not self.del_locked and self.output.text().replace(",", ""):
-            curr = self.commit_pending_operand("*")
-            self.preview_log.extend([curr, "*"])
+            self.commit_pending_operand("*")
 
         elif self.expression_text and self.expression_text[-1] in self.PAREN_TRIGGER_CHARS:
             self.expression_text += "*"
@@ -1404,8 +1397,8 @@ class SCalculator(QtWidgets.QWidget):
     def random(self, kind):
 
         if kind == "RNDG":
-            curr = self.commit_pending_operand("rndg")
-            self.preview_log.extend([curr, "rndg"])
+            self.commit_pending_operand("rndg")
+
             self.expression.setText(self.display_expression())
 
         else:
@@ -1474,13 +1467,11 @@ class SCalculator(QtWidgets.QWidget):
 
     # convention
     def logbase(self):
-        curr = self.commit_pending_operand("logbase")
-        self.preview_log.extend([curr, "logbase"])
+        self.commit_pending_operand("logbase")
         self.expression.setText(self.display_expression())
 
     def root(self):
-        curr = self.commit_pending_operand("root")
-        self.preview_log.extend([curr, "root"])
+        self.commit_pending_operand("root")
         self.expression.setText(self.display_expression())
 
     # constant
