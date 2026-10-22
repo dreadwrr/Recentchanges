@@ -1,5 +1,8 @@
 import math
-import mpmath
+try:
+    import mpmath
+except ImportError:
+    mpmath = None
 import os
 import random
 import re
@@ -181,21 +184,21 @@ class SCalculator(QtWidgets.QWidget):
         self.expression = self.ui.lineEdit2
         self.output = self.ui.lineEdit
 
-        if mode == "regular":
+        def format_regular():
             self.OUTPUT_LIMIT = 24
             self.MIN_FONT_SIZE = 30
-            ranges = self.FONT_SIZE_RANGES
+            return self.FONT_SIZE_RANGES
+        if mode == "regular":
+            ranges = format_regular()
 
         else:
             ranges = self.FONT_SIZE_RANGES_MP
-            try:
-                import mpmath
+            if mpmath is None:
+                self.logger("mpmath package not installed using float")
+                ranges = format_regular()
+            else:
                 self.is_mpmath = True
                 self.decimal_set(decimals)
-
-            except ImportError:
-                self.logger("mpmath package not installed using float")
-                self.is_mpmath = False
 
         if 0 <= sci_threshold <= 20:
             self.SCI_THRESHOLD = sci_threshold
@@ -998,6 +1001,9 @@ class SCalculator(QtWidgets.QWidget):
 
     def commit_pending_operand(self, suffix):
 
+        if self.expression_text and self.expression_text[-1] == ")":
+            self.expression_text += "*"
+            self.preview_log.append("*")
         curr_text = self.load_current_value()
         expression = curr_text + suffix
 
@@ -1020,9 +1026,6 @@ class SCalculator(QtWidgets.QWidget):
         else:
             curr = self.commit_pending_operand(op)  # new expression
 
-            # if op == "^":
-            #     self.preview_log.extend(["(", curr, ")", op])
-            # else:
             self.preview_log.extend([curr, op])
 
             if op == "%":
@@ -1072,9 +1075,9 @@ class SCalculator(QtWidgets.QWidget):
             # auto multiply
             if not self.del_locked and self.expression_text and curr_text and self.expression_text[-1] not in "+-*/(":
 
-                if not self.last_expression:
-                    self.expression_text += "*"
-                    self.preview_log.append("*")
+                # if not self.last_expression:
+                self.expression_text += "*"
+                self.preview_log.append("*")
 
             arg = curr_text  # the number and precision
 
@@ -1418,13 +1421,13 @@ class SCalculator(QtWidgets.QWidget):
             self.del_locked = False
             self.display_text()
 
-    def percent(self):
-        curr_text = self.output.text().replace(",", "")
-        value = mpmath.mpf(curr_text) / 100 if self.is_mpmath else float(curr_text) / 100
-        self.text = self.format_number(value)
-        if self.value is not None:
-            self.value = self.value / 100
-        self.display_text()
+    # def percent(self):
+    #     curr_text = self.output.text().replace(",", "")
+    #     value = mpmath.mpf(curr_text) / 100 if self.is_mpmath else float(curr_text) / 100
+    #     self.text = self.format_number(value)
+    #     if self.value is not None:
+    #         self.value = self.value / 100
+    #     self.display_text()
 
     # checkable
     def plus_minus(self, state):
