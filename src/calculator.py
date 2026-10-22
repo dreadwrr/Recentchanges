@@ -979,6 +979,8 @@ class SCalculator(QtWidgets.QWidget):
                 left -= 1
 
             right = idx + len(token)
+            if right < len(text) and text[right] == "-":
+                right += 1
             while right < len(text) and (text[right].isdigit() or text[right] == "."):
                 right += 1
 
@@ -1135,10 +1137,12 @@ class SCalculator(QtWidgets.QWidget):
         return ct
 
     def equals(self):
+
         # result = mpmath.asin(mpmath.mpf('.5'))
         # result = eval("logbase(asin(.5),2)", {"__builtins__": {}}, self.eval_namespace)
         # print(result)
         # return
+
         curr_text = self.load_current_value()
 
         resolved_expression = ""
