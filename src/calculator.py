@@ -149,6 +149,7 @@ class SCalculator(QtWidgets.QWidget):
         self.del_locked = True  # pending operator
         self.pending_paren = False  # pending paren # times ten power ect
 
+        self.last_index = 0
         self.paren_count = 0
 
         # 09/13/2026 added absolute path to images for compatibility
@@ -651,6 +652,8 @@ class SCalculator(QtWidgets.QWidget):
         elif curr_text == self.E_DISPLAY:
             curr_text = "e"
         self.memory = curr_text
+        if self.value and self.is_truncated and curr_text == self.result:
+            self.memory = self.value
 
     def memory_recall(self):
         if self.memory is None:
@@ -966,9 +969,11 @@ class SCalculator(QtWidgets.QWidget):
             idx = text.find(token)
 
             left = idx
-            while left > 0 and (text[left-1].isdigit() or text[left-1] == "." or text[left-1] == "-"):
+            while left > 0 and (text[left-1].isdigit() or text[left-1] == "."):
                 left -= 1
-
+            # check for negative sign
+            if left > 0 and text[left-1] == "-" and (left == 1 or text[left-2] in "+-*/("):
+                left -= 1
             right = idx + len(token)
             while right < len(text) and (text[right].isdigit() or text[right] == "."):
                 right += 1
@@ -977,6 +982,7 @@ class SCalculator(QtWidgets.QWidget):
             b = text[idx+len(token):right]
 
             logged = compute(a, b)
+
             result = eval(logged, {"__builtins__": {}}, namespaces)
 
             result_str = mpmath.nstr(result, mpmath.mp.dps, strip_zeros=False) if is_mpmath else str(result)
@@ -999,6 +1005,7 @@ class SCalculator(QtWidgets.QWidget):
         if suffix == "%":
             self.last_expression = expression
         self.del_locked = True
+        return curr_text
 
     def handle_operator_input(self, op):
         if self.del_locked and self.expression_text and self.expression_text[-1] == "(":
@@ -1006,21 +1013,36 @@ class SCalculator(QtWidgets.QWidget):
             return
         elif self.del_locked and self.expression_text and self.expression_text[-1] in "+-*/^":
             self.expression_text = self.expression_text[:-1] + op  # change of operator
-
+            self.preview_log[-1] = op
         elif self.del_locked and self.expression_text and self.expression_text[-1] in "%)":
             self.expression_text += op  # it is valid to append
-
+            self.preview_log.append(op)
         else:
-            self.commit_pending_operand(op)  # new expression
+            curr = self.commit_pending_operand(op)  # new expression
+
+            # if op == "^":
+            #     self.preview_log.extend(["(", curr, ")", op])
+            # else:
+            self.preview_log.extend([curr, op])
+
+            if op == "%":
+                self.last_index = len(self.preview_log) - 2
+            if self.paren_count == 0:
+
+                self.last_operator = op
+
         self.expression.setText(self.display_expression())
 
     def handle_function_input(self, func_name, display_symbol=None, template="{symbol}({arg})"):
 
-        symbol = display_symbol or func_name
+        symbol = "".join(display_symbol) if display_symbol else func_name
         curr_text = self.output.text().replace(",", "")
+
+        preview_buff = []
 
         # modulo or other function
         if self.del_locked and self.expression_text and self.expression_text[-1] in "%)":
+
             old_last = self.last_expression if self.last_expression else curr_text
 
             # get what comes before in the expression
@@ -1030,18 +1052,45 @@ class SCalculator(QtWidgets.QWidget):
 
             self.expression_text = f"{prefix}{self.last_expression}"
 
+            preview_buff = self.preview_log[self.last_index:]
+
+            old_last = preview_buff
+            self.preview_log = self.preview_log[:self.last_index]
+
+            if template.startswith("{arg}*10^("):
+
+                self.preview_log.extend(preview_buff + ["*", "10", "^", "("])
+            else:
+                self.preview_log.extend(display_symbol or [func_name])
+                self.preview_log.append("(")
+                self.preview_log.extend(preview_buff)
+                self.preview_log.append(")")
+
         # normal
         else:
+
             # auto multiply
             if not self.del_locked and self.expression_text and curr_text and self.expression_text[-1] not in "+-*/(":
+
                 if not self.last_expression:
                     self.expression_text += "*"
+                    self.preview_log.append("*")
 
             arg = curr_text  # the number and precision
 
-            self.last_expression = template.format(symbol=symbol, arg=arg)
+            expression = template.format(symbol=symbol, arg=arg)
 
-            self.expression_text += self.last_expression
+            self.expression_text += expression
+
+            if template.startswith("{arg}*10^("):
+                self.preview_log.extend([arg, "*", "10", "^", "("])
+            elif template.startswith("({arg})^"):
+                self.preview_log.extend(["(", arg, ")", "^"])
+            else:
+
+                self.last_index = len(self.preview_log)
+                self.preview_log.extend(list(display_symbol or [symbol]) + ["(", arg, ")"])
+                self.last_expression = expression
 
         self.del_locked = True
 
@@ -1094,46 +1143,54 @@ class SCalculator(QtWidgets.QWidget):
         elif self.del_locked and self.expression_text and not self.pending_paren and self.expression_text[-1] in "+-*/^(":
             return
 
+        elif self.expression_text == "" and self.last_operator is None:
+            return
+
         # build the expression
 
         # repeat
         elif self.expression_text == "" and self.last_operator is not None and self.del_locked:
 
             full_expression = curr_text + self.last_operator + self.last_operand
+            self.preview_log = [curr_text, self.last_operator, self.last_operand]
 
         # normal
         else:
 
             full_expression = self.expression_text
 
-            if self.pending_paren:
-                if self.expression_text and self.expression_text[-1] not in "+-*/":
-                    if self.expression_text[-1] not in ")":
-                        full_expression = full_expression + curr_text
-                    for x in range(self.paren_count):
-                        full_expression = full_expression + ")"
-                    self.paren_count = 0
-                elif self.expression_text:
-                    if self.expression_text[-1] not in ")":
-                        full_expression = self.expression_text + curr_text
-                self.pending_paren = False
-            # normal
-            else:
+            if not self.del_locked:  # removed 10/17/2026
 
-                if not self.del_locked:
+                # auto multiply
+                if self.expression_text and self.expression_text[-1] in ")" and curr_text:
+                    full_expression = self.expression_text + "*" + curr_text
+                    self.preview_log.extend(["*", curr_text])
 
-                    # auto multiply
-                    if self.expression_text and self.expression_text[-1] in ")" and curr_text:
-                        full_expression = self.expression_text + "*" + curr_text
+                # normal
+                else:
 
-                    # normal
-                    else:
-                        full_expression = self.expression_text + curr_text
+                    full_expression = full_expression + curr_text
+                    self.preview_log.append(curr_text)
 
             # save for potential repeat
-            if self.expression_text and self.expression_text[-1] in "+-*/":
-                self.last_operator = self.expression_text[-1]
-                self.last_operand = curr_text
+            if self.expression_text:
+                # self.last_operand
+                # simple case
+                if self.expression_text[-1] in "+-*/":
+                    self.last_operator = self.expression_text[-1]
+                    self.last_operand = curr_text
+                else:
+                    # can get from preview_log and index <--
+                    self.last_operand = self.last_expression
+
+            # 10/17/2026 added to auto close paren
+            # if self.paren_count > 0:
+            #     remaining_parens = self.paren_count
+            #     while remaining_parens > 0:
+            #         full_expression += ")"
+            #         remaining_parens -= 1
+            #     self.paren_count = 0
+            #     self.last_operator = None
 
         # pass in full precision if operating on a previous result
 
@@ -1152,7 +1209,7 @@ class SCalculator(QtWidgets.QWidget):
             step = "substiting"
 
             resolved_expression = self.substitute_expression(full_expression)
-
+            # print(resolved_expression)
             self.logline_out(resolved_expression, self.logger, self.log_level)
 
             step = "eval"
@@ -1171,6 +1228,7 @@ class SCalculator(QtWidgets.QWidget):
 
             step = "display"
             self.display_text()
+
             if self.history_view:
 
                 if self.log_level != "DEBUG":
@@ -1185,6 +1243,8 @@ class SCalculator(QtWidgets.QWidget):
             self.ui.negateButton.blockSignals(False)
 
             self.expression_text = ""  # for auto repeat
+
+            self.preview_log = []
 
             self.ui.clearButton.setText("AC")
 
@@ -1201,29 +1261,37 @@ class SCalculator(QtWidgets.QWidget):
     # button logic
 
     def close_paren(self):
-
+        # print(self.expression_text)
         open_count = self.expression_text.count("(")
         close_count = self.expression_text.count(")")
         if open_count <= close_count:
             return
-        if self.pending_paren:
-            curr_text = self.output.text().replace(",", "")
-            self.expression_text += curr_text + ")"
-            self.paren_count -= 1
+        # if self.pending_paren:
 
+        #     # if self.expression_text[-1] == ")":
+        #     #     self.expression_text += ")"
+        #     # else:
+
+        #     curr_text = self.output.text().replace(",", "")
+        #     self.expression_text += curr_text + ")"
+        #     self.paren_count -= 1
+
+        # else:
+
+        if self.del_locked and self.expression_text and self.expression_text[-1] == ")":
+            self.expression_text += ")"
+            self.preview_log.append(")")
         else:
-
-            if self.del_locked and self.expression_text and self.expression_text[-1] == ")":
-                self.expression_text += ")"
-            else:
-                self.commit_pending_operand(")")
-
+            curr = self.commit_pending_operand(")")
+            self.preview_log.extend([curr, ")"])
+        self.paren_count -= 1  # new
         self.log_closed_paren()
 
         self.expression.setText(self.display_expression())
 
     def find_matching_open(self, expression_text):
         """Index of the ( matching the ) just appended or the last char of expression_text"""
+
         depth = 0
         # -2 skip the ) itself
         for i in range(len(expression_text) - 2, -1, -1):
@@ -1238,14 +1306,21 @@ class SCalculator(QtWidgets.QWidget):
 
     def log_closed_paren(self):
         expression_text = self.expression_text
+
         open_idx = self.find_matching_open(expression_text)
         if open_idx == -1:
             self.logger("log_closed_paren failed to find matching open paren")
             return
 
-        sub_expr = expression_text[open_idx:]  # from matching ( to )
-        self.last_expression = sub_expr
+        preview_idx = self.find_matching_open(self.preview_log)
+        if preview_idx == -1:
+            self.logger("log_closed_paren preview_log failed to find matching open paren")
+            return
+        self.last_index = preview_idx
 
+        sub_expr = expression_text[open_idx:]  # from matching ( to )
+
+        self.last_expression = sub_expr
         try:
 
             resolved = self.substitute_expression(sub_expr)
@@ -1255,20 +1330,24 @@ class SCalculator(QtWidgets.QWidget):
             # self.logline_out(sub_expr, self.logger, self.log_level)
             # self.logline_out(resolved, self.logger, self.log_level)
 
-            result = eval(resolved, {"__builtins__": {}}, self.eval_namespace)
-
-            self.preview_log.append((sub_expr, result))
+            eval(resolved, {"__builtins__": {}}, self.eval_namespace)  # result =
+            # result_str = mpmath.nstr(result, mpmath.mp.dps, strip_zeros=False) if is_mpmath else str(result)
 
         except Exception as e:
             self.logger(f"error in sub expression: \n {sub_expr!r} -> {e}")
 
     def open_paren(self):
 
-        if not self.del_locked and self.output.text().replace(",", ""):
-            self.commit_pending_operand("*")
+        if self.text and not self.del_locked and self.output.text().replace(",", ""):
+            curr = self.commit_pending_operand("*")
+            self.preview_log.extend([curr, "*"])
+
         elif self.expression_text and self.expression_text[-1] in self.PAREN_TRIGGER_CHARS:
             self.expression_text += "*"
+            self.preview_log.append("*")
         self.expression_text += "("
+        self.preview_log.append("(")
+        self.paren_count += 1
         self.expression.setText(self.display_expression())
 
     # called on text change
@@ -1282,6 +1361,9 @@ class SCalculator(QtWidgets.QWidget):
     def clear_button(self):
         """ When C is pressed reset to initial state """
         self.preview_log = []
+
+        self.paren_count = 0
+        self.pending_paren = False
 
         self.last_expression = ""
         self.last_operator = None
@@ -1319,7 +1401,8 @@ class SCalculator(QtWidgets.QWidget):
     def random(self, kind):
 
         if kind == "RNDG":
-            self.commit_pending_operand("rndg")
+            curr = self.commit_pending_operand("rndg")
+            self.preview_log.extend([curr, "rndg"])
             self.expression.setText(self.display_expression())
 
         else:
@@ -1350,8 +1433,12 @@ class SCalculator(QtWidgets.QWidget):
                 self.text = f"-{self.output.text()}".replace(",", "")
             else:
                 self.text = self.output.text()[1:].replace(",", "")
+            # if self.value is not None:
+            #     self.value = -self.value
             if self.value is not None:
-                self.value = -self.value
+                self.value = self.value[1:] if self.value.startswith('-') else '-' + self.value
+                if self.result is not None:
+                    self.result = self.result[1:] if self.result.startswith('-') else '-' + self.result
             self.display_text()
 
     # checkable toggles
@@ -1384,11 +1471,13 @@ class SCalculator(QtWidgets.QWidget):
 
     # convention
     def logbase(self):
-        self.commit_pending_operand("logbase")
+        curr = self.commit_pending_operand("logbase")
+        self.preview_log.extend([curr, "logbase"])
         self.expression.setText(self.display_expression())
 
     def root(self):
-        self.commit_pending_operand("root")
+        curr = self.commit_pending_operand("root")
+        self.preview_log.extend([curr, "root"])
         self.expression.setText(self.display_expression())
 
     # constant
@@ -1404,12 +1493,15 @@ class SCalculator(QtWidgets.QWidget):
 
     # operator
     def power(self):
-        self.handle_operator_input("^")
+        if not self.del_locked and self.load_current_value().startswith("-"):
+            self.handle_function_input(None, template="({arg})^")
+        else:
+            self.handle_operator_input("^")
 
     # function
     def ln_button(self):
         if self.ui.lnButton.text() == "eˣ":
-            self.handle_function_input(None, template="e^({arg})")
+            self.handle_function_input(None, ["e", "^"])  # template="e^({arg})"
         else:
             self.handle_function_input("ln")
 
@@ -1420,7 +1512,7 @@ class SCalculator(QtWidgets.QWidget):
         if self.ui.reciprocalButton.text() == "n!":
             self.handle_function_input("fact")
         else:
-            self.handle_function_input(None, template="1/({arg})")
+            self.handle_function_input(None, ["1", "/"])  # template="1/({arg})"
 
     def cube_root(self):
         self.handle_function_input("cbrt", display_symbol="∛")
@@ -1430,7 +1522,7 @@ class SCalculator(QtWidgets.QWidget):
 
     def square(self):
         if self.ui.squareButton.text() == "2ˣ":
-            self.handle_function_input(None, template="2^({arg})")
+            self.handle_function_input(None, ["2", "^"])  # template="2^({arg})"
         else:
             self.handle_function_input("sqr")
 
@@ -1441,12 +1533,14 @@ class SCalculator(QtWidgets.QWidget):
             self.times_ten_power()
 
     def ten_power(self):
-        self.handle_function_input(None, template="10^({arg})")
+        self.handle_function_input(None, ["10", "^"])  # template="10^({arg})"
 
     def times_ten_power(self):
-        self.handle_function_input(None, template="{arg}*10^(")
-        self.paren_count += 1
+
         self.pending_paren = True
+        self.handle_function_input(None, template="{arg}*10^(")
+
+        self.paren_count += 1
 
 
 if __name__ == '__main__':
