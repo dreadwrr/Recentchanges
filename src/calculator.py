@@ -95,6 +95,12 @@ class SCalculator(QtWidgets.QWidget):
     DIGIT_VALUES = set(".0123456789")
     PAREN_TRIGGER_CHARS = (DIGIT_VALUES - {"."}) | {")", "%"}  # | for join sets
 
+    CONVENTIONS = {
+        "root": lambda x, y: f"({x})**(1/({y}))",
+        "logbase": lambda x, y: f"logbase({x},{y})",
+        "rndg": lambda x, y: f"rndg({x},{y})",
+    }
+
     TRIG_MAP = {
         ("sin", False, False): "sin",
         ("sin", True,  False): "asin",
@@ -968,42 +974,77 @@ class SCalculator(QtWidgets.QWidget):
         windows calc uses yroot this uses root. logbase is used which is same.
         """
 
-        while token in text:
-            idx = text.find(token)
+        idx = text.find(token)
 
-            left = idx
+        left = idx
+        if left > 0 and text[left-1] == ")":
+            left = self.find_matching_open(text, left - 1)
+            if left == -1:
+                raise ValueError("unbalanced )")
+            start = left
+            while start > 0 and text[start-1].isalpha():
+                start -= 1
+            if text[start:left] in self.eval_namespace:
+                left = start
+        else:
             while left > 0 and (text[left-1].isdigit() or text[left-1] == "."):
                 left -= 1
+            # step back over an exponent: ...e-05 or ...e+20 or ...e5
+            if left > 1 and text[left-1] in "+-" and text[left-2] in "eE":
+                left -= 2
+                while left > 0 and (text[left-1].isdigit() or text[left-1] == "."):
+                    left -= 1
+            elif left > 0 and text[left-1] in "eE" and left > 1 and text[left-2].isdigit():
+                left -= 1
+                while left > 0 and (text[left-1].isdigit() or text[left-1] == "."):
+                    left -= 1
             # check for negative sign
             if left > 0 and text[left-1] == "-" and (left == 1 or text[left-2] in "+-*/("):
                 left -= 1
 
-            right = idx + len(token)
+        right = idx + len(token)
+        if right < len(text) and text[right] == "(":
+            rel = self.find_matching_close(text[right:])
+            if rel == -1:
+                raise ValueError("unbalanced (")
+            close = right + rel
+            inner = text[right + 1:close]                 # 3logbase4
+            inner = self.resolve_conventions(inner)       # same loop, on the group
+            text = text[:right + 1] + inner + text[close:]
+            right = right + len(inner) + 2                # one past the ")"
+        else:
+            # check for negative sign
             if right < len(text) and text[right] == "-":
                 right += 1
             while right < len(text) and (text[right].isdigit() or text[right] == "."):
                 right += 1
+            # step back over an exponent
+            if right < len(text) and text[right] in "eE" and right + 1 < len(text) and (text[right+1].isdigit() or text[right+1] in "+-"):
+                right += 2
+                while right < len(text) and text[right].isdigit():
+                    right += 1
 
-            a = text[left:idx]
-            b = text[idx+len(token):right]
+        a = text[left:idx]
+        b = text[idx+len(token):right]
 
-            if is_mpmath:
-                a = f"mpf('{a}')"
-                b = f"mpf('{b}')"
+        if is_mpmath:
+            a = str_to_mpmath(a)
+            b = str_to_mpmath(b)
 
-            logged = compute(a, b)
+        logged = compute(a, b)
 
-            result = eval(logged, {"__builtins__": {}}, namespaces)
+        result = eval(logged, {"__builtins__": {}}, namespaces)
 
-            result_str = mpmath.nstr(result, mpmath.mp.dps, strip_zeros=False) if is_mpmath else str(result)
+        result_str = mpmath.nstr(result, mpmath.mp.dps, strip_zeros=True) if is_mpmath else str(result)  # changed to strip_zeros
 
-            left = text[:left]
-            right = text[right:]
-            text = left + result_str + right
-            logged_value = left + logged + right
+        left = text[:left]
+        right = text[right:]
 
-            self.logline_out(logged_value, self.logger, self.log_level)
+        logged_value = left + logged + right
 
+        self.logline_out(logged_value, self.logger, self.log_level)
+
+        text = left + result_str + right
         return text
 
     def commit_pending_operand(self, suffix):
@@ -1011,6 +1052,7 @@ class SCalculator(QtWidgets.QWidget):
         if self.expression_text and self.expression_text[-1] == ")":
             self.expression_text += "*"
             self.preview_log.append("*")
+
         curr_text = self.load_current_value()
         expression = curr_text + suffix
 
@@ -1105,23 +1147,21 @@ class SCalculator(QtWidgets.QWidget):
 
         self.expression.setText(self.display_expression())
 
+    def resolve_conventions(self, text):
+        while any(t in text for t in self.CONVENTIONS):
+            token = min((t for t in self.CONVENTIONS if t in text), key=text.find)
+            text = self.resolve_operand(text, token, self.CONVENTIONS[token], self.eval_namespace, self.is_mpmath)
+        return text
+
     def substitute_expression(self, expression):
         resolved = expression.replace("π", "pi").replace("√", "sqrt").replace("∛", "cbrt").replace("^", "**")
 
-        # if self.is_mpmath:
-        #     resolved = self.resolve_operand(
-        #         resolved, "root", lambda x, y: f"(mpf('{x}'))**(1/(mpf('{y}')))", self.eval_namespace, self.is_mpmath
-        #     )
-        # else:
-        resolved = self.resolve_operand(resolved, "root", lambda x, y: f"({x})**(1/({y}))", self.eval_namespace, self.is_mpmath)
-
-        resolved = self.resolve_operand(resolved, "logbase", lambda x, y: f"logbase({x},{y})", self.eval_namespace, self.is_mpmath)
-
-        resolved = self.resolve_operand(resolved, "rndg", lambda x, y: f"rndg({x},{y})", self.eval_namespace, self.is_mpmath)
-
         resolved = self.resolve_percent_chains(resolved, self.is_mpmath)  # percent modulo
 
+        resolved = self.resolve_conventions(resolved)
+
         # cast types if in decimal arbitrary precision
+
         if self.is_mpmath:
             resolved = str_to_mpmath(resolved)
         return resolved
@@ -1290,12 +1330,26 @@ class SCalculator(QtWidgets.QWidget):
 
         self.expression.setText(self.display_expression())
 
-    def find_matching_open(self, expression_text):
-        """Index of the ( matching the ) just appended or the last char of expression_text"""
+    def find_matching_close(self, expression_text):
+        """ Index of the ) matching the ( the first char of expression_text"""
 
         depth = 0
-        # -2 skip the ) itself
-        for i in range(len(expression_text) - 2, -1, -1):
+        # 1 skip the ( itself
+        for i in range(1, len(expression_text)):
+            ch = expression_text[i]
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                if depth == 0:
+                    return i
+                depth -= 1
+        return -1
+
+    def find_matching_open(self, expression_text, close_idx=None):
+        if close_idx is None:
+            close_idx = len(expression_text) - 1
+        depth = 0
+        for i in range(close_idx - 1, -1, -1):
             ch = expression_text[i]
             if ch == ")":
                 depth += 1
@@ -1401,7 +1455,11 @@ class SCalculator(QtWidgets.QWidget):
     def random(self, kind):
 
         if kind == "RNDG":
-            self.commit_pending_operand("rndg")
+            if self.del_locked and self.expression_text and self.expression_text[-1] in "%)":
+                self.expression_text += "rndg"
+                self.preview_log.append("rndg")
+            else:
+                self.commit_pending_operand("rndg")
 
             self.expression.setText(self.display_expression())
 
@@ -1471,11 +1529,19 @@ class SCalculator(QtWidgets.QWidget):
 
     # convention
     def logbase(self):
-        self.commit_pending_operand("logbase")
+        if self.del_locked and self.expression_text and self.expression_text[-1] in "%)":
+            self.expression_text += "logbase"
+            self.preview_log.append("logbase")
+        else:
+            self.commit_pending_operand("logbase")
         self.expression.setText(self.display_expression())
 
     def root(self):
-        self.commit_pending_operand("root")
+        if self.del_locked and self.expression_text and self.expression_text[-1] in "%)":
+            self.expression_text += "root"
+            self.preview_log.append("root")
+        else:
+            self.commit_pending_operand("root")
         self.expression.setText(self.display_expression())
 
     # constant
