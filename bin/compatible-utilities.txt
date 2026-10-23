@@ -1,0 +1,3 @@
+ntfstool.x86.exe
+parsec.exe
+MFTECmd.exe
