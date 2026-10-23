@@ -2877,39 +2877,40 @@ class MainWindow(QMainWindow):
 
         return method, tool
 
-    def prescreen(self, tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, is_mftparser):
+    def prescreen(self, basedir, tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, is_mftparser):
 
         if tool == "icat_fsstat":
 
-            if validmft(str(self.fsstat_command)):  # First check for $MFT
-                self.start_mfttrd(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR)
+            if validmft(basedir, str(self.fsstat_command)):  # First check for $MFT
+                self.start_mfttrd(basedir, tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR)
                 return True
 
         elif tool == "ntfstool":
-            drive_info = get_disk_and_volume_for_drive("C:")
+            source = basedir + "\\"
+            drive_info = get_disk_and_volume_for_drive(basedir)
             if drive_info:
                 disk, _ = drive_info
                 tgt = f"disk={disk}"
 
-                mounted = get_mounted_partitions('C:\\', tgt, str(self.ntfs_command))
+                mounted = get_mounted_partitions(source, tgt, str(self.ntfs_command))
 
                 if mounted:
                     vol = mounted['id']
                     volume = vol
                     if disk and vol:  # First check for $MFT - # mft found
-                        self.start_mfttrd(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk, volume)
+                        self.start_mfttrd(basedir, tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk, volume)
                         return True
                         # self.worker.set_task(opt, disk, volume) #pass ins
                     else:
-                        self.ui.hudt.appendPlainText("failed to locate mft for C:\\ before running ntfs tools")
+                        self.ui.hudt.appendPlainText(f"failed to locate mft for {source} before running ntfs tools")
                 else:
-                    self.ui.hudt.appendPlainText("failed volno or volume number for C:\\")
+                    self.ui.hudt.appendPlainText(f"failed volno or volume number for {source}")
             else:
-                self.ui.hudt.appendPlainText("failed diskno unable to find disk number for C:\\")
+                self.ui.hudt.appendPlainText(f"failed diskno unable to find disk number for {source}")
 
         # mftparser
         else:
-            self.start_mfttrd(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, is_mftparser=self.is_mftparser)
+            self.start_mfttrd(basedir, tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, is_mftparser=self.is_mftparser)
             return True
 
     def resetMftImport(self):
@@ -2990,6 +2991,8 @@ class MainWindow(QMainWindow):
 
         isMftSave = self.ui.mftchkb.isChecked()
 
+        drive_letter = parse_drive(self.basedir).upper()
+        basedir = drive_letter + ":"
         # Imported Mft to csv
         if self.mft:
 
@@ -2998,7 +3001,7 @@ class MainWindow(QMainWindow):
             file_name = name_of(mft)
             output_f = f'{file_name}.csv'
 
-            self.start_mfttrd("Mftimport", mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR, None, None, mft, self.is_mftparser)
+            self.start_mfttrd(basedir, "Mftimport", mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR, None, None, mft, self.is_mftparser)
 
             self.worker.set_task(self.parsec_command, self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
             self.worker_thread.started.connect(self.worker.output_mft)
@@ -3008,7 +3011,7 @@ class MainWindow(QMainWindow):
         # Save dump the system Mft
         elif isMftSave:
             output_f = os.path.join(drive, mftraw)
-            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR, self.is_mftparser):  # check for NTFS valid $MFT
+            if not self.prescreen(basedir, tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR, self.is_mftparser):  # check for NTFS valid $MFT
                 self.isexec = False
                 return  # optional pass ins
             self.worker.set_task(self.parsec_command, self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
@@ -3022,7 +3025,7 @@ class MainWindow(QMainWindow):
             output_f = os.path.join(drive, mftraw)
             self.ui.progressBAR.setValue(5)
 
-            if not self.prescreen(tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR, self.is_mftparser):
+            if not self.prescreen(basedir, tool, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, self.usrDIR, self.is_mftparser):
                 self.isexec = False
                 return
             self.worker.set_task(self.parsec_command, self.mftec_command, self.icat_command, self.fsstat_command, self.ntfs_command)
@@ -3488,9 +3491,9 @@ class MainWindow(QMainWindow):
 
     # Thread types
     # Mft
-    def start_mfttrd(self, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk=None, volume=None, mft=None, is_mftparser=False):
+    def start_mfttrd(self, basedir, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk=None, volume=None, mft=None, is_mftparser=False):
         self.worker_thread = QThread()
-        self.worker = MftWorker(self.lclhome, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk, volume, mft, is_mftparser)
+        self.worker = MftWorker(basedir, self.lclhome, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk, volume, mft, is_mftparser)
         self.worker.moveToThread(self.worker_thread)
         self.worker.progress.connect(self.increment_progress)
         self.ui.progressBAR.setValue(0)
