@@ -351,6 +351,7 @@ class MainWindow(QMainWindow):
         self.ui.dbprogressBAR.setValue(0)
         pixmap = QPixmap(self.crest)  # Load the image from the path      '.\\Documents\\crests\\dragonm.png'  # original
         self.ui.jpgcr.setPixmap(pixmap)  # Set the pixmap on the label
+        self.ui.jpgcr.setFixedSize(pixmap.size())  # self.ui.jpgcr.adjustSize()
         self.ui.jpgcr.setScaledContents(True)
 
         # self.change_format()  # apply hudt settings
@@ -1743,7 +1744,10 @@ class MainWindow(QMainWindow):
             self.ui.hudt.appendPlainText(f"Failed to load crest: {self.crest}")
             return
         self.ui.jpgcr.setPixmap(pixmap)  # Set the pixmap on the label
+        self.ui.jpgcr.setFixedSize(pixmap.size())  # self.ui.jpgcr.adjustSize()
         self.ui.jpgcr.setScaledContents(True)
+        # self.ui.jpgv.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # self.ui.jpgcr.setScaledContents(True)
 
     """ alarm """
 
@@ -1786,8 +1790,8 @@ class MainWindow(QMainWindow):
 
         w = img.width()
         h = img.height()
-
-        if w > 255 or h > 333:
+        # if w > 255 or h > 333:
+        if w > 405 or h > 333:
             window_message(self, f"Image size must be 250x333 or less.\n\nSelected image: {w}x{h}", "Invalid size")
             return False
         return True
