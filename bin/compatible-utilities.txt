@@ -1,3 +1,19 @@
-ntfstool.x86.exe
 parsec.exe
 MFTECmd.exe
+
+for dumping mft
+ntfstool.x86.exe
+or
+with icat/fstat required files:
+fls.exe
+fsstat.exe
+icat.exe
+istat.exe
+libewf.dll
+libvhdi.dll
+libvmdk.dll
+msvcp140.dll
+msvcp140_atomic_wait.dll
+msvcp140_codecvt_ids.dll
+vcruntime140.dll
+zlib.dll
