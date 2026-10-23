@@ -542,7 +542,7 @@ class Ui_MainWindow(object):
         sizePolicy1.setHeightForWidth(self.jpgcr.sizePolicy().hasHeightForWidth())
         self.jpgcr.setSizePolicy(sizePolicy1)
         self.jpgcr.setMinimumSize(QSize(250, 250))
-        self.jpgcr.setMaximumSize(QSize(250, 250))
+        self.jpgcr.setMaximumSize(QSize(405, 250))
         self.jpgcr.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
 
         self.horizontalLayout_12.addWidget(self.jpgcr)
