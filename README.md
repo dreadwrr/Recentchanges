@@ -1,5 +1,5 @@
 10/15/2026<br>
-Currently updating to include the mft package for the mft features. Update will also include minor ui modification along with <br>
+Currently updating to include the mft package for the mft features. Update will also include minor ui modification along with
 any changes to calculator or bug fixes<br>
 
 Find modified and new files on the system quickly with: <br>
