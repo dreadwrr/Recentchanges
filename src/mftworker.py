@@ -31,11 +31,11 @@ from .wmipy import ntfsdump
 # Qobject
 class MftWorker(Worker):
 
-    def __init__(self, lclapp_data, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk=None, volume=None, mft=None, is_mftparser=False):
+    def __init__(self, basedir, lclapp_data, log_label, mmin, method, output_f, csvnm, flnm, oldsort, flnmout, flnmdffout, drive, usrDIR, disk=None, volume=None, mft=None, is_mftparser=False):
         super().__init__(None)
 
         self.logger = logging.getLogger(log_label)
-
+        self.basedir = basedir
         self.lclhome = lclapp_data
         self.exe_path = self.lclhome / "bin"
 
@@ -244,7 +244,7 @@ class MftWorker(Worker):
             check method, default is mftparser otherwise parsec in .\\bin
         '''
         exe_path = self.parsec_command
-        target = "C:"
+        target = self.basedir  # target = "C:"
         self.progress.emit(strt)
 
         if method == "parsec":
@@ -391,8 +391,8 @@ class MftWorker(Worker):
                 df, recent_files = self.get_mftecdf(compt, None, csvopt, strt=55, endp=91, time_field=time_field, ctime_field=ctime_field)  # already parsed to .csv
 
             elif method == "mftec_cutoff":
-
-                csv_data = self.read_mftmem(compt, strt=55, endp=75)  # parse directly into memory
+                mft = self.basedir + "\\$MFT"
+                csv_data = self.read_mftmem(compt, strt=55, endp=75, mft=mft)  # parse directly into memory
                 if not csv_data:
                     return 1
 
@@ -465,7 +465,8 @@ class MftWorker(Worker):
                     # 03/20/2026 verify this
                     #
                     #
-                    cmd = ['fsutil', 'usn', 'readjournal', 'c:', 'csv']  # | findstr /i /C:"`"File create`"" > “log.log”
+                    source = self.basedir.lower()
+                    cmd = ['fsutil', 'usn', 'readjournal', source, 'csv']  # | findstr /i /C:"`"File create`"" > “log.log”
                     res = subprocess.run(
                         cmd,
                         capture_output=True,
@@ -630,10 +631,12 @@ class MftWorker(Worker):
                 sts = 0
                 self.progress.emit(30)
 
-        # icat - currently only on C: <--
+        # icat - for the basedir used to be only C:
         else:
 
-            cmd = [str(self.icat_command), '-f', 'ntfs', '\\\\.\\C:', '0']  # '.\\bin\\icat.exe'
+            target = f"'\\\\.\\{self.basedir}'"
+
+            cmd = [str(self.icat_command), '-f', 'ntfs', target, '0']  # '.\\bin\\icat.exe'
             try:
                 with open(self.output_f, 'wb') as f:
                     process = subprocess.Popen(cmd, stdout=f, stderr=subprocess.PIPE, text=False)
@@ -729,8 +732,8 @@ class MftWorker(Worker):
     # MFTECmd default
     # self.output_f for a raw mft file. mftecmd can parse from base drive to csv to save space
     def parsemft(self):
-
-        rlt = mftecparse('C:\\$MFT', self.drive, self.csvnm, str(self.mftec_command))
+        source = self.basedir + "\\$MFT"
+        rlt = mftecparse(source, self.drive, self.csvnm, str(self.mftec_command))
         if rlt:
             return True
         else:
@@ -755,6 +758,7 @@ class MftWorker(Worker):
 
             file_entries = []
 
+            source = self.basedir + "\\"
             for entry_or_error in parser.entries():
                 if isinstance(entry_or_error, RuntimeError):
                     continue
@@ -788,7 +792,7 @@ class MftWorker(Worker):
 
                 entry_id = entry_or_error.entry_id
                 sequence = entry_or_error.sequence
-                full_path = "C:\\" + entry_path
+                full_path = source + entry_path
                 file_name = None
 
                 # print(dir(entry_or_error))  # shows avail attributes in stdout
@@ -892,7 +896,7 @@ class MftWorker(Worker):
         if self.method == "mftparser":
 
             try:
-                # "C:"
+
                 output_path = mftparser.CreateCsv(mft_flnm, output_pth)
                 self.log.emit(f'Csv output to {output_path}')
                 rlt = 0
@@ -1037,7 +1041,7 @@ class MftWorker(Worker):
             res = self.dump_mft()
         else:
             # self.drive
-            output = mftparser.DumpMft("C:", self.output_f)
+            output = mftparser.DumpMft(self.basedir, self.output_f)
             res = 0
 
         if res == 0:
@@ -1053,7 +1057,7 @@ class MftWorker(Worker):
 
         # mftec_command = '.\\bin\\MFTECmd.exe'
 
-        # example cutoff time all dates after that time. --cutoff triggers stdout and in this example > to file Y:\myfile.csv. --csvf is ignored in this case.
+        # example cutoff time all dates after that time. --cutoff triggers stdout and in this example > to file Y:\myfile.csv. --csv and --csvf is ignored in this case.
 
         # .\MFTECmd.exe -f "C:\`$MFT" --cutoff 2025-10-19T13:45:30 --csv Y:\ --csvf myfile2.csv > Y:\myfile.csv  # default format is 7digits yyyy-MM-dd HH:mm:ss.fffffff  # for python datatime
 

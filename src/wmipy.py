@@ -47,7 +47,7 @@ from .qtdrivefunctions import parse_drive
 # warn user. offer option to import MFT
 
 
-def validmft(fsstat_path=None):
+def validmft(basedir, fsstat_path=None):
 
     def vrange(mft_range):
         try:
@@ -66,7 +66,8 @@ def validmft(fsstat_path=None):
     if fsstat_path:
         exe = fsstat_path
 
-    cmd = [exe, '\\\\.\\C:']
+    target = f"'\\\\.\\{basedir}'"
+    cmd = [exe, target]
 
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
