@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'new_main_new.ui'
+## Form generated from reading UI file 'new_main.ui'
 ##
-## Created by: Qt User Interface Compiler version 6.11.1
+## Created by: Qt User Interface Compiler version 6.10.2
 ##
 ## WARNING! All changes made in this file will be lost when recompiling UI file!
 ################################################################################
@@ -244,7 +244,7 @@ class Ui_Form(object):
         self.label_2.setObjectName(u"label_2")
         self.label_2.setMinimumSize(QSize(20, 20))
         self.label_2.setMaximumSize(QSize(20, 20))
-        self.label_2.setPixmap(QPixmap(u"Resources/calculator/calculator.svg"))
+        self.label_2.setPixmap(QPixmap(u"icon/calculator.svg"))
         self.label_2.setScaledContents(True)
 
         self.gridLayout_2.addWidget(self.label_2, 0, 0, 1, 1)
@@ -277,6 +277,7 @@ class Ui_Form(object):
         self.multiplicationButton = QPushButton(self.button_frame)
         self.multiplicationButton.setObjectName(u"multiplicationButton")
         self.multiplicationButton.setStyleSheet(u"")
+        self.multiplicationButton.setIconSize(QSize(40, 40))
         self.multiplicationButton.setCheckable(False)
         self.multiplicationButton.setAutoExclusive(False)
 
@@ -290,6 +291,7 @@ class Ui_Form(object):
         self.subtractionButton = QPushButton(self.button_frame)
         self.subtractionButton.setObjectName(u"subtractionButton")
         self.subtractionButton.setStyleSheet(u"")
+        self.subtractionButton.setIconSize(QSize(40, 40))
         self.subtractionButton.setCheckable(False)
         self.subtractionButton.setAutoExclusive(False)
 
@@ -344,6 +346,7 @@ class Ui_Form(object):
         self.equalsButton = QPushButton(self.button_frame)
         self.equalsButton.setObjectName(u"equalsButton")
         self.equalsButton.setStyleSheet(u"")
+        self.equalsButton.setIconSize(QSize(40, 40))
 
         self.gridLayout.addWidget(self.equalsButton, 5, 7, 1, 1)
 
@@ -364,7 +367,7 @@ class Ui_Form(object):
         self.percentButton.setFont(font)
         self.percentButton.setStyleSheet(u"")
         icon = QIcon()
-        icon.addFile(u"Resources/calculator/percent-solid.svg", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        icon.addFile(u"icon/percent-solid.svg", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         self.percentButton.setIcon(icon)
         self.percentButton.setIconSize(QSize(50, 50))
 
@@ -395,7 +398,7 @@ class Ui_Form(object):
         self.negateButton.setFont(font)
         self.negateButton.setStyleSheet(u"qproperty-iconSize: 40px;")
         icon1 = QIcon()
-        icon1.addFile(u"Resources/calculator/plus-minus-variant.svg", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        icon1.addFile(u"icon/plus-minus-variant.svg", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         self.negateButton.setIcon(icon1)
         self.negateButton.setIconSize(QSize(40, 40))
 
@@ -428,6 +431,7 @@ class Ui_Form(object):
         self.divisionButton.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.divisionButton.setStyleSheet(u"")
         self.divisionButton.setLocale(QLocale(QLocale.English, QLocale.UnitedStatesOutlyingIslands))
+        self.divisionButton.setIconSize(QSize(40, 40))
         self.divisionButton.setCheckable(False)
         self.divisionButton.setAutoExclusive(False)
 
@@ -485,6 +489,7 @@ class Ui_Form(object):
         self.additionButton = QPushButton(self.button_frame)
         self.additionButton.setObjectName(u"additionButton")
         self.additionButton.setStyleSheet(u"")
+        self.additionButton.setIconSize(QSize(40, 40))
         self.additionButton.setCheckable(False)
         self.additionButton.setAutoExclusive(False)
 
@@ -537,11 +542,11 @@ class Ui_Form(object):
         self.label.setText(QCoreApplication.translate("Form", u"Calculator", None))
         self.logButton.setText(QCoreApplication.translate("Form", u"log", None))
         self.logButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_3", None))
-        self.multiplicationButton.setText(QCoreApplication.translate("Form", u"\u00d7", None))
+        self.multiplicationButton.setText("")
         self.multiplicationButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_2", None))
         self.piButton.setText(QCoreApplication.translate("Form", u"\u03c0", None))
         self.piButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_3", None))
-        self.subtractionButton.setText(QCoreApplication.translate("Form", u"\ufe63", None))
+        self.subtractionButton.setText("")
         self.subtractionButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_2", None))
         self.pushButton_9.setText(QCoreApplication.translate("Form", u"9", None))
         self.powerButton.setText(QCoreApplication.translate("Form", u"x\u02b8", None))
@@ -557,7 +562,7 @@ class Ui_Form(object):
         self.pushButton_7.setText(QCoreApplication.translate("Form", u"7", None))
         self.rootButton.setText(QCoreApplication.translate("Form", u"\u02b8\u221ax", None))
         self.rootButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_3", None))
-        self.equalsButton.setText(QCoreApplication.translate("Form", u"=", None))
+        self.equalsButton.setText("")
         self.equalsButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_2", None))
         self.pushButton_4.setText(QCoreApplication.translate("Form", u"4", None))
         self.pushButton_3.setText(QCoreApplication.translate("Form", u"3", None))
@@ -579,7 +584,7 @@ class Ui_Form(object):
         self.functionButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_3", None))
         self.lnButton.setText(QCoreApplication.translate("Form", u"ln", None))
         self.lnButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_3", None))
-        self.divisionButton.setText(QCoreApplication.translate("Form", u"\u00f7", None))
+        self.divisionButton.setText("")
         self.divisionButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_2", None))
         self.zeroButton.setText(QCoreApplication.translate("Form", u"0", None))
         self.reciprocalButton.setText(QCoreApplication.translate("Form", u"1/x", None))
@@ -595,7 +600,7 @@ class Ui_Form(object):
         self.closeParenButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_3", None))
         self.logBaseButton.setText(QCoreApplication.translate("Form", u"log\u208dy\u208e(x)", None))
         self.logBaseButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_3", None))
-        self.additionButton.setText(QCoreApplication.translate("Form", u"+", None))
+        self.additionButton.setText("")
         self.additionButton.setProperty(u"class", QCoreApplication.translate("Form", u"btn_group_2", None))
         self.pushButton_2.setText(QCoreApplication.translate("Form", u"2", None))
         self.clearButton.setText(QCoreApplication.translate("Form", u"AC", None))
