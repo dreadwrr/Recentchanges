@@ -232,8 +232,8 @@ class SCalculator(QtWidgets.QWidget):
 
         # Map operator buttons to symbols
         self.operator_btn_list = [
-            (self.ui.additionButton, "+"),
-            (self.ui.subtractionButton, "-"),
+            (self.ui.additionButton, "+"),   # + ascii  values =
+            (self.ui.subtractionButton, "-"),  # -
             (self.ui.multiplicationButton, "*"),  # ×
             (self.ui.divisionButton, "/"),  # ÷
         ]
