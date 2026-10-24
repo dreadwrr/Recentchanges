@@ -3881,7 +3881,11 @@ def start_main_window():
         gpg_path = Path(gpg_path).resolve()
 
     if not check_for_gpg():
-        QMessageBox.critical(None, "Error", "Unable to verify gpg in path. Likely path was partially initialized. quitting")  # QMessageBox.warning(None, "")
+        fstr = (
+            "Unable to verify gpg in path. Likely path was partially initialized. quitting \n"
+            "a gpg4win installation required or local gpg in ./gpg need for GPG encryption \n"
+        )
+        QMessageBox.critical(None, "Error", fstr)  # QMessageBox.warning(None, "")
         return 1
 
     # if needing to prevent password expiring while running tasks
