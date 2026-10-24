@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="24"
+   height="24"
+   viewBox="0 0 6.35 6.35"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="equal.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="6.3499999"
+       height="6.3499999"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <defs
+     id="defs1" />
+  <g
+     id="layer1"
+     transform="translate(-0.13229165,-0.13229163)">
+    <text
+       xml:space="preserve"
+       style="font-size:7.76111px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#ffffff;stroke-width:0.264583"
+       x="-0.83095717"
+       y="6.4061556"
+       id="text3"><tspan
+         id="tspan3"
+         style="font-size:7.76111px;stroke-width:0.264583"
+         x="-0.83095717"
+         y="6.4061556" /></text>
+    <path
+       d="M 0.87815836,2.2120974 H 5.7364249 V 2.8487501 H 0.87815836 Z m 0,1.5461566 H 5.7364249 V 4.4024859 H 0.87815836 Z"
+       id="text1"
+       style="font-size:7.7611px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';fill:#ffffff;stroke-width:0.264583"
+       aria-label="=" />
+  </g>
+</svg>

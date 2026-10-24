@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="24"
+   height="24"
+   viewBox="0 0 6.35 6.35"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="layer1"
+     transform="translate(0.09270625,0.21982677)">
+    <text
+       xml:space="preserve"
+       style="font-size:8.46667px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#ffffff;stroke-width:0.264583"
+       x="-1.0955412"
+       y="6.1415725"
+       id="text3"><tspan
+         id="tspan3"
+         style="font-size:8.46667px;stroke-width:0.264583"
+         x="-1.0955412"
+         y="6.1415725" /></text>
+    <text
+       xml:space="preserve"
+       style="font-size:8.46667px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#ffffff;stroke-width:0.264583"
+       x="1.2016209"
+       y="5.565999"
+       id="text1"><tspan
+         id="tspan1"
+         style="stroke-width:0.264583"
+         x="1.2016209"
+         y="5.565999" /></text>
+    <text
+       xml:space="preserve"
+       style="font-size:7.76111px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;writing-mode:lr-tb;direction:ltr;text-anchor:start;fill:#ffffff;stroke-width:0.264583"
+       x="-0.46477798"
+       y="5.6113429"
+       id="text6"><tspan
+         id="tspan6"
+         style="font-size:7.76111px;stroke-width:0.264583"
+         x="-0.46477798"
+         y="5.6113429" /></text>
+    <path
+       d="M 2.616173,1.0887954 H 3.5484145 V 2.0210368 H 2.616173 Z m 0,2.8043036 H 3.5484145 V 4.8215509 H 2.616173 Z M 0.65316045,2.634952 H 5.511427 V 3.2791839 H 0.65316045 Z"
+       id="text2"
+       style="font-size:7.7611px;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';fill:#ffffff;stroke-width:0.264583"
+       aria-label="÷" />
+  </g>
+</svg>
