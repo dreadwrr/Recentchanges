@@ -7,7 +7,7 @@ import subprocess
 import traceback
 from pathlib import Path
 from .rntchangesfunctions import removefile
-# 10/17/2026
+# 10/24/2026
 
 
 TICKS_BTWN_1601_1970 = 11644473600000000
@@ -75,7 +75,7 @@ def scan_mft(target: str):
     # end = time.perf_counter()
     # print(f"Parsing took {end - start:.3f} seconds")
     for entry in results:
-        recno, sequence_num, parent_recno, parent_sequence, in_use, path, name, size, hardlinks, is_dir, is_hardlink, has_ads, file_attribs, mod_time, creation_time, mft_mod, access_time, last_usn = entry
+        recno, sequence_num, frn, parent_frn, parent_recno, parent_sequence, in_use, path, name, size, hardlinks, is_dir, is_hardlink, has_ads, file_attribs, mod_time, creation_time, mft_mod, access_time, last_usn = entry
         if is_dir:
             continue
             # frn = mftparser.entry_to_frn(recno, sequence_num)

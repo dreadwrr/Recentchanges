@@ -169,7 +169,11 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
         if shutil.which("gpg") is None:
             gpg_path, gnupg_home = set_gpg(appdata_local, "gpg")
         if not check_for_gpg():
-            print("Unable to verify gpg in path. Likely path was partially initialized. quitting")
+            fstr = (
+                "Unable to verify gpg in path. Likely path was partially initialized. quitting \n"
+                "a gpg4win installation required or local gpg in ./gpg need for GPG encryption \n"
+            )
+            print(fstr)
             return 1
 
         dspPATH = ""
