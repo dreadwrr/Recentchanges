@@ -346,7 +346,7 @@ class Ui_Form(object):
         self.equalsButton = QPushButton(self.button_frame)
         self.equalsButton.setObjectName(u"equalsButton")
         self.equalsButton.setStyleSheet(u"")
-        self.equalsButton.setIconSize(QSize(40, 40))
+        self.equalsButton.setIconSize(QSize(50, 50))
 
         self.gridLayout.addWidget(self.equalsButton, 5, 7, 1, 1)
 
@@ -367,7 +367,7 @@ class Ui_Form(object):
         self.percentButton.setFont(font)
         self.percentButton.setStyleSheet(u"")
         icon = QIcon()
-        icon.addFile(u"icon/percent-solid.svg", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        icon.addFile(u"Resources/calculator/percent-solid.svg", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         self.percentButton.setIcon(icon)
         self.percentButton.setIconSize(QSize(50, 50))
 
@@ -398,7 +398,7 @@ class Ui_Form(object):
         self.negateButton.setFont(font)
         self.negateButton.setStyleSheet(u"qproperty-iconSize: 40px;")
         icon1 = QIcon()
-        icon1.addFile(u"icon/plus-minus-variant.svg", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
+        icon1.addFile(u"Resources/calculator/plus-minus-variant.svg", QSize(), QIcon.Mode.Normal, QIcon.State.Off)
         self.negateButton.setIcon(icon1)
         self.negateButton.setIconSize(QSize(40, 40))
 
