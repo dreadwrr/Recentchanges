@@ -112,7 +112,7 @@ mklink "appinstall\main" "appinstall\main.dist\main.exe" <br><br>
 To enable ansi text in powershell try the following command <br>
 Set-ItemProperty HKCU:\Console VirtualTerminalLevel -Type DWORD 1<br>
 
-Ntfstools included for Mft saving, also can use the sleuth kit icat if placed in \bin <br>
+Ntfstools can be used for Mft saving, also can use the sleuth kit icat if placed in \bin <br>
 See required tsk files https://drive.google.com/file/d/16suEa4ohxFHdAlGsuTKjW_EgdweF9O1x/view?usp=sharing <br>
 order is: icat\fstat and ntfstools. and other can be removed <br><br>
 
