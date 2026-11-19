@@ -82,9 +82,10 @@ low_water = 6
 # clear the log instead of high water if above minimum span hours
 min_span = 0
 
-                        # How many old searches to save. These can be grabbed by `recentchanges search` and `recentchanges`
+
+                        # How many old searches to save in database. These can be grabbed by `recentchanges search` and `recentchanges`
                         # for comparisons in diff file
-archivesrh = 5
+archivesrh = 7
 
 
 [calculator]
