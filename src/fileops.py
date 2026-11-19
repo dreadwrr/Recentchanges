@@ -79,6 +79,11 @@ def set_stat(line, checks, file_dt, file_st, file_us, inode, log_q=None, logger=
     if a_ino >= (1 << 63):
         a_ino -= 1 << 64
 
+    # to get original back use
+    # if a_ino < 0:
+    #     a_ino += 1 << 64
+    # or a_ino = a_ino & 0xFFFFFFFFFFFFFFFF
+
     if a_ino != inode:
         checks = None
         if isinstance(line, tuple):
@@ -170,6 +175,8 @@ def calculate_checksum(file_path, mtime, mod_time, inode, size_int, prev_hash=No
                 a_mod = re_st.st_mtime_ns // 1000
                 a_size = re_st.st_size
                 a_ino = re_st.st_ino
+                if a_ino >= (1 << 63):
+                    a_ino -= 1 << 64
 
                 if total_size == size_int and mod_time == a_mod and inode and int(inode) == a_ino:
                     status = "Returned"
@@ -178,7 +185,7 @@ def calculate_checksum(file_path, mtime, mod_time, inode, size_int, prev_hash=No
                     if prev_hash:
                         mtime = epoch_to_date(re_st.st_mtime)
                         status = "Retried"
-                    return checks, entropy, mime, mtime, mod_time, st, status
+                    return checks, entropy, mime, mtime, mod_time, re_st, status
                 # else:
                 #     emit_log("DEBUG", f"File changed from first stat. the file is Cacheable: {cacheable} doesnt match: {file_path} the follow characteristics: ", log_q, logger=logger)
                 #     emit_log("DEBUG", f"Retry #{retry}\\{max_retry}. Entry mtime {mod_time} size {size_int} inode {inode}", log_q, logger=logger)

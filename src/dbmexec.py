@@ -1,7 +1,6 @@
 import os
 import sqlcipher3
-from .gpgkeymanagement import create_cipher_key
-from .gpgcrypto import get_cipher_key
+from .pysql import create_conn
 
 
 class DBConnectionError(Exception):
@@ -43,15 +42,9 @@ class DBMexec:
 
     def connect(self):
         try:
-            if not os.path.isfile(self.key_file):
-                create_cipher_key(self.key_file, self.email)
-            p = get_cipher_key(self.key_file)
-            if p:
-                self.db = sqlcipher3.connect(self.db_path)
-                self.db.execute(f'PRAGMA key = "x\'{p.hex()}\'"')
-                p = None
-            else:
-                raise RuntimeError("Find out why not decrypting. If unable to fix call: recentchanges reset  . unable to decrypt file:", self.key_file)
+
+            self.db = create_conn(self.db_path, self.key_file, self.email, key=None)
+
             self.cursor = self.db.cursor()
         except sqlcipher3.Error as e:
             self.log(f"couldnt connect to {self.dbname}: {e}")

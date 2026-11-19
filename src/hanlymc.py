@@ -14,7 +14,7 @@ from .pyfunctions import parse_datetime
 from .pysql import clear_conn
 from .pysql import get_recent_changes
 from .pysql import get_recent_sys
-# hybrid analysis 11/19/2025 updated 08/10/2026
+# hybrid analysis 11/19/2025 updated 11/16/2026
 
 
 def target_change(label, entry, recent_sym, previous_sym, link_target, previous_target):
@@ -23,7 +23,7 @@ def target_change(label, entry, recent_sym, previous_sym, link_target, previous_
             entry["scr"].append(f'Symlink target change: {label} {previous_target} → {link_target}')
     elif recent_sym == "y" and not previous_sym:
         entry["cerr"].append(f'Warning file: {label} changed to symlink')
-    elif previous_sym == "y" and not recent_sym:
+    elif not recent_sym and previous_sym == "y":
         entry["cerr"].append(f'Warning symlink: {label} changed to file')
 
 
@@ -69,7 +69,7 @@ def stealth(filename, label, entry, recent_size, previous_size, recent_entropy, 
                     )
 
 
-def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tables, id_to_mime, cachermPATTERNS, p, show_progress=False, logger=None, strt=65, endp=90):
+def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tables, id_to_mime, cachermPATTERNS, k, show_progress=False, logger=None, strt=65, endp=90):
 
     results, sys_records, log_entries = [], [], []
     if logger:
@@ -79,11 +79,13 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
 
     time_period = 5  # days for a file that isnt regularly updated. 5 default
     time_delta = datetime.now() - timedelta(days=time_period)
+    delta_seconds = int(time_delta.timestamp())
 
     dbit = False
     csum = False
     conn = sqlcipher3.connect(dbopt)
-    conn.execute(f'PRAGMA key = "x\'{p.hex()}\'"')
+    conn.set_key(k)
+    # conn.execute(f'PRAGMA key = "x\'{p.hex()}\'"')
     cur = None
     try:
         with conn:
@@ -114,16 +116,18 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                             x = 0
                         current_step += 1  # end progress
 
+                if len(record) < 18:
+
+                    logs.emit_log("DEBUG", f"sortcomplete entry malformed.  less than required 18 : {record}", logs.WORKER_LOG_Q, logger=logger)
+                    continue
+
                 previous_timestamp = None
                 recent_sym = None
                 recent_size = None
                 previous_size = None
                 is_sys = False
-
-                if len(record) < 18:
-
-                    logs.emit_log("DEBUG", f"sortcomplete entry malformed.  less than required 18 : {record}", logs.WORKER_LOG_Q, logger=logger)
-                    continue
+                mtime_seconds = None
+                previous_mtime_seconds = None
 
                 entry = {"cerr": [], "flag": [], "scr": [], "sys": [], "dcp": []}
 
@@ -139,7 +143,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                 recent_entries = get_recent_changes(filename, cur, 'logs', ['mtime_us'])
                 recent_sys = get_recent_sys(filename, cur, sys_tables, ['mtime_us', 'count']) if ps else None
 
-                if not recent_entries and not recent_sys and checksum:
+                if not recent_entries and not recent_sys and checksum:  # and record[5] # record[9] != 'y':  not symlink..
                     entry["dcp"].append(record)  # is copy?
                     results.append(entry)
                     continue
@@ -155,17 +159,7 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                         is_sys = True
                         previous = recent_sys
 
-                        previous_sysctime = parse_datetime(recent_sys[2], fmt)
-                        recent_ctime = parse_datetime(record[2], fmt)
-
-                        if (
-                            (recent_timestamp > previous_timestamp)
-                            or (recent_ctime and previous_sysctime and recent_ctime > previous_sysctime)
-                            or (recent_ctime and not previous_sysctime)
-                            or (record[5] and previous[5] and record[5] != previous[5])
-                            or (record[5] and not previous[5])
-                        ):
-                            insert_sys_entry(entry, record, recent_sys, sys_records)
+                        insert_sys_entry(entry, record, recent_sys, sys_records)
 
                     else:
                         logs.emit_log("ERROR", f"recent sys entry missing mtime skipping recent_sys: {recent_sys}", logs.WORKER_LOG_Q, logger=logger)
@@ -177,6 +171,11 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                     logs.emit_log("DEBUG", f"previous record less than required length 16. previous: {previous}", logs.WORKER_LOG_Q, logger=logger)
                     continue
                 if checksum:
+
+                    if not os.path.isfile(filename):
+                        entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
+                        results.append(entry)
+                        continue
 
                     recent_entropy = record[6]
                     previous_entropy = previous[6]
@@ -195,10 +194,11 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                     #   logs.emit_log("DEBUG", f"No checksum for file {record} \n recent {previous}", logs.WORKER_LOG_Q, logger=logger)
                     #   continue
 
-                    if not os.path.isfile(filename):
-                        entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
-                        results.append(entry)
-                        continue
+                    # 10/31/2026 moved from if else block. Can always check the metadata but could add too much noise and over shadow a modified file
+                    # metadata = (previous[10], previous[11], previous[12])
+                    # if new_meta((record[10], record[11], record[12]), metadata):
+                    #     meta_data = True
+                    #     entry["scr"].append(f'Permissions of file: {label} changed {metadata[0]} {metadata[1]} {metadata[2]} → {record[10]} {record[11]} {record[12]}')
 
                     if logging_values[1] == "DEBUG":
                         if recent_size is None or previous_size is None:
@@ -211,153 +211,87 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
                     (is_integer(record[3]) and is_integer(previous[3]))
                     and previous_timestamp
                 ):  # format check
-                    recent_cam = record[13]
-                    previous_cam = previous[13]
-                    cam_file = (recent_cam == "y" or previous_cam == "y")
 
-                    mtime_usec_zero = record[17]
-                    if is_integer(mtime_usec_zero) and mtime_usec_zero % 1_000_000 == 0:
-                        entry["scr"].append(f'Unusual modified time file has microsecond all zero: {label} timestamp: {mtime_usec_zero}')
+                    # recent_cam = record[13]
+                    # previous_cam = previous[13]
+                    mtime_usec_us = record[17]
+                    previous_mtime_us = previous[15]
+
+                    # cam_file = recent_cam == 'y'
+
+                    if is_integer(mtime_usec_us):
+                        if previous_mtime_us != mtime_usec_us and mtime_usec_us % 1_000_000 == 0:
+                            entry["scr"].append(f'Unusual modified time file has microsecond all zero: {label} at mtime {mtime_usec_us}')
+                        if is_integer(previous_mtime_us):
+                            mtime_seconds = mtime_usec_us // 1_000_000
+                            previous_mtime_seconds = previous_mtime_us // 1_000_000
 
                     if recent_timestamp == previous_timestamp:
                         if checksum:
-                            # st = goahead(filename, logs.WORKER_LOG_Q, logger=logger)
-                            # if st == "Nosuchfile":
-                            #     entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
-                            #     results.append(entry)
-                            #     continue
-                            # elif st:
-                            #     a_mod = st.st_mtime
-                            #     afrm_dt = epoch_to_date(a_mod)
-                            #     a_mod_us = st.st_mtime_ns // 1000
-                            #     a_size = st.st_size
-                            #     a_ino = st.st_ino
-                            #     owner_domain = file_owner(file_path, logs.WORKER_LOG_Q, logger=logger)
-                            #     if owner_domain in (None, "Nosuchfile"):
-                            #          logs.emit_log("DEBUG", f""hanly failed to convert convert uid to user name for user {st.st_uid} line: {record}", logs.WORKER_LOG_Q, log_entries, logger=logger)
-                            #          entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
-                            #          results.append(entry)
-                            #          continue
-                            #     owner, domain = owner_domain if owner_domain else (None, None)
-                            #     attrs = getattr(st, "st_file_attributes", 0)
-                            #     sym = None
-                            #     if is_reparse_point(st):
-                            #          sym = "yes"
-                            #     mode, _ = get_mode(attrs, sym)
-                            #     or
-                            #     _, _, _, _, _, mode, status = get_file_id(file_path, logs.WORKER_LOG_Q, logger=logger)  # inode reparse hardlink size c_time
-                            #     if status in ("Nosuchfile", "Error"):
-                            #          entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
-                            #          results.append(entry)
-                            #          continue
-                            #     a_ctime = st.st_ctime
-                            #     ctime_str = epoch_to_date(a_ctime).replace(microsecond=0)
-                            #     ln 211
-                            # else:
-                            #     logs.emit_log("DEBUG", f"Skipping {file_path} couldnt stat in ha current record {record} \n previous record {previous}", logs.WORKER_LOG_Q, log_entries, logger=logger)
-                            #     continue
+
                             if is_valid_datetime(record[4], fmt):  # access time format check
-                                previous_mtime_us = previous[15]
-                                if isinstance(previous_mtime_us, int) and mtime_usec_zero == previous_mtime_us:
-                                    if not cam_file and recent_sym != "y":
-                                        if valid_checksums and record[5] != previous[5]:
-                                            csum = True
-                                            entry["flag"].append(f'Suspect {record[0]} {record[2]} {label}')
-                                            entry["cerr"].append(f'Suspect file: {label} previous checksum {previous[5]} currently {record[5]}. changed without a new modified time.')
 
-                                    if record[3] == previous[3]:  # inode
+                                if mtime_seconds and mtime_seconds == previous_mtime_seconds:
+                                    if valid_checksums and record[5] != previous[5]:
+                                        csum = True
+                                        entry["flag"].append(f'Suspect {record[0]} {record[2]} {label}')
+                                        entry["cerr"].append(f'Suspect file: {label} previous checksum {previous[5]} currently {record[5]}. changed without a new modified time.')
 
-                                        metadata = (previous[10], previous[11], previous[12])
-                                        if new_meta((record[10], record[11], record[12]), metadata):
-                                            entry["flag"].append(f'Metadata {record[0]} {record[2]} {label}')
-                                            entry["scr"].append(f'Permissions of file: {label} changed {metadata[0]} {metadata[1]} {metadata[2]} → {record[10]} {record[11]} {record[12]}')
-                                    # else:  # Shifted during search
-                                    #     if not cam_file:
-                                    #         if cdiag:
-                                    #             entry["scr"].append(f'File changed during the search. {label} at {afrm_dt}. Size was {previous_size}, now {a_size}')
-                                    #         else:
-                                    #             entry["scr"].append('File changed during search. File likely changed. system cache item.')
-                                    #
-                                    # since the modified time changed you could run checks from else block below. It would make the function messy with refactoring all the checks. Also these
-                                    # files are either system or cache files. Would also lead to repeated feedback when the search is ran again. This check provides feedback of what files are actively
-                                    # changing on the system which is sufficient
-                                    # md5 = None
-                                    # cacheable = recent_size > CSZE
-                                    # if recent_size is not None:
-                                    #     if cacheable:
-                                    #         md5 =
-                                    #     else:
-                                    #         md5 = record[5] # file wasnt cached and was calculated in fsearch earlier
-                                    # md5, entropy, mime, file_dt, file_us, file_st, status = calculate_checksum(file_path, afrm_dt, a_mod, a_ino, a_size, prev_hash=None, st=None, retry=2, max_retry=2, cacheable=True, logs.WORKER_LOG_Q, logger=logger)
-                                    # if md5 is not None:
-                                    #     if status == "Retried":
-                                    #         md5, mtime, st, mtime_us, c_time, inode, size = set_stat(line, md5, file_dt, file_st, file_us, a_ino, logs.WORKER_LOG_Q, logger=logger)
-                                    # else:
-                                    #     if status == "Nosuchfile":
-                                    #          entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
-                                    #          results.append(entry)
-                                    #          continue
-                                    # if md5:
-                                    #     if md5 != previous[5]:
-                                    #         stealth(filename, label, entry, a_size, previous_size, cdiag)
-                                    # if a_ino == previous[3]:
-                                    #     metadata = (previous[10], previous[11], previous[12])
-                                    #     if new_meta((auid, agid, aperm), metadata):
-                                    #         entry["flag"].append(f'Metadata {record[0]} {record[2]} {label}')
-                                    #         entry["scr"].append(f'Permissions of file: {label} changed {metadata[0]} {metadata[1]} {metadata[2]} → {auid} {agid} {aperm}')
-
-                    else:
-
-                        if checksum:
-
-                            if record[3] != previous[3]:
-
-                                if record[5] == previous[5]:
-
-                                    entry["flag"].append(f'Overwrite {record[0]} {record[2]} {label}')
-                                else:
-                                    entry["flag"].append(f'Replaced {record[0]} {record[2]} {label}')
-                                    stealth(filename, label, entry, recent_size, previous_size, recent_entropy, previous_entropy,
-                                            recent_mime_id, previous_mime_id, id_to_mime, cdiag)
-
-                                target_change(label, entry, recent_sym, previous_sym, link_target, previous_target)
-
-                            else:
-
-                                if record[5] != previous[5]:
-
-                                    entry["flag"].append(f'Modified {record[0]} {record[2]} {label}')
-                                    stealth(filename, label, entry, recent_size, previous_size, recent_entropy, previous_entropy,
-                                            recent_mime_id, previous_mime_id, id_to_mime, cdiag)
-                                else:
+                                if record[3] == previous[3]:  # inode
 
                                     metadata = (previous[10], previous[11], previous[12])
                                     if new_meta((record[10], record[11], record[12]), metadata):
                                         entry["flag"].append(f'Metadata {record[0]} {record[2]} {label}')
                                         entry["scr"].append(f'Permissions of file: {label} changed {metadata[0]} {metadata[1]} {metadata[2]} → {record[10]} {record[11]} {record[12]}')
-                                    else:
-                                        if not cam_file:
-                                            entry["flag"].append(f'Touched {record[0]} {record[2]} {label}')
 
-                                    target_change(label, entry, recent_sym, previous_sym, link_target, previous_target)
+                    else:
+
+                        if checksum:
+
+                            target_change(label, entry, recent_sym, previous_sym, link_target, previous_target)
+
+                            if valid_checksums:
+                                if record[3] != previous[3]:
+
+                                    if record[5] == previous[5]:
+
+                                        entry["flag"].append(f'Overwrite {record[0]} {record[2]} {label}')
+                                    else:
+                                        entry["flag"].append(f'Replaced {record[0]} {record[2]} {label}')
+                                        stealth(filename, label, entry, recent_size, previous_size, recent_entropy, previous_entropy,
+                                                recent_mime_id, previous_mime_id, id_to_mime, cdiag)
+
+                                else:
+
+                                    if record[5] != previous[5]:
+
+                                        entry["flag"].append(f'Modified {record[0]} {record[2]} {label}')
+                                        stealth(filename, label, entry, recent_size, previous_size, recent_entropy, previous_entropy,
+                                                recent_mime_id, previous_mime_id, id_to_mime, cdiag)
+
+                                    else:
+                                        metadata = (previous[10], previous[11], previous[12])
+                                        if new_meta((record[10], record[11], record[12]), metadata):
+                                            entry["flag"].append(f'Metadata {record[0]} {record[2]} {label}')
+                                            entry["scr"].append(f'Permissions of file: {label} changed {metadata[0]} {metadata[1]} {metadata[2]} → {record[10]} {record[11]} {record[12]}')
+                                        elif mtime_seconds and mtime_seconds > previous_mtime_seconds:
+                                            entry["flag"].append(f'Touched {record[0]} {record[2]} {label}')
 
                         else:
                             if record[3] != previous[3]:
                                 entry["flag"].append(f'Replaced {record[0]} {record[2]} {label}')
                             else:
-                                if not cam_file:
+                                if mtime_seconds and mtime_seconds > previous_mtime_seconds:
                                     entry["flag"].append(f'Modified {record[0]} {record[2]} {label}')
 
-                        if not cam_file:
-
-                            if previous_timestamp < time_delta:
-                                message = f'File that isnt regularly updated {label}.'
-                                if is_sys:
-                                    entry["scr"].append(f'{message} and is a system file.')
-                                else:
-                                    screen = cachermPATTERNS
-                                    if not matches_any_pattern(label, screen):
-                                        entry["scr"].append(message)
+                        if mtime_seconds > previous_mtime_seconds and previous_mtime_seconds < delta_seconds:
+                            message = f'File that isnt regularly updated {label}.'
+                            if is_sys:
+                                entry["scr"].append(f'{message} and is a system file.')
+                            else:
+                                screen = cachermPATTERNS
+                                if not matches_any_pattern(label, screen):
+                                    entry["scr"].append(message)
 
                     if entry["cerr"] or entry["flag"] or entry["scr"] or entry["sys"]:
                         results.append(entry)
@@ -380,3 +314,88 @@ def hanly(parsed_chunk, checksum, cdiag, dbopt, ps, usr, logging_values, sys_tab
             logs.emit_log("prog", x, logs.WORKER_LOG_Q)
 
     return results, sys_records, log_entries, csum
+
+# Notes
+# previous_sysctime = parse_datetime(recent_sys[2], fmt)
+# recent_ctime = parse_datetime(record[2], fmt)
+
+# if (
+#     (recent_timestamp > previous_timestamp)
+#     or (recent_ctime and previous_sysctime and recent_ctime > previous_sysctime)
+#     or (recent_ctime and not previous_sysctime)
+#     or (record[5] and previous[5] and record[5] != previous[5])
+#     or (record[5] and not previous[5])
+# ):
+
+# st = goahead(filename, logs.WORKER_LOG_Q, logger=logger)
+# if st == "Nosuchfile":
+#     entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
+#     results.append(entry)
+#     continue
+# elif st:
+#     a_mod = st.st_mtime
+#     afrm_dt = epoch_to_date(a_mod)
+#     a_mod_us = st.st_mtime_ns // 1000
+#     a_size = st.st_size
+#     a_ino = st.st_ino
+#     owner_domain = file_owner(file_path, logs.WORKER_LOG_Q, logger=logger)
+#     if owner_domain in (None, "Nosuchfile"):
+#          logs.emit_log("DEBUG", f""hanly failed to convert convert uid to user name for user {st.st_uid} line: {record}", logs.WORKER_LOG_Q, log_entries, logger=logger)
+#          entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
+#          results.append(entry)
+#          continue
+#     owner, domain = owner_domain if owner_domain else (None, None)
+#     attrs = getattr(st, "st_file_attributes", 0)
+#     sym = None
+#     if is_reparse_point(st):
+#          sym = "yes"
+#     mode, _ = get_mode(attrs, sym)
+#     or
+#     _, _, _, _, _, mode, status = get_file_id(file_path, logs.WORKER_LOG_Q, logger=logger)  # inode reparse hardlink size c_time
+#     if status in ("Nosuchfile", "Error"):
+#          entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
+#          results.append(entry)
+#          continue
+#     a_ctime = st.st_ctime
+#     ctime_str = epoch_to_date(a_ctime).replace(microsecond=0)
+#     if afrm_dt == previous_timestamp:  # mtime is still the same
+#        get checksum
+#        check for suspect files
+#        ect
+#     else:  # Shifted during search
+#         if not cam_file:
+#             if cdiag:
+#                 entry["scr"].append(f'File changed during the search. {label} at {afrm_dt}. Size was {previous_size}, now {a_size}')
+#             else:
+#                 entry["scr"].append('File changed during search. File likely changed. system cache item.')
+#
+#     since the modified time changed you could run checks from else block below. It would make the function messy with refactoring all the checks. Also these
+#     files are either system or cache files. Would also lead to repeated feedback when the search is ran again. This check provides feedback of what files are actively
+#     changing on the system which is sufficient
+#     md5 = None
+#     cacheable = recent_size > CSZE
+#     if recent_size is not None:
+#         if cacheable:
+#             md5, entropy, mime, file_dt, file_us, file_st, status = calculate_checksum(file_path, afrm_dt, a_mod, a_ino, a_size, prev_hash=None, st=None, retry=2, max_retry=2, cacheable=True, logs.WORKER_LOG_Q, logger=logger)
+#             if md5 is not None:
+#                 if status == "Retried":
+#                     md5, mtime, st, mtime_us, c_time, inode, size = set_stat(line, md5, file_dt, file_st, file_us, a_ino, logs.WORKER_LOG_Q, logger=logger)
+#             else:
+#                 if status == "Nosuchfile":
+#                     entry["flag"].append(f'Deleted {record[0]} {record[0]} {label}')
+#                     results.append(entry)
+#                     continue
+#     else:
+#         md5 = record[5] # file wasnt cached and was calculated in fsearch earlier
+#
+#     if md5:
+#         if md5 != previous[5]:
+#             stealth(filename, label, entry, a_size, previous_size, cdiag)
+#     if a_ino == previous[3]:
+#         metadata = (previous[10], previous[11], previous[12])
+#         if new_meta((auid, agid, aperm), metadata):
+#             entry["flag"].append(f'Metadata {record[0]} {record[2]} {label}')
+#             entry["scr"].append(f'Permissions of file: {label} changed {metadata[0]} {metadata[1]} {metadata[2]} → {auid} {agid} {aperm}')
+# else:
+#     logs.emit_log("DEBUG", f"Skipping {file_path} couldnt stat in ha current record {record} \n previous record {previous}", logs.WORKER_LOG_Q, log_entries, logger=logger)
+#     continue

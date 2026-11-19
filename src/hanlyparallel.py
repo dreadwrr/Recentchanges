@@ -17,10 +17,10 @@ from .pyfunctions import cprint
 from .pyfunctions import fmt
 from .pysql import detect_copy
 from .pysql import increment_f
-# 08/10/2026
+# 11/01/2026
 
 
-def logger_process(results, sys_records, sys_tables, rout, scr, cerr, created, dbopt, ps, p, logger=None):
+def logger_process(results, sys_records, sys_tables, rout, scr, cerr, created, dbopt, ps, k, logger=None):
     # append rout messages to the rout list from hanly
     # if there are sys_records add them to the database sys changes sys_b
     #
@@ -34,7 +34,8 @@ def logger_process(results, sys_records, sys_tables, rout, scr, cerr, created, d
     }
 
     with sqlcipher3.connect(dbopt) as conn:
-        conn.execute(f'PRAGMA key = "x\'{p.hex()}\'"')
+        # conn.execute(f'PRAGMA key = "x\'{p.hex()}\'"')
+        conn.set_key(k)
         c = conn.cursor()
 
         file_messages = {}
@@ -61,6 +62,19 @@ def logger_process(results, sys_records, sys_tables, rout, scr, cerr, created, d
                 if dcp_messages:
 
                     try:
+
+                        # build map to check if file is a copy of one of the new files first
+                        new_files = {}
+                        for msg in dcp_messages:
+                            if msg is None or len(msg) <= 6:
+                                continue
+                            filesize = msg[8]
+                            checks = msg[5]
+                            filepath = msg[1]
+                            if filesize and checks:
+                                fingerprint = (filesize, checks)
+                                new_files.setdefault(fingerprint, []).append(filepath)
+
                         for msg in dcp_messages:
 
                             if msg is not None and len(msg) > 8:
@@ -69,22 +83,38 @@ def logger_process(results, sys_records, sys_tables, rout, scr, cerr, created, d
                                     timestamp = msg[0]
                                     filepath = msg[1]
                                     creation = msg[2]
-                                    inode = msg[3]
-                                    checksum = msg[5]
-                                    result = detect_copy(filepath, inode, checksum, sys_tables, c, ps)
-                                    if result:
-                                        # label = escf_py(filepath)
-                                        rout.append(f'Copy {timestamp} {creation} {filepath}')
 
                                     # windows if creation time is greater than modified time it could be a copy, a download or a created file
                                     # this differs from linux that has no creation time but casmod or change as modified can be put instead
                                     # it is significant in that it could be a downloaded file with preserved metadata
                                     if filepath in created:
                                         rout.append(f'Created {timestamp} {creation} {filepath}')
+
                                     else:
-                                        mod_time = timestamp.strftime(fmt)  # lexographic compare
-                                        if creation and creation >= mod_time:
-                                            rout.append(f'Created {timestamp} {creation} {filepath}')
+                                        result = None
+                                        inode = msg[3]
+                                        checksum = msg[5]
+
+                                        if checksum:
+                                            fingerprint = (filesize, checks)
+
+                                            matches = new_files.get(fingerprint, [])
+                                            matches = [p for p in matches if p != filepath]
+
+                                            if matches:
+                                                result = matches[0]
+                                            # check db
+                                            if not result:
+                                                result = detect_copy(filepath, inode, checksum, sys_tables, c, ps)
+
+                                        if result:
+                                            # label = escf_py(filepath)
+                                            rout.append(f'Copy {timestamp} {creation} {filepath}')
+
+                                        else:
+                                            mod_time = timestamp.strftime(fmt)  # lexographic compare
+                                            if creation and creation >= mod_time:
+                                                rout.append(f'Created {timestamp} {creation} {filepath}')
 
                             else:
                                 log.debug("Skipping dcp message due to insufficient length: %s", msg)
@@ -119,7 +149,7 @@ def logger_process(results, sys_records, sys_tables, rout, scr, cerr, created, d
                     log.error(em, exc_info=True)
 
 
-def hanly_parallel(drive_type, rout, created, scr, cerr, parsed, id_to_mime, cachermPATTERNS, checksum, cdiag, dbopt, dbtarget, ps, user, logging_values, sys_tables, p, iqt=False, strt=65, endp=90):
+def hanly_parallel(drive_type, rout, created, scr, cerr, parsed, id_to_mime, cachermPATTERNS, checksum, cdiag, dbopt, dbtarget, ps, user, logging_values, sys_tables, k, iqt=False, strt=65, endp=90):
 
     all_results = []
     batch_incr = []
@@ -153,7 +183,7 @@ def hanly_parallel(drive_type, rout, created, scr, cerr, parsed, id_to_mime, cac
         # tlog = threading.Thread(target=logging_worker, args=(log_q, len_parsed, strt, endp, show_progress, logger), daemon=True)
         # tlog.start()
         init_process_worker(None)
-        all_results, batch_incr, _, csum = hanly(parsed, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, id_to_mime, cachermPATTERNS, p, show_progress, logger, strt, endp)
+        all_results, batch_incr, _, csum = hanly(parsed, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, id_to_mime, cachermPATTERNS, k, show_progress, logger, strt, endp)
         # if log_entries:
         #     logs_to_queue(log_entries, log_q)
 
@@ -181,7 +211,7 @@ def hanly_parallel(drive_type, rout, created, scr, cerr, parsed, id_to_mime, cac
             ) as executor:
                 futures = [
                     executor.submit(
-                        hanly, chunk, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, id_to_mime, cachermPATTERNS, p, show_progress, None, strt, endp
+                        hanly, chunk, checksum, cdiag, dbopt, ps, user, logging_values, sys_tables, id_to_mime, cachermPATTERNS, k, show_progress, None, strt, endp
                     )
                     for chunk in chunks
                 ]
@@ -229,8 +259,8 @@ def hanly_parallel(drive_type, rout, created, scr, cerr, parsed, id_to_mime, cac
 
     print("processing results", flush=True)
     logger = logging.getLogger("HANLYLOGGER")
-    logger_process(all_results, batch_incr, sys_tables, rout, scr, cerr, created, dbopt, ps, p, logger)
-    p = None
+    logger_process(all_results, batch_incr, sys_tables, rout, scr, cerr, created, dbopt, ps, k, logger)
+
     lend = time.perf_counter()
     logger_total_time = lend - end
 

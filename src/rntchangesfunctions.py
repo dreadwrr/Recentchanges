@@ -1,4 +1,4 @@
-# 08/20/2026           developer buddy core
+# 11/07/2026           developer buddy core
 import csv
 import ctypes
 import glob
@@ -10,7 +10,6 @@ import subprocess
 import sys
 import time
 import winreg
-from datetime import datetime
 from pathlib import Path
 from .config import update_toml_values
 from .configfunctions import find_install
@@ -20,6 +19,7 @@ from .fsearchps1 import process_ps1
 from .fsearchscan import process_scan
 from .pyfunctions import cprint
 from .pyfunctions import suppress_list
+# from datetime import datetime
 install_root = find_install()
 filter_patterns_path = install_root / "filter.py"
 spec = importlib.util.spec_from_file_location("user_filter", filter_patterns_path)
@@ -434,56 +434,91 @@ def find_ps1(command, recent, complete, init, cfr, search_start_dt, user_setting
 # after checking for a previous search it is required to remove all old searches to keep the workspace clean and avoid write problems later.
 # Also copy the old search to the MDY folder in appinstall for later diff retention
 
+# def clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh):
+
+#     FLBRAND = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M_%S")  # %y-%m-%d better sorting?
+#     validrlt = ""
+
+    # # Archive last search to appinstall
+    # keep = [
+    #     "xSystemchanges",
+    #     "xSystemDiffFromLastSearch",
+    #     "xFltDiffFromLastSearch",
+    #     "xFltchanges",
+    # ]
+
+    # new_folder = None
+    # for suffix in keep:
+    #     pattern = os.path.join(dirSRC, f"{moduleNAME}{suffix}*")
+    #     matches = glob.glob(pattern)
+    #     for fp in matches:
+    #         if not new_folder:
+    #             validrlt = "prev"  # mark as not first time search
+    #             new_folder = os.path.join(appdata_local, f"{moduleNAME}_{FLBRAND}")
+    #             Path(new_folder).mkdir(parents=True, exist_ok=True)
+    #         try:
+    #             shutil.move(fp, new_folder)
+    #         except Exception as e:
+    #             print(f'clear_logs func Failed to move {fp} to appdata: {e}')
+
+    # # Delete oldest dir
+    # if validrlt == "prev":
+
+    #     pattern = os.path.join(appdata_local, f"{moduleNAME}_MDY_*")
+
+    #     dirs = glob.glob(pattern)
+    #     dirs = [d for d in dirs if os.path.isdir(d)]
+
+    #     dirs.sort()
+    #     while len(dirs) > archivesrh:
+    #         oldest = dirs.pop(0)
+    #         try:
+    #             shutil.rmtree(oldest)
+    #         except Exception as e:
+    #             print(f"Error deleting {oldest}: {e}")
+    # # End Delete
+
+    # suffixes = [
+    #     "xSystemDiffFromLastSearch",
+    #     "xFltDiffFromLastSearch",
+    #     "xFltchanges",
+    #     "xFltTmp",
+    #     "xSystemchanges",
+    #     "xSystemTmp",
+    # ]
+
+    # if method != 'rnt':
+    #     suffixes += [
+    #         "xNewerThan",
+    #         "xDiffFromLast"
+    #     ]
+
+    # for suffix in suffixes:
+
+    #     pattern = os.path.join(dirSRC, f"{moduleNAME}{suffix}*")
+
+    #     for filepath in glob.glob(pattern):
+    #         try:
+    #             os.remove(filepath)
+
+    #         except FileNotFoundError:
+    #             pass
+    # return validrlt
+
+
 def clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh):
 
-    FLBRAND = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M_%S")  # %y-%m-%d better sorting?
-    validrlt = ""
+    # FLBRAND = datetime.now().strftime("MDY_%m-%d-%y-TIME_%H_%M_%S")  # %y-%m-%d better sorting?
 
-    # Archive last search to appinstall
-    keep = [
-        "xSystemchanges",
-        "xSystemDiffFromLastSearch",
-        "xFltDiffFromLastSearch",
-        "xFltchanges",
-    ]
-
-    new_folder = None
-    for suffix in keep:
-        pattern = os.path.join(dirSRC, f"{moduleNAME}{suffix}*")
-        matches = glob.glob(pattern)
-        for fp in matches:
-            if not new_folder:
-                validrlt = "prev"  # mark as not first time search
-                new_folder = os.path.join(appdata_local, f"{moduleNAME}_{FLBRAND}")
-                Path(new_folder).mkdir(parents=True, exist_ok=True)
-            try:
-                shutil.move(fp, new_folder)
-            except Exception as e:
-                print(f'clear_logs func Failed to move {fp} to appdata: {e}')
-
-    if validrlt == "prev":
-        # Delete oldest dir
-        pattern = os.path.join(appdata_local, f"{moduleNAME}_MDY_*")
-
-        dirs = glob.glob(pattern)
-        dirs = [d for d in dirs if os.path.isdir(d)]
-
-        dirs.sort()
-        while len(dirs) > archivesrh:
-            oldest = dirs.pop(0)
-            try:
-                shutil.rmtree(oldest)
-            except Exception as e:
-                print(f"Error deleting {oldest}: {e}")
-        # End Delete
+    # Archive last search to save to database
 
     suffixes = [
-        "xSystemDiffFromLastSearch",
-        "xFltDiffFromLastSearch",
-        "xFltchanges",
-        "xFltTmp",
         "xSystemchanges",
-        "xSystemTmp",
+        "xSystemDiffFromLastSearch",
+        "xFltchanges",
+        "xFltDiffFromLastSearch",
+        "xFltTmp",
+        "xSystemTmp"
     ]
 
     if method != 'rnt':
@@ -502,7 +537,6 @@ def clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh):
 
             except FileNotFoundError:
                 pass
-    return validrlt
 
 
 def check_utility(zipPATH=None, downloads=None, popPATH=None, alarm_sound=None, alarm_set_sound=None):
@@ -602,31 +636,6 @@ def timestamp_from_line(line):
 
 def line_included(line, patterns):
     return not any(p in line for p in patterns)
-
-
-def hsearch(oldsort, appdata, moduleNAME, flnm):
-    ''' go through archived folders if there is already oldsort clear any other history from them. if
-        there is not oldsort see if there is a prev search '''
-    dir_pth = os.path.join(appdata, f"{moduleNAME}_MDY_*")
-    folders = sorted(glob.glob(dir_pth), reverse=True)
-
-    # glob changes based on flnm
-    for folder in folders:
-        pattern = os.path.join(folder, f"{moduleNAME}{flnm}*")  # pattern = os.path.join(folder, f"{moduleNAME}xSystemchanges{argone}*")
-        matching_files = sorted(glob.glob(pattern), reverse=True)
-
-        for file in matching_files:
-            if not oldsort:
-                if os.path.isfile(file):
-                    with open(file, 'r') as f:
-                        oldsort.clear()
-                        oldsort.extend(f.readlines())
-                    # break  # commented out for sqlcipher
-            else:
-                removefile(file)  # added to remove history of searches until adding another table to sqlcipher and eliminate old files altogether
-
-        # if oldsort:
-        #     break  # commented out for sqlcipher
 
 
 def removefile(fpath):

@@ -1,10 +1,9 @@
-import os
 import sqlcipher3
 import sqlite3
 import traceback
-from .gpgkeymanagement import create_cipher_key
 from .gpgcrypto import get_cipher_key
-# 08/10/2026
+from .gpgcrypto import wrap_key
+# 11/07/2026
 
 
 # 07/16/2026 added file shannon. column entropy beside checksum as requires no overhead
@@ -28,6 +27,45 @@ COLUMNS = [
     'lastmodified TEXT',
     'hardlinks INTEGER'
 ]
+
+
+def create_search_tables(c):
+    '''
+        '''
+    sql = """
+        CREATE TABLE IF NOT EXISTS searches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            searchtime TEXT,
+            thetime TEXT,
+            argf BOOLEAN
+        )
+    """
+    c.execute(sql)
+
+    columns = [
+        'id INTEGER PRIMARY KEY',
+        'search_id INTEGER',
+        'timestamp TEXT',
+        'filename TEXT',
+        'casmod TEXT',
+        '''FOREIGN KEY (search_id) REFERENCES searches(id)
+            ON DELETE CASCADE'''
+    ]
+
+    col_str = ',\n      '.join(columns)
+
+    sql = f'''
+    CREATE TABLE IF NOT EXISTS prev_searches (
+        {col_str}
+    )
+    '''
+
+    c.execute(sql)
+    c.execute('CREATE INDEX IF NOT EXISTS idx_search_id ON prev_searches(search_id)')
+# unique_columns = ('search_id', 'timestamp', 'filename')
+# unique_str = ', '.join(unique_columns)
+# {col_str},
+# UNIQUE({unique_str})
 
 
 def create_logs_table(c, unique_columns, add_column=None):
@@ -60,6 +98,8 @@ def create_logs_table(c, unique_columns, add_column=None):
     c.execute(f'{sql} idx_logs_filename ON logs (filename)')
     # c.execute(f'{sql} idx_logs_checksum_filename ON logs (checksum, filename)')
     c.execute(f'{sql} idx_logs_collision ON logs (checksum, filesize, filename)')
+
+    create_search_tables(c)
 
 
 def create_sys_variant(c, table_name, columns, unique_columns):
@@ -155,31 +195,39 @@ def create_table_cache(c, table, unique_columns):
 
 def create_conn(database, key_file, email, key=None):
 
+    p = bytearray(32)
+
     if not key:
-        if not os.path.isfile(key_file):
-            create_cipher_key(key_file, email)
-        p = get_cipher_key(key_file)
+        p = get_cipher_key(key_file, email)
+        k = wrap_key(p)
     else:
-        p = key
-    if p:
+        k = key
+
+    if k:
+
+        p[:] = b'\x00' * len(p)
         conn = sqlcipher3.connect(database)
-        conn.execute(f'PRAGMA key = "x\'{p.hex()}\'"')
-        p = None
+        conn.set_key(k)
+        k[:] = b'\x00' * len(k)
+
+        # conn.execute(f'PRAGMA key = "x\'{p.hex()}\'"')
+        # conn.set_key(f"x'{p.hex()}'")
+        # conn.set_key(b"x'" + p.hex().encode() + b"'")
+        # p = None
         return conn
     else:
         raise RuntimeError("Find out why not decrypting. If unable to fix call: recentchanges reset  . unable to decrypt file:", key_file)
 
 
-def create_db(database, key_file, sys_tables, email, action=None):
+def create_db(database, key_file, sys_tables, email, action=None, key=None):
 
     print('Initializing database...')
 
-    conn = create_conn(database, key_file, email)
+    conn = create_conn(database, key_file, email, key=key)
 
     c = conn.cursor()
 
     create_logs_table(c, ('timestamp', 'filename', 'creationtime', 'checksum'), ['mtime_us INTEGER'])
-
     create_sys_tables(c, sys_tables)  # sys and sys2
 
     tables = [
@@ -592,7 +640,7 @@ def rmv_table(table, conn, cur, quiet=False):
     return False
 
 
-def collision_check(xdata, cerr, sys_tables, c, ps):
+def collision_check(xdata, modified, cerr, sys_tables, c, ps):
     reported = set()
     csum = False
     if not xdata:
@@ -605,10 +653,14 @@ def collision_check(xdata, cerr, sys_tables, c, ps):
         filename = record[1]
         file_hash = record[5]
         file_size = record[8]
-        if not (filename and file_hash and file_size):
+
+        if not filename or not file_hash or not file_size:
             continue
 
-        current_rows.add((filename, file_hash, file_size))
+        action = modified.get(filename)
+
+        if action in ("Replaced", "Modified"):
+            current_rows.add((filename, file_hash, file_size))
 
     if not current_rows:
         return False
@@ -658,6 +710,7 @@ def collision_check(xdata, cerr, sys_tables, c, ps):
             """
         )
         colcheck = c.fetchall()
+
     except sqlcipher3.DatabaseError as e:
         print(f"Database error in collision detection: {type(e).__name__} : {e}")
         return csum

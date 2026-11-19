@@ -1,5 +1,5 @@
 #! python3
-#   Windows 10 / 11                                                                08/10/2026
+#   Windows 10 / 11                                                                11/07/2026
 #   recentchanges. Developer buddy      recentchanges/ recentchanges search
 #   Provide ease of pattern finding ie what files to block we can do this a number of ways
 #   1) if a file was there (many as in more than a few) and another search lists them as deleted its either a sys file or not but unwanted nontheless
@@ -25,6 +25,7 @@ import os
 import re
 import signal
 import shutil
+import sqlcipher3
 import sys
 import tempfile
 import time
@@ -40,15 +41,19 @@ from .fsearchfunctions import set_excl_dirs
 from .gpgcrypto import check_for_gpg
 from .gpgcrypto import decr_ctime
 from .gpgcrypto import encr_cache
+from .gpgcrypto import get_cipher_key
+from .gpgcrypto import wrap_key
 from .gpgkeymanagement import genkey
 from .gpgkeymanagement import iskey
 from .inotifyfunctions import init_recentchanges
 from .logs import setup_logger
 from .pstsrg import main as pst_srg
+from .pstsrg import move_searches
 from .pyfunctions import cache_clear_patterns
 from .pyfunctions import cprint
 from .pyfunctions import fmt
 from .pyfunctions import user_path
+from .pysql import create_db
 from .recentchangessearchparser import build_parser
 from .rntchangesfunctions import build_tsv
 from .rntchangesfunctions import clear_logs
@@ -58,7 +63,6 @@ from .rntchangesfunctions import filter_output
 from .rntchangesfunctions import find_ps1
 from .rntchangesfunctions import find_scan
 from .rntchangesfunctions import get_runtime_exclude_list
-from .rntchangesfunctions import hsearch
 from .rntchangesfunctions import logic
 from .rntchangesfunctions import multi_value
 from .rntchangesfunctions import name_of
@@ -66,6 +70,7 @@ from .rntchangesfunctions import removefile
 from .rntchangesfunctions import resolve_editor
 from .rntchangesfunctions import set_gpg
 from .rntchangesfunctions import time_convert
+from .qtdrivefunctions import get_idx_tables
 from .qtdrivefunctions import setup_drive_cache
 
 
@@ -245,8 +250,10 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
     cfr = {}  # cache dict
 
+    p, k = bytearray(), bytearray()
+
     start = end = cstart = cend = ag = 0
-    validrlt = tmn = filename = search_time = None
+    validrlt = tmn = filename = search_time = goahead = conn = None
 
     diffrlt = False
     nodiff = False
@@ -434,8 +441,10 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
             return 1
 
         if cfr and recent:
+            # st = time.time()
             encr_cache(cfr, cache_f, email, compLVL)
-
+            # ed = time.time()
+            # print(f'GPG took {ed - st:.3f} seconds')
         if not recent:
 
             cprint.cyan("No new files found")
@@ -566,21 +575,7 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
                 with open(result_output, 'r') as f:
                     oldsort = f.readlines()
 
-            if not flsrh and argf != filtered:
-                # try <app_install> for previous search
-                if method != "rnt" and not oldsort:
-                    fallback_path = os.path.join(appdata_local, f'{moduleNAME}{flnm}')
-                    if os.path.isfile(fallback_path):
-                        with open(fallback_path, 'r') as f:
-                            oldsort = f.readlines()
-
-                # try <app_install>\\moduleNAME_MDY* if not oldsort yet
-                hsearch(oldsort, appdata_local, moduleNAME, flnm)
-
-            # Move or clear previous searches
-            validrlt = clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh)
-
-            target_path = None
+            clear_logs(dirSRC, method, appdata_local, moduleNAME, archivesrh)
 
             # send Temp results to user
             if tmpoutput:
@@ -593,6 +588,56 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
                         fp = entry[1]
                         dst.write(f'{tss} {fp}\n')
 
+            # Send search result sortcomplete to user
+            with open(result_output, 'w') as f:
+                for entry in logf:
+                    tss = entry[0].strftime(fmt)
+                    fp = entry[1]
+                    f.write(f'{tss} {fp}\n')
+
+            # 11/07/2026
+            # moved connection from pstsrg to move current search into database before diffing
+            # 07/31/2026
+            # changed to sqlcipher
+
+            # unlock the conn
+
+            sys_tables, _, _ = get_idx_tables(basedir, cache_s)
+
+            if iqt and not os.path.isfile(dbopt):
+                print("recentchangessearch: cant find db unable to continue", dbopt)
+                return 1
+
+            p = get_cipher_key(dbtarget, email)
+            k = wrap_key(p)
+            p = b'\x00' * len(p)
+
+            if not iqt:
+                try:
+                    if not os.path.isfile(dbopt):
+                        conn = create_db(conn, dbopt, dbtarget, sys_tables, email, key=k)
+                        cprint.green('Persistent database created')
+                        goahead = False
+                except Exception as e:
+                    print("Failed to create db:", e)
+                    return 1
+
+            if not conn:
+                try:
+                    conn = sqlcipher3.connect(dbopt)  # conn = create_conn(dbopt, dbtarget, email, key=k)
+                    conn.set_key(k)
+                except Exception as e:
+                    print(f'failed with error: {e}')
+                    print()
+                    print("Unable to connect to database and do hybrid analysis")
+                    return 1
+
+            conn.execute("PRAGMA foreign_keys = ON")
+            c = conn.cursor()
+
+            if move_searches(c, logf, oldsort, argone, argf, current_time, flsrh, validrlt, archivesrh, fmt):
+                conn.commit()
+
             diff_file = os.path.join(dirSRC, moduleNAME + flnmdff)
 
             # Difference file
@@ -601,6 +646,8 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
 
             clean_oldsort = [line.strip() for line in oldsort]
             clean_logf_set = set(f'{entry[0].strftime(fmt)} {entry[1]}' for entry in logf)
+
+            # the files not in this search
             difference = [line for line in clean_oldsort if line not in clean_logf_set]
 
             if difference:
@@ -613,22 +660,13 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
                 # preprocess before db/ha. The differences before ha and then sent to processha after ha
                 processha.isdiff(sortcomplete, absent, rout, diff_file, difference, flsrh, srttime, fmt)
 
-            # Send search result sortcomplete to user
-            with open(result_output, 'w') as f:
-                for entry in logf:
-                    tss = entry[0].strftime(fmt)
-                    fp = entry[1]
-                    f.write(f'{tss} {fp}\n')
-
             proval = 65  # - 90%   normal for finishing pstsrg
 
             # file doctrine
             if postop:
                 endval = 85  # adjust 65% - 85%
-
             # if scanIDX:
             #     endval = 80  # adjust 65% - 80%
-
             # if postop and scanIDX:
             #     endval = 75
 
@@ -640,11 +678,12 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
             el2 = cend - cstart
             total_time = el + el2
             total_files = len(sortcomplete)
+
             # Backend
 
             dbopt, data = pst_srg(
                 dbopt, dbtarget, sortcomplete, complete, rout, created, cachermPATTERNS, user_setting, logging_values,
-                total_time, total_files, iqt=iqt, strt=proval, endp=endval
+                total_time, total_files, sys_tables, goahead, conn, k, iqt=iqt, strt=proval, endp=endval
             )
             # dbopt return from pst_srg is either path, encr_error, new_profile or None
             proval = endval + 1
@@ -673,6 +712,9 @@ def main(argone, argtwo, usr, pwrd, argf="bnk", method="", iqt=False, drive=None
             # Diff output to user
 
             processha.processha(rout, absent, diff_file, cerr, flsrh, argf, srttime, escaped_user, supbrwLIST, suppress_browser, suppress)
+
+            target_path = None
+
             # Filter hits
             update_filter_csv(recent, flth, escaped_user)
             sys.stdout.flush()

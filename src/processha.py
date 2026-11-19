@@ -18,9 +18,9 @@ def parse_rout(line):
     return datetime.min
 
 
-# preprocess diff file
 def isdiff(recent, absent, rout, diffnm, diff_file, flsrh, parsed_PRD, fmt):
-
+    '''
+        preprocess diff file '''
     ranged = []
 
     if not flsrh:
@@ -39,8 +39,12 @@ def isdiff(recent, absent, rout, diffnm, diff_file, flsrh, parsed_PRD, fmt):
     else:
         ranged = diff_file[:]
 
+    # the files from the diff file that fit within the current search time
     if ranged:
-        d_paths = set(entry[1] for entry in recent)
+
+        d_paths = {}
+        for record in recent:
+            d_paths[record[1]] = record[11]  # casmod
 
         with open(diffnm, 'a') as file2:
             for line in ranged:
@@ -54,22 +58,29 @@ def isdiff(recent, absent, rout, diffnm, diff_file, flsrh, parsed_PRD, fmt):
 
                 filepath = parts[2]
 
-                if filepath in d_paths:
-                    absent.append(f"Modified {line}")
+                casmod = d_paths.get(filepath, False)
+                if casmod is not False:
+                    # the same file has since changed from last search
+                    if casmod != "y":
+                        absent.append(f"Modified {line}")
+                    else:
+                        absent.append(f"Created {line}")
 
+                # the file has been deleted as the search didnt show it
                 else:
                     absent.append(f"Deleted {line}")
                     rout.append(f"Deleted {timestamp} {line}")
 
             if absent:
 
-                file2.write('\nApplicable to your search\n')
-                # file2.write('\n'.join(absent) + '\n')
+                file2.write('\nApplicable to your search\n')  # file2.write('\n'.join(absent) + '\n')
 
                 for line in absent:
                     if line.startswith("Deleted"):
                         line = line.replace("Deleted", "Deleted ", 1)
                     file2.write(line + '\n')
+
+    # the search time cant be compared. the last diff file will be at the top for convenience.
     else:
         with open(diffnm, 'a') as file2:
             print('None of above is applicable to search. It is the previous search', file=file2)

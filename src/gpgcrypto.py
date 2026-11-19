@@ -4,21 +4,84 @@ import re
 import sys
 import shlex
 import subprocess
+import tempfile
 import traceback
 from io import StringIO
 from typing import Any
+
 from src.pyfunctions import cnc
+# from src.gpgkeymanagement import create_cipher_key
 
 
-def get_cipher_key(src: str) -> str | None:
+HEX = b"0123456789abcdef"
+
+
+def wrap_key(p: bytearray) -> bytearray:
+    '''
+        convert the raw 32 byte stored cipher key to a 64 byte hex key for sqlcipher blob notation x'' (3 bytes).
+        The final key being 67 bytes. This allows bypassing KDF and sqlcipher accepts it as the full key.
+    '''
+    k = bytearray(b"x'") + bytearray(2 * len(p)) + bytearray(b"'")
+    for i, b in enumerate(p):
+        k[2 + 2*i] = HEX[b >> 4]  # shift higher bits to lower
+        k[3 + 2*i] = HEX[b & 15]  # mask lower bits
+    return k
+
+
+def get_cipher_key(src: str, r_email: str) -> bytearray | None:
     """ return raw 32 bytes """
     try:
-        result = subprocess.run(['gpg', '--decrypt', src], capture_output=True, check=True)
-        return result.stdout
+        buf = bytearray(32)
+
+        if not os.path.isfile(src):
+            buf = create_cipher_key(src, r_email)
+        else:
+            # original
+            # result = subprocess.run(['gpg', '--decrypt', src], capture_output=True, check=True)
+            # return bytearray(result.stdout)  # return result.stdout
+
+            view = memoryview(buf)
+
+            oversized = False
+            n = 0
+
+            with tempfile.TemporaryFile() as err_file:
+                p = subprocess.Popen(['gpg', '--decrypt', src], stdout=subprocess.PIPE, stderr=err_file, bufsize=0)  # stderr=subprocess.PIPE
+
+                while n < 32 and (r := p.stdout.readinto(view[n:])):
+                    n += r
+
+                if n == 32 and p.stdout.read(1):
+                    oversized = True
+                    print("[ERROR] decrypted key exceeds 32 bytes")
+                    p.terminate()
+
+                p.stdout.close()
+                # err = p.stderr.read()
+                # p.stderr.close()
+
+                rc = p.wait()
+                err_file.seek(0)
+                err = err_file.read()
+
+            if rc or n != 32 or oversized:
+                buf[:] = b'\00' * len(buf)
+                raise subprocess.CalledProcessError(p.returncode, p.args, stderr=err)
+
+        return buf
+
     except subprocess.CalledProcessError as e:
         err_msg = e.stderr.decode().strip() if e.stderr else str(e)
         print(f"[ERROR] could not get cipher key: {err_msg}")
         return None
+
+
+def create_cipher_key(opt, r_email):
+    cipher_key = os.urandom(32)  # random 256-bit
+
+    subprocess.run(['gpg', '-e', '-r', r_email, '-o', opt], input=cipher_key, check=True)
+
+    return bytearray(cipher_key)
 
 
 def encr_cache(cfr, cache_f, email, compLVL):
@@ -44,7 +107,7 @@ def encr_sys_cache(dir_data, cache_s, email):
 def encrm(c_data: str, opt: str, r_email: str, user=None, no_compression=False, armor=False) -> bool:
     try:
 
-        cmd = ["gpg", "--batch", "--yes", "--encrypt", "-r", r_email, "-o", opt]
+        cmd = ["gpg", "--batch", "--yes", "--cipher-algo", "AES256", "--encrypt", "-r", r_email, "-o", opt]
 
         if no_compression:
             cmd.extend(["--compress-level", "0"])
@@ -97,6 +160,8 @@ def encr(database, opt, email, no_compression=False, dcr=False):
         cmd = [
             "gpg",
             "--yes",
+            "--cipher-algo",
+            "AES256",
             "--encrypt",
             "-r", email,
             "-o", opt,

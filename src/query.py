@@ -114,8 +114,9 @@ def clock_average(rows):
 
     hours = int(avg_seconds // 3600)
     minutes = int((avg_seconds % 3600) // 60)
+    half = "top of the hour" if minutes < 30 else "bottom of the hour"
 
-    return f"{hours:02d}:{minutes:02d}"
+    return f"{hours:02d}:{minutes:02d}", half
 
 
 def search_times(cur):
@@ -234,18 +235,18 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                             WHERE accesstime IS NOT NULL;
                         """)
                         rows = cur.fetchall()
-                        avg_atime = clock_average(rows)
+                        avg_atime, _ = clock_average(rows)
                         log_fn(f'Average access time: {avg_atime}')
 
                         # average time user searches
                         rows = search_times(cur)
-                        avg_search = clock_average(rows)
-                        log_fn(f'Average time of file searches: {avg_search}')
+                        avg_search, half = clock_average(rows)
+                        log_fn(f'Average time of file searches: {avg_search} {half}')
 
                         # average file modified time
                         # cur.execute("SELECT strftime('%s', timestamp) FROM logs")
                         # rows = cur.fetchall()
-                        # avg_mtime = clock_average(rows)
+                        # avg_mtime, _ = clock_average(rows)
                         # log_fn(f'Average time of file activity: {avg_mtime}')
                         # end Search time area
                         c = blank_count(cur)
@@ -320,10 +321,11 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                                 for id, count in top_5_mimes:
                                     mime_ = id_to_mime.get(id, {})
                                     if not mime_:
-                                        mime_type = "changed couldnt read"
+                                        # mime_type = "changed couldnt read"
+                                        continue
                                     else:
                                         mime_type = mime_.get("mime")  # mime_id = mime_hashmap.get(mime, {}).get("id")
-                                    log_fn(f"{count} {mime_type}")
+                                        log_fn(f"{count} {mime_type}")
 
                         log_fn("")
 
@@ -333,7 +335,7 @@ def main(appdata_local=None, user=None, email=None, reset=None, database=None, l
                         log_fn(ctext)
                         for directory, count in top_3_directories:
                             log_fn(f'{count}: {directory}')
-                        log_fn("")
+                        # log_fn("")
                         # cur.execute("SELECT filename FROM logs WHERE TRIM(filename) != ''")  # common file 5 # original
                         # filenames = [row[0] for row in cur.fetchall()]  # end='' prevents extra newlines # original
                         top_5_modified = dexec(cur, 'Modified', 5)
