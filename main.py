@@ -403,7 +403,7 @@ class MainWindow(QMainWindow):
         # end newer than
 
         # find file output is set in load_find_file_combo
-
+        # 7
         ao = self.j_settings.get("alarm_time")
         if ao:
             res = self.ui.widget.set_alarm_time(ao)
@@ -817,6 +817,7 @@ class MainWindow(QMainWindow):
                 # if not os.path.isfile(self.dbtarget):
 
                 try:
+                    # def create_db(database, key_file, sys_tables, email, action=None, key=None):
                     create_db(self.dbopt, self.dbtarget, (self.sys_a, self.sys_b), self.email)
                 except Exception as e:
                     QMessageBox.critical(None, "Error", f"Problem creating database through initializer. Exiting.. {e}")
@@ -856,6 +857,7 @@ class MainWindow(QMainWindow):
 
     # on startup set the alarm formatting
     def change_clock(self):
+        # 7
         self.ui.widget.set_clock_format(self.alarm_24h)  # is it a 24hr clock?
         self.ui.widget.set_format(self.alarmCOLOR)  # digital color or theming
 
@@ -1595,6 +1597,7 @@ class MainWindow(QMainWindow):
         sout_put = self.ui.combftimeout.currentText()  # search destination or output
         ntout_put = self.ui.combt.currentText()  # newer than file destination or output
         compout_put = self.ui.combffileout.currentText()  # compress destination or output
+        # 7
         aw = self.ui.widget
         hour, minute = aw.get_alarm_time()
         alarm_time = f"{hour:02d}:{minute:02d}"
@@ -2094,6 +2097,7 @@ class MainWindow(QMainWindow):
             return True
         else:
             if not os.path.isfile(self.dbopt):
+
                 create_db(self.dbopt, self.dbtarget, (self.sys_a, self.sys_b), self.email, action=None)
                 # 08/10/2026 changed to sqlcipher
                 # if not load_gpg(self.dbopt, self.dbtarget, self.ui.dbmainlabel):
@@ -3090,7 +3094,7 @@ class MainWindow(QMainWindow):
 
             tbl = [
                 t for t in tbl
-                if t not in {"extn", "analytics", "scans", "mime_types", "scan_entries"}  # ,
+                if t not in {"extn", "analytics", "scans", "mime_types", "scan_entries"}  # "searches", "prev_searches"
             ]
             cd.addItems(tbl)
 
@@ -3205,7 +3209,7 @@ class MainWindow(QMainWindow):
 
         # maximum width 1000
 
-        if table in ('sqlite_sequence', "stats"):
+        if table in ('sqlite_sequence', "stats", "prev_searches"):
             header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
             for i in range(len(headers)):
                 width = header.sectionSize(i)
@@ -3772,6 +3776,7 @@ class MainWindow(QMainWindow):
 
                             # could do below but what if the drive was changed?
                             # self.basedirs.update_current_item(None, proteusEXTN=None)
+
                             # instead do manual and for reference purposes
                             e = self.basedirs.index_by_value(self.basedir)
                             if e != -1:
